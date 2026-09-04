@@ -18,13 +18,13 @@ The Fabric mod runs inside Fabric Loader and owns all Minecraft-facing behavior.
 
 Stonecutter owns the Minecraft-version matrix. Shared source lives under `mod/src/`; generated/preprocessed version projects live under `mod/versions/`.
 
-### JVM agent (`agent/`)
+### Kernel Knot Client (`knot-client/`)
 
-The agent is a small, version-independent early bootstrap layer. It may eventually provide an early loading window, startup measurements, narrowly scoped instrumentation, and delegation into Fabric.
+The Knot Client is a small, version-independent launcher layer. Its current `kernel.client.KernelKnotClient` main class forwards the original arguments to Fabric Loader. It may eventually provide an early loading window, startup measurements, and narrowly scoped pre-Fabric behavior.
 
-Do not move ordinary Minecraft mod behavior into the agent. Before Fabric and Minecraft initialize, game registries, Fabric APIs, renderer state, resources, and normal mod lifecycle objects are unavailable or unsafe.
+Do not move ordinary Minecraft mod behavior into the Knot Client. Before Fabric and Minecraft initialize, game registries, Fabric APIs, renderer state, resources, and normal mod lifecycle objects are unavailable or unsafe.
 
-The agent must remain optional, auditable, and recoverable. Do not patch or overwrite Minecraft or Fabric Loader JARs unless the user explicitly changes that architectural decision.
+The Knot Client must remain auditable and recoverable. Do not patch or overwrite Minecraft or Fabric Loader JARs unless the user explicitly changes that architectural decision. The current installer may only rewrite a recognized Fabric version-profile JSON after creating a one-time backup; unknown launchers and main classes must fail open without modification.
 
 ## Supported targets
 
@@ -40,7 +40,7 @@ The configured Minecraft targets are:
 - `26.1.2`
 - `26.2`
 
-Java 21 is used for 1.21.x and the agent. Java 25 is used for 26.x.
+Java 21 is used for 1.21.x and the Knot Client. Java 25 is used for 26.x.
 
 Do not remove, add, or broaden supported game versions without explicit user direction. Prefer shared code plus small version-specific branches/adapters over reflection-heavy universal patches.
 
@@ -49,14 +49,14 @@ Do not remove, add, or broaden supported game versions without explicit user dir
 Both components currently start at `0.1.0`.
 
 - Fabric mod version: `mod_version` in `gradle.properties`
-- Agent version: `agent_version` in `gradle.properties`
+- Knot Client version: `knot_client_version` in `gradle.properties`
 
 Expected artifacts:
 
 - `kernel-fabric-[mod version]+[Minecraft version].jar`
-- `kernel-fabric-agent-[agent version].jar`
+- `kernel-knot-client-[Knot Client version].jar`
 
-Never bump either version automatically. Only change `mod_version` or `agent_version` when the user explicitly instructs you to bump that component. If only one component changes, do not assume the other version should change.
+Never bump either version automatically. Only change `mod_version` or `knot_client_version` when the user explicitly instructs you to bump that component. If only one component changes, do not assume the other version should change.
 
 ## Current implementation status
 
@@ -64,17 +64,20 @@ Implemented:
 
 - Stonecutter 0.9.8 multi-version structure.
 - Loom Back Compat configuration for official mappings across 1.21.x and 26.x.
-- No-op `ClientModInitializer` in the Fabric module.
-- No-op Java instrumentation `premain` and `agentmain` methods.
-- Agent manifest entries required for command-line or dynamic agent loading.
+- Fabric startup installation of the bundled Knot Client for official-launcher-style Fabric profiles.
+- Strict validation of the launcher layout and existing Fabric `mainClass` before mutation.
+- One-time profile backup plus atomic JSON replacement.
+- Content-addressed Knot Client library paths and idempotent profile updates.
+- `kernel.client.KernelKnotClient` forwarding to current or legacy Fabric Knot client packages.
+- Unit coverage for argument forwarding, installation, idempotency, backup, and refusal of unknown main classes.
 - Aggregate `buildAll` task and release-shaped artifact collection.
 
 Not implemented:
 
-- Bootstrap installation, discovery, hashing, updates, rollback, or repair.
-- Launcher detection or launcher-profile modification.
 - Automatic game exit or relaunch messaging.
-- Installer/helper GUI, custom title bar, taskbar integration, or approved artwork.
+- Custom installer/helper GUI, custom title bar, taskbar integration, or approved artwork.
+- Launcher layouts other than the official-launcher-style version JSON structure.
+- Automatic rollback, restoration, cleanup of old content-addressed Knot Client JARs, or uninstall UI.
 - Early GLFW window, progress reporting, OpenGL context transfer, or Minecraft window adoption.
 - Asynchronous Mixin preparation or transformed-class caching.
 - Resource-pack preparation changes or processed-resource caching.
@@ -89,7 +92,7 @@ The user supplied a preliminary lightning-bolt icon, but asked to approve an ups
 
 - A direct Sodium-class renderer competitor or a legally compliant Sodium-derived implementation.
 - An all-in-one set of renderer, memory, chunk, world-generation, and smoothness improvements.
-- A thin early bootstrapper installed through reversible launcher metadata rather than a loader fork.
+- Expanding the thin Knot Client installed through reversible launcher metadata rather than a loader fork.
 - A NeoForge-style early window whose GLFW handle is later adopted by Minecraft.
 - Parallel preparation with ordered, single-threaded application for startup work.
 - Strictly keyed processed-resource and startup caches.
@@ -102,13 +105,15 @@ Treat every item above as unimplemented research. Check overlap, licenses, compa
 Every agent that changes this repository must report these sections in its final handoff:
 
 - **Fabric mod:** exact mod-side changes, or `No changes`.
-- **Agent:** exact agent-side changes, or `No changes`.
+- **Knot Client:** exact Knot Client-side changes, or `No changes`.
 - **Build/docs:** build-system and documentation changes.
 - **Validation:** commands run and their results.
-- **Versions:** current mod and agent versions, explicitly stating whether either changed.
+- **Versions:** current mod and Knot Client versions, explicitly stating whether either changed.
 - **Unimplemented:** any requested behavior deliberately left incomplete or blocked.
 
-When functionality changes, update the implementation-status sections in both this file and `README.md` so later agents do not mistake an idea for completed work.
+Whenever a feature, capability, architecture decision, supported platform, user workflow, or important limitation is implemented or changed, update the implementation-status sections in both this file and `README.md`. Keep those files useful as the current high-level truth for future agents.
+
+Do not turn the README into a bug diary. Routine bug fixes and internal corrections normally belong only in Git history. Before changing an area, inspect its history with `git log --oneline --decorate --graph` and use `git log -- <path>` plus `git show <commit>` when the reason for existing code is unclear. Update the README for a bug fix only when it changes user-visible behavior, compatibility, usage, architecture, or the documented implementation status.
 
 ## Commit policy
 
@@ -118,12 +123,14 @@ Make atomic commits: one coherent concern per commit. Use short imperative subje
 - `bug: prevent stale bootstrap replacement`
 - `perf: reduce chunk upload allocations`
 - `chore: update Stonecutter targets`
-- `build: collect agent artifact`
+- `build: collect Knot Client artifact`
 - `docs: record bootstrap constraints`
 - `test: cover cache invalidation`
 - `refactor: isolate version adapters`
 
-Do not combine unrelated Fabric mod, agent, build, and documentation work merely to reduce the number of commits. Do not rewrite or squash user commits unless explicitly asked.
+Do not combine unrelated Fabric mod, Knot Client, build, and documentation work merely to reduce the number of commits. Do not rewrite or squash user commits unless explicitly asked.
+
+For every `bug:` commit, the subject must identify the actual failure being corrected rather than merely saying "fix bug". The commit body must include concise `Cause:` and `Fix:` lines explaining what was wrong and how the change corrects it. Add tests or state why a practical regression test is not possible.
 
 ## Validation
 
@@ -133,7 +140,7 @@ For build-system or shared-source changes, run:
 .\gradlew.bat buildAll
 ```
 
-Confirm that `build/libs/` contains one correctly named mod JAR per supported Minecraft version and exactly one correctly named agent JAR. Inspect `fabric.mod.json` and the agent manifest when metadata or packaging changes.
+Confirm that `build/libs/` contains one correctly named mod JAR per supported Minecraft version and exactly one correctly named Knot Client JAR. Inspect `fabric.mod.json`, bundled Knot Client resources, and the Knot Client manifest when metadata or packaging changes.
 
 For a change isolated to one component, a narrower task may be used during iteration, but the final validation should be proportional to the risk and reported honestly.
 
