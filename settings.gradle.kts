@@ -16,7 +16,7 @@ plugins {
 
 rootProject.name = "Kernel-Mod"
 
-include("agent")
+include("knot-client")
 
 stonecutter {
     create(":mod") {

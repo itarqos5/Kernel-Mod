@@ -14,11 +14,18 @@ val supportedMinecraftVersions = listOf(
     "26.2"
 )
 
+val prepareArtifacts = tasks.register<Delete>("prepareArtifacts") {
+    group = "build"
+    description = "Removes previously collected artifacts so renamed or removed JARs cannot remain in build/libs."
+    outputs.upToDateWhen { false }
+    delete(layout.buildDirectory.dir("libs"))
+}
+
 val buildAll = tasks.register("buildAll") {
     group = "build"
-    description = "Builds and collects every Kernel Fabric variant and the Kernel agent."
+    description = "Builds and collects every Kernel Fabric variant and the Kernel Knot Client."
 
-    dependsOn(":agent:buildAndCollect")
+    dependsOn(":knot-client:buildAndCollect")
     dependsOn(supportedMinecraftVersions.map { ":mod:$it:buildAndCollect" })
 }
 
