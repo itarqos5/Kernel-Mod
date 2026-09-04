@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "${id}",
+  "version": "${version}",
+  "name": "${name}",
+  "description": "An experimental all-in-one Fabric optimization mod focused on smooth frame delivery.",
+  "authors": [
+    "itarqos5"
+  ],
+  "contact": {
+    "sources": "https://github.com/itarqos5/Kernel-Mod"
+  },
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "io.github.itarqos5.kernel.fabric.KernelFabric"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=${loader}",
+    "minecraft": "=${minecraft}",
+    "java": ">=${java}"
+  }
+}
