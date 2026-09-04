@@ -1,4 +1,4 @@
-package kernel.client;
+package dev.kernel.client;
 
 import org.junit.jupiter.api.Test;
 

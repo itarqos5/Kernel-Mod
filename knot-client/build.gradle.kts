@@ -2,7 +2,7 @@ plugins {
     java
 }
 
-group = property("maven_group") as String
+group = property("knot_client_maven_group") as String
 version = property("knot_client_version") as String
 base.archivesName = "kernel-knot-client"
 
@@ -28,7 +28,7 @@ tasks {
     jar {
         manifest {
             attributes(
-                "Main-Class" to "kernel.client.KernelKnotClient",
+                "Main-Class" to "dev.kernel.client.KernelKnotClient",
                 "Implementation-Title" to "Kernel Knot Client",
                 "Implementation-Version" to project.version
             )

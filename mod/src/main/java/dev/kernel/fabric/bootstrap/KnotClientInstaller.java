@@ -1,4 +1,4 @@
-package io.github.itarqos5.kernel.fabric.bootstrap;
+package dev.kernel.fabric.bootstrap;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -30,13 +30,15 @@ import java.util.regex.Pattern;
  * <p>Unknown launcher layouts and non-Fabric main classes are left untouched.</p>
  */
 public final class KnotClientInstaller {
-    static final String KERNEL_MAIN_CLASS = "kernel.client.KernelKnotClient";
+    static final String KERNEL_MAIN_CLASS = "dev.kernel.client.KernelKnotClient";
+    static final String LEGACY_KERNEL_MAIN_CLASS = "kernel.client.KernelKnotClient";
     static final String MODERN_FABRIC_MAIN_CLASS = "net.fabricmc.loader.impl.launch.knot.KnotClient";
     static final String LEGACY_FABRIC_MAIN_CLASS = "net.fabricmc.loader.launch.knot.KnotClient";
 
     private static final String BOOTSTRAP_JAR_RESOURCE = "/kernel/bootstrap/kernel-knot-client.jar";
     private static final String BOOTSTRAP_PROPERTIES_RESOURCE = "/kernel-bootstrap.properties";
-    private static final String LIBRARY_PREFIX = "kernel.client:kernel-knot-client:";
+    private static final String LIBRARY_PREFIX = "dev.kernel.client:kernel-knot-client:";
+    private static final String LEGACY_LIBRARY_PREFIX = "kernel.client:kernel-knot-client:";
     private static final Pattern SAFE_VERSION_ID = Pattern.compile("[A-Za-z0-9._+\\-]+", Pattern.UNICODE_CASE);
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
 
@@ -67,7 +69,7 @@ public final class KnotClientInstaller {
         JsonObject profileJson = readJson(profile.profileJson());
         String currentMainClass = getRequiredString(profileJson, "mainClass");
 
-        if (!isFabricMainClass(currentMainClass) && !KERNEL_MAIN_CLASS.equals(currentMainClass)) {
+        if (!isFabricMainClass(currentMainClass) && !isKernelMainClass(currentMainClass)) {
             return new InstallResult(
                 Outcome.UNSUPPORTED_LAUNCHER,
                 "the selected profile does not use a recognized Fabric KnotClient entry point"
@@ -79,7 +81,7 @@ public final class KnotClientInstaller {
         String coordinate = LIBRARY_PREFIX + installedVersion;
         Path installedJar = profile.minecraftRoot()
             .resolve("libraries")
-            .resolve("kernel/client/kernel-knot-client")
+            .resolve("dev/kernel/client/kernel-knot-client")
             .resolve(installedVersion)
             .resolve("kernel-knot-client-" + installedVersion + ".jar");
 
@@ -159,12 +161,16 @@ public final class KnotClientInstaller {
             ? profile.getAsJsonObject("kernel")
             : new JsonObject();
 
-        if (KERNEL_MAIN_CLASS.equals(currentMainClass)) {
+        if (isKernelMainClass(currentMainClass)) {
             JsonElement storedOriginal = kernelMetadata.get("originalMainClass");
             if (storedOriginal != null && storedOriginal.isJsonPrimitive()) {
                 originalMainClass = storedOriginal.getAsString();
             } else {
                 originalMainClass = MODERN_FABRIC_MAIN_CLASS;
+            }
+            if (!KERNEL_MAIN_CLASS.equals(currentMainClass)) {
+                profile.addProperty("mainClass", KERNEL_MAIN_CLASS);
+                changed = true;
             }
         } else {
             profile.addProperty("mainClass", KERNEL_MAIN_CLASS);
@@ -185,7 +191,7 @@ public final class KnotClientInstaller {
                 ? nameElement.getAsString()
                 : null;
 
-            if (name != null && name.startsWith(LIBRARY_PREFIX)) {
+            if (name != null && (name.startsWith(LIBRARY_PREFIX) || name.startsWith(LEGACY_LIBRARY_PREFIX))) {
                 matchingLibraries++;
                 expectedLibraryPresent |= coordinate.equals(name);
             } else {
@@ -291,6 +297,10 @@ public final class KnotClientInstaller {
 
     private static boolean isFabricMainClass(String className) {
         return MODERN_FABRIC_MAIN_CLASS.equals(className) || LEGACY_FABRIC_MAIN_CLASS.equals(className);
+    }
+
+    private static boolean isKernelMainClass(String className) {
+        return KERNEL_MAIN_CLASS.equals(className) || LEGACY_KERNEL_MAIN_CLASS.equals(className);
     }
 
     private static Properties loadBootstrapProperties() throws IOException {

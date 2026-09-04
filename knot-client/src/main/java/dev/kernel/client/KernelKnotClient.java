@@ -1,4 +1,4 @@
-package kernel.client;
+package dev.kernel.client;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;

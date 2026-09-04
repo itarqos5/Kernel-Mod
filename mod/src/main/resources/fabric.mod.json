@@ -13,7 +13,7 @@
   "environment": "client",
   "entrypoints": {
     "client": [
-      "io.github.itarqos5.kernel.fabric.KernelFabric"
+      "dev.kernel.fabric.KernelFabric"
     ]
   },
   "depends": {

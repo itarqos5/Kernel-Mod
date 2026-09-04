@@ -1,6 +1,6 @@
-package io.github.itarqos5.kernel.fabric;
+package dev.kernel.fabric;
 
-import io.github.itarqos5.kernel.fabric.bootstrap.KnotClientInstaller;
+import dev.kernel.fabric.bootstrap.KnotClientInstaller;
 import net.fabricmc.api.ClientModInitializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -2,6 +2,7 @@ plugins {
     id("dev.kikugie.loom-back-compat")
 }
 
+group = property("fabric_maven_group") as String
 version = "${property("mod_version")}+${sc.current.version}"
 base.archivesName = "kernel-fabric"
 

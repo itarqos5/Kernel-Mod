@@ -1,4 +1,4 @@
-package io.github.itarqos5.kernel.fabric.bootstrap;
+package dev.kernel.fabric.bootstrap;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -57,10 +57,10 @@ final class KnotClientInstallerTest {
 
         JsonArray libraries = patched.getAsJsonArray("libraries");
         String coordinate = libraries.get(libraries.size() - 1).getAsJsonObject().get("name").getAsString();
-        assertTrue(coordinate.startsWith("kernel.client:kernel-knot-client:0.1.0-k"));
+        assertTrue(coordinate.startsWith("dev.kernel.client:kernel-knot-client:0.1.0-k"));
 
         String installedVersion = coordinate.substring(coordinate.lastIndexOf(':') + 1);
-        Path installedJar = minecraftRoot.resolve("libraries/kernel/client/kernel-knot-client")
+        Path installedJar = minecraftRoot.resolve("libraries/dev/kernel/client/kernel-knot-client")
             .resolve(installedVersion)
             .resolve("kernel-knot-client-" + installedVersion + ".jar");
         assertArrayEquals(clientJar, Files.readAllBytes(installedJar));
@@ -119,6 +119,41 @@ final class KnotClientInstallerTest {
         assertTrue(libraries.get(0).isJsonObject());
         assertEquals("unknown-entry", libraries.get(1).getAsString());
         assertTrue(libraries.get(2).getAsJsonObject().get("name").getAsString()
-            .startsWith("kernel.client:kernel-knot-client:0.1.0-k"));
+            .startsWith("dev.kernel.client:kernel-knot-client:0.1.0-k"));
+    }
+
+    @Test
+    void migratesThePreviousKernelNamespace() throws Exception {
+        Path minecraftRoot = temporaryDirectory.resolve("minecraft");
+        Path assets = minecraftRoot.resolve("assets");
+        String versionId = "fabric-loader-migration-test";
+        Path profile = minecraftRoot.resolve("versions").resolve(versionId).resolve(versionId + ".json");
+        Files.createDirectories(profile.getParent());
+        Files.createDirectories(assets);
+        Files.writeString(profile, """
+            {
+              "mainClass": "kernel.client.KernelKnotClient",
+              "libraries": [
+                { "name": "kernel.client:kernel-knot-client:0.1.0-kold" }
+              ],
+              "kernel": {
+                "originalMainClass": "net.fabricmc.loader.impl.launch.knot.KnotClient"
+              }
+            }
+            """);
+
+        KnotClientInstaller.InstallResult result = KnotClientInstaller.install(
+            new String[]{"--assetsDir", assets.toString(), "--version", versionId},
+            new byte[]{1, 2, 3},
+            "0.1.0"
+        );
+
+        assertEquals(KnotClientInstaller.Outcome.INSTALLED, result.outcome());
+        JsonObject patched = JsonParser.parseString(Files.readString(profile)).getAsJsonObject();
+        assertEquals(KnotClientInstaller.KERNEL_MAIN_CLASS, patched.get("mainClass").getAsString());
+        JsonArray libraries = patched.getAsJsonArray("libraries");
+        assertEquals(1, libraries.size());
+        assertTrue(libraries.get(0).getAsJsonObject().get("name").getAsString()
+            .startsWith("dev.kernel.client:kernel-knot-client:0.1.0-k"));
     }
 }
