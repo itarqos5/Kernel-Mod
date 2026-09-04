@@ -61,7 +61,8 @@ Implemented:
 - Strict refusal of unknown main classes and unsupported launcher layouts.
 - One-time backup and atomic rewrite of a recognized version profile.
 - Content-addressed Knot Client installation, allowing safe updates without overwriting a loaded JAR.
-- A minimal `kernel.client.KernelKnotClient` that forwards unchanged arguments to Fabric Loader.
+- Consistent `dev.kernel.fabric` and `dev.kernel.client` package and Gradle group namespaces.
+- A minimal `dev.kernel.client.KernelKnotClient` that forwards unchanged arguments to Fabric Loader.
 - Versioned, collected output JARs.
 
 Not implemented:

@@ -20,7 +20,7 @@ Stonecutter owns the Minecraft-version matrix. Shared source lives under `mod/sr
 
 ### Kernel Knot Client (`knot-client/`)
 
-The Knot Client is a small, version-independent launcher layer. Its current `kernel.client.KernelKnotClient` main class forwards the original arguments to Fabric Loader. It may eventually provide an early loading window, startup measurements, and narrowly scoped pre-Fabric behavior.
+The Knot Client is a small, version-independent launcher layer. Its current `dev.kernel.client.KernelKnotClient` main class forwards the original arguments to Fabric Loader. Knot Client code uses the `dev.kernel.client` namespace and Gradle group. It may eventually provide an early loading window, startup measurements, and narrowly scoped pre-Fabric behavior.
 
 Do not move ordinary Minecraft mod behavior into the Knot Client. Before Fabric and Minecraft initialize, game registries, Fabric APIs, renderer state, resources, and normal mod lifecycle objects are unavailable or unsafe.
 
@@ -51,6 +51,8 @@ Both components currently start at `0.1.0`.
 - Fabric mod version: `mod_version` in `gradle.properties`
 - Knot Client version: `knot_client_version` in `gradle.properties`
 
+The Fabric mod uses the `dev.kernel.fabric` namespace and Gradle group. The Knot Client uses `dev.kernel.client`.
+
 Expected artifacts:
 
 - `kernel-fabric-[mod version]+[Minecraft version].jar`
@@ -68,7 +70,7 @@ Implemented:
 - Strict validation of the launcher layout and existing Fabric `mainClass` before mutation.
 - One-time profile backup plus atomic JSON replacement.
 - Content-addressed Knot Client library paths and idempotent profile updates.
-- `kernel.client.KernelKnotClient` forwarding to current or legacy Fabric Knot client packages.
+- `dev.kernel.client.KernelKnotClient` forwarding to current or legacy Fabric Knot client packages.
 - Unit coverage for argument forwarding, installation, idempotency, backup, and refusal of unknown main classes.
 - Aggregate `buildAll` task and release-shaped artifact collection.
 
