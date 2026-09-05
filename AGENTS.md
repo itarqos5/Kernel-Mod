@@ -79,8 +79,9 @@ Implemented:
 - Reusable pose-stack entries on 1.21.4, where vanilla still allocates matrix pairs on every push, and reusable temporary normal matrices for pose multiplication on every supported target.
 - Allocation-free cached block-face visibility lookups on every supported target using a bounded, thread-local identity-pair cache while preserving Minecraft's original occlusion test.
 - Reentrant per-thread block-quad upload scratch on 1.21.4 that removes the temporary brightness and light arrays allocated for every tessellated quad.
+- Scalar weighted fluid-corner height accumulation on every supported 1.21.x target, removing the temporary two-float accumulator allocated for each calculation.
 - Unit coverage for scalar 3D and 2D vertex transforms and the legacy packed-color behavior used by the optimized paths.
-- Unit coverage for reusable render scratch values, pool reentrancy and thread isolation, exact lighting-array updates, rotation semantics, normal-matrix extraction, and block-face cache identity and eviction behavior.
+- Unit coverage for reusable render scratch values, pool reentrancy and thread isolation, exact lighting-array updates, bit-for-bit legacy fluid-height parity, rotation semantics, normal-matrix extraction, and block-face cache identity and eviction behavior.
 - Fabric metadata that marks Sodium as incompatible, identifies `literal.uu` as the author, and includes the approved Kernel lightning icon.
 
 Not implemented:

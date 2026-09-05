@@ -70,6 +70,7 @@ Implemented:
 - Reusable pose-stack entries on 1.21.4, matching the pooling strategy introduced by newer Minecraft versions, plus reusable normal-matrix scratch storage on every supported target.
 - Allocation-free cached block-face visibility lookups using a bounded per-thread identity cache while retaining Minecraft's original occlusion rules.
 - Reentrant per-thread lighting-array scratch for the legacy 1.21.4 block tessellator, eliminating two temporary arrays per emitted block quad.
+- Scalar weighted fluid-corner height accumulation across the supported 1.21.x targets, eliminating a temporary two-float array per calculation.
 - The approved Kernel lightning icon and `literal.uu` author metadata.
 - A hard Fabric incompatibility with Sodium because both mods take ownership of the same renderer hot path.
 
@@ -89,7 +90,7 @@ The approved black-and-white lightning icon is included in the Fabric mod metada
 
 ## Direction
 
-Kernel is being developed as an all-in-one Fabric optimization mod. Its initial renderer work reduces allocations in Minecraft's pose-stack, block-model tessellation, baked-quad upload, immediate vertex-transform, entity/model-part rendering, and block-face visibility routines. These are only a few hot paths; Kernel does not yet match Sodium's renderer breadth or demonstrated performance. Compatibility, measurable frame-time improvements, and honest benchmarking take priority over feature claims. Kernel contains no Sodium or other third-party mod code, and Fabric Loader will reject installations that also contain Sodium.
+Kernel is being developed as an all-in-one Fabric optimization mod. Its initial renderer work reduces allocations in Minecraft's pose-stack, block-model tessellation, fluid-height calculation, baked-quad upload, immediate vertex-transform, entity/model-part rendering, and block-face visibility routines. These are only a few hot paths; Kernel does not yet match Sodium's renderer breadth or demonstrated performance. Compatibility, measurable frame-time improvements, and honest benchmarking take priority over feature claims. Kernel contains no Sodium or other third-party mod code, and Fabric Loader will reject installations that also contain Sodium.
 
 On a recognized Fabric profile, the current mod bundles and installs the Knot Client, changes that profile's launcher `mainClass`, and leaves a `.kernel-backup` copy of the original JSON. On the following launch, the Knot Client immediately delegates to Fabric's original Knot entry point. Unsupported launchers are left untouched and Minecraft continues normally.
 
