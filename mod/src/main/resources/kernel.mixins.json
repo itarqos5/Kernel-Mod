@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "render.BlockMixin",
+    "render.ModelBlockRendererMixin",
     "render.ModelPartCubeMixin",
     "render.ModelPartMixin",
     "render.PoseStackMixin",
