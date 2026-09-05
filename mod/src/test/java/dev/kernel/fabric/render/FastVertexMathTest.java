@@ -1,6 +1,8 @@
 package dev.kernel.fabric.render;
 
+import org.joml.Matrix3x2f;
 import org.joml.Matrix4f;
+import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
@@ -18,6 +20,18 @@ final class FastVertexMathTest {
         assertEquals(expected.x(), FastVertexMath.transformX(matrix, 0.125F, -2.5F, 7.75F));
         assertEquals(expected.y(), FastVertexMath.transformY(matrix, 0.125F, -2.5F, 7.75F));
         assertEquals(expected.z(), FastVertexMath.transformZ(matrix, 0.125F, -2.5F, 7.75F));
+    }
+
+    @Test
+    void scalar2DTransformMatchesJoml() {
+        Matrix3x2f matrix = new Matrix3x2f()
+            .translate(13.5F, -4.25F)
+            .rotate(0.78F)
+            .scale(1.75F, 0.625F);
+        Vector2f expected = matrix.transformPosition(2.25F, -7.5F, new Vector2f());
+
+        assertEquals(expected.x(), FastVertexMath.transform2DX(matrix, 2.25F, -7.5F));
+        assertEquals(expected.y(), FastVertexMath.transform2DY(matrix, 2.25F, -7.5F));
     }
 
     @Test

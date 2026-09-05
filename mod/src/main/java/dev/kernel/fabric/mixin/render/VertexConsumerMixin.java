@@ -3,6 +3,9 @@ package dev.kernel.fabric.mixin.render;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.kernel.fabric.render.FastVertexMath;
+import org.joml.Matrix3x2f;
+import org.joml.Matrix3x2fc;
+import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 import org.joml.Vector3f;
 import org.joml.Vector3fc;
@@ -26,12 +29,85 @@ import net.minecraft.core.Vec3i;
 *///?}
 
 /**
- * Removes temporary buffers and per-vertex position objects from Minecraft's baked-quad upload path.
+ * Removes temporary objects and buffers from common vertex transformation and baked-quad upload paths.
  */
 @Mixin(VertexConsumer.class)
 public interface VertexConsumerMixin {
     @Unique
     ThreadLocal<Vector3f> KERNEL_NORMAL_SCRATCH = ThreadLocal.withInitial(Vector3f::new);
+
+    @Unique
+    ThreadLocal<float[]> KERNEL_BRIGHTNESS_SCRATCH = ThreadLocal.withInitial(() -> new float[4]);
+
+    @Unique
+    ThreadLocal<int[]> KERNEL_LIGHT_SCRATCH = ThreadLocal.withInitial(() -> new int[4]);
+
+    //? if >=1.21.11 {
+    // Author: literal.uu
+    // Reason: Transform immediate-mode positions without allocating a temporary vector.
+    @Overwrite
+    default VertexConsumer addVertex(Matrix4fc matrix, float x, float y, float z) {
+        return ((VertexConsumer)(Object)this).addVertex(
+            FastVertexMath.transformX(matrix, x, y, z),
+            FastVertexMath.transformY(matrix, x, y, z),
+            FastVertexMath.transformZ(matrix, x, y, z)
+        );
+    }
+    //?} else {
+    /*// Author: literal.uu
+    // Reason: Transform immediate-mode positions without allocating a temporary vector.
+    @Overwrite
+    default VertexConsumer addVertex(Matrix4f matrix, float x, float y, float z) {
+        return ((VertexConsumer)(Object)this).addVertex(
+            FastVertexMath.transformX(matrix, x, y, z),
+            FastVertexMath.transformY(matrix, x, y, z),
+            FastVertexMath.transformZ(matrix, x, y, z)
+        );
+    }
+    *///?}
+
+    // Author: literal.uu
+    // Reason: Reuse a thread-local normal vector instead of allocating one for every transformed normal.
+    @Overwrite
+    default VertexConsumer setNormal(PoseStack.Pose pose, float x, float y, float z) {
+        Vector3f normal = pose.transformNormal(x, y, z, KERNEL_NORMAL_SCRATCH.get());
+        return ((VertexConsumer)(Object)this).setNormal(normal.x(), normal.y(), normal.z());
+    }
+
+    //? if >=1.21.11 {
+    // Author: literal.uu
+    // Reason: Transform immediate-mode 2D positions without allocating a temporary vector.
+    @Overwrite
+    default VertexConsumer addVertexWith2DPose(Matrix3x2fc matrix, float x, float y) {
+        return ((VertexConsumer)(Object)this).addVertex(
+            FastVertexMath.transform2DX(matrix, x, y),
+            FastVertexMath.transform2DY(matrix, x, y),
+            0.0F
+        );
+    }
+    //?} else if >=1.21.9 {
+    /*// Author: literal.uu
+    // Reason: Transform immediate-mode 2D positions without allocating a temporary vector.
+    @Overwrite
+    default VertexConsumer addVertexWith2DPose(Matrix3x2f matrix, float x, float y) {
+        return ((VertexConsumer)(Object)this).addVertex(
+            FastVertexMath.transform2DX(matrix, x, y),
+            FastVertexMath.transform2DY(matrix, x, y),
+            0.0F
+        );
+    }
+    *///?} else if >=1.21.6 {
+    /*// Author: literal.uu
+    // Reason: Transform immediate-mode 2D positions without allocating a temporary vector.
+    @Overwrite
+    default VertexConsumer addVertexWith2DPose(Matrix3x2f matrix, float x, float y, float z) {
+        return ((VertexConsumer)(Object)this).addVertex(
+            FastVertexMath.transform2DX(matrix, x, y),
+            FastVertexMath.transform2DY(matrix, x, y),
+            z
+        );
+    }
+    *///?}
 
     //? if >=26 {
     // Author: literal.uu
@@ -111,6 +187,30 @@ public interface VertexConsumerMixin {
             );
         }
     }
+
+    // Author: literal.uu
+    // Reason: Reuse the uniform brightness and light arrays used by the convenience quad-upload overload.
+    @Overwrite
+    default void putBulkData(
+        PoseStack.Pose pose,
+        BakedQuad quad,
+        float red,
+        float green,
+        float blue,
+        float alpha,
+        int light,
+        int overlay
+    ) {
+        float[] brightness = KERNEL_BRIGHTNESS_SCRATCH.get();
+        int[] lights = KERNEL_LIGHT_SCRATCH.get();
+        for (int index = 0; index < 4; index++) {
+            brightness[index] = 1.0F;
+            lights[index] = light;
+        }
+        ((VertexConsumer)(Object)this).putBulkData(
+            pose, quad, brightness, red, green, blue, alpha, lights, overlay
+        );
+    }
     *///?} else if >=1.21.5 {
     /*// Author: literal.uu
     // Reason: Decode legacy packed quad vertices without a temporary native buffer or position vectors.
@@ -163,6 +263,30 @@ public interface VertexConsumerMixin {
             );
         }
     }
+
+    // Author: literal.uu
+    // Reason: Reuse the uniform brightness and light arrays used by the convenience quad-upload overload.
+    @Overwrite
+    default void putBulkData(
+        PoseStack.Pose pose,
+        BakedQuad quad,
+        float red,
+        float green,
+        float blue,
+        float alpha,
+        int light,
+        int overlay
+    ) {
+        float[] brightness = KERNEL_BRIGHTNESS_SCRATCH.get();
+        int[] lights = KERNEL_LIGHT_SCRATCH.get();
+        for (int index = 0; index < 4; index++) {
+            brightness[index] = 1.0F;
+            lights[index] = light;
+        }
+        ((VertexConsumer)(Object)this).putBulkData(
+            pose, quad, brightness, red, green, blue, alpha, lights, overlay, false
+        );
+    }
     *///?} else {
     /*// Author: literal.uu
     // Reason: Decode legacy packed quad vertices without a temporary native buffer or position vectors.
@@ -214,6 +338,30 @@ public interface VertexConsumerMixin {
                 normal.z()
             );
         }
+    }
+
+    // Author: literal.uu
+    // Reason: Reuse the uniform brightness and light arrays used by the convenience quad-upload overload.
+    @Overwrite
+    default void putBulkData(
+        PoseStack.Pose pose,
+        BakedQuad quad,
+        float red,
+        float green,
+        float blue,
+        float alpha,
+        int light,
+        int overlay
+    ) {
+        float[] brightness = KERNEL_BRIGHTNESS_SCRATCH.get();
+        int[] lights = KERNEL_LIGHT_SCRATCH.get();
+        for (int index = 0; index < 4; index++) {
+            brightness[index] = 1.0F;
+            lights[index] = light;
+        }
+        ((VertexConsumer)(Object)this).putBulkData(
+            pose, quad, brightness, red, green, blue, alpha, lights, overlay, false
+        );
     }
     *///?}
 }

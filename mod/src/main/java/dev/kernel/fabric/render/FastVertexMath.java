@@ -1,9 +1,10 @@
 package dev.kernel.fabric.render;
 
 import org.joml.Matrix4fc;
+import org.joml.Matrix3x2fc;
 
 /**
- * Allocation-free scalar operations used by Kernel's baked-quad upload path.
+ * Allocation-free scalar operations used by Kernel's vertex transformation and baked-quad upload paths.
  */
 public final class FastVertexMath {
     private FastVertexMath() {
@@ -19,6 +20,14 @@ public final class FastVertexMath {
 
     public static float transformZ(Matrix4fc matrix, float x, float y, float z) {
         return matrix.m02() * x + matrix.m12() * y + matrix.m22() * z + matrix.m32();
+    }
+
+    public static float transform2DX(Matrix3x2fc matrix, float x, float y) {
+        return matrix.m00() * x + matrix.m10() * y + matrix.m20();
+    }
+
+    public static float transform2DY(Matrix3x2fc matrix, float x, float y) {
+        return matrix.m01() * x + matrix.m11() * y + matrix.m21();
     }
 
     public static int legacyColor(
