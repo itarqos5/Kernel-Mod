@@ -6,7 +6,7 @@ These instructions apply to the entire repository.
 
 Kernel is intended to become an all-in-one, client-side Fabric optimization mod. Its main target is perceptual smoothness: consistent frame delivery, stronger frame-time lows, and fewer visible micro-stutters. It may later address startup and world-loading costs where a normal mod or an explicitly installed bootstrap component can do so safely.
 
-Kernel now contains one narrowly scoped renderer hot-path optimization, but it is not a complete renderer replacement and does not yet have reproducible end-to-end performance evidence. Do not claim Sodium parity or broad FPS/frame-time gains until benchmarks support those claims.
+Kernel now contains narrowly scoped allocation reductions in common renderer hot paths, but it is not a complete renderer replacement and does not yet have reproducible end-to-end performance evidence. Do not claim Sodium parity or broad FPS/frame-time gains until benchmarks support those claims.
 
 ## Architecture
 
@@ -73,8 +73,9 @@ Implemented:
 - `dev.kernel.client.KernelKnotClient` forwarding to current or legacy Fabric Knot client packages.
 - Unit coverage for argument forwarding, installation, idempotency, backup, and refusal of unknown main classes.
 - Aggregate `buildAll` task and release-shaped artifact collection.
-- Original baked-quad upload paths for every supported target that avoid Minecraft's temporary native buffer on 1.21.4 through 1.21.10 and avoid per-vertex transformed-position allocations on all supported targets.
-- Unit coverage for the scalar vertex transform and legacy packed-color behavior used by the optimized upload path.
+- Original baked-quad upload paths for every supported target that avoid Minecraft's temporary native buffer on 1.21.4 through 1.21.10, avoid per-vertex transformed-position allocations on all supported targets, and reuse convenience-upload arrays on 1.21.x.
+- Allocation-free scalar immediate position and 2D matrix transforms, plus thread-local normal-transform scratch storage, across the supported versions where those APIs exist.
+- Unit coverage for scalar 3D and 2D vertex transforms and the legacy packed-color behavior used by the optimized paths.
 - Fabric metadata that marks Sodium as incompatible, identifies `literal.uu` as the author, and includes the approved Kernel lightning icon.
 
 Not implemented:

@@ -2,7 +2,7 @@
 
 Kernel is an experimental, client-side Fabric optimization mod intended to improve how smooth Minecraft feels, not merely increase the average FPS counter.
 
-This repository is in an early implementation stage. It contains one original baked-quad upload optimization, not a complete Sodium-equivalent renderer.
+This repository is in an early implementation stage. It contains original allocation-reduction work in common vertex paths, not a complete Sodium-equivalent renderer.
 
 ## Project layout
 
@@ -64,7 +64,8 @@ Implemented:
 - Consistent `dev.kernel.fabric` and `dev.kernel.client` package and Gradle group namespaces.
 - A minimal `dev.kernel.client.KernelKnotClient` that forwards unchanged arguments to Fabric Loader.
 - Versioned, collected output JARs.
-- An allocation-reduced baked-quad upload path across every supported Minecraft version.
+- Allocation-reduced baked-quad uploads across every supported Minecraft version, including reusable convenience-upload arrays on 1.21.x.
+- Allocation-free immediate position and 2D matrix transforms, plus reusable normal-transform scratch storage, wherever those APIs exist in the supported version matrix.
 - The approved Kernel lightning icon and `literal.uu` author metadata.
 - A hard Fabric incompatibility with Sodium because both mods take ownership of the same renderer hot path.
 
@@ -84,7 +85,7 @@ The approved black-and-white lightning icon is included in the Fabric mod metada
 
 ## Direction
 
-Kernel is being developed as an all-in-one Fabric optimization mod. Its first renderer change replaces Minecraft's baked-quad upload routine with an allocation-reduced implementation. This is only one hot path; Kernel does not yet match Sodium's renderer breadth or demonstrated performance. Compatibility, measurable frame-time improvements, and honest benchmarking take priority over feature claims. Kernel contains no Sodium or other third-party mod code, and Fabric Loader will reject installations that also contain Sodium.
+Kernel is being developed as an all-in-one Fabric optimization mod. Its initial renderer work reduces allocations in Minecraft's baked-quad upload and immediate vertex-transform routines. These are only a few hot paths; Kernel does not yet match Sodium's renderer breadth or demonstrated performance. Compatibility, measurable frame-time improvements, and honest benchmarking take priority over feature claims. Kernel contains no Sodium or other third-party mod code, and Fabric Loader will reject installations that also contain Sodium.
 
 On a recognized Fabric profile, the current mod bundles and installs the Knot Client, changes that profile's launcher `mainClass`, and leaves a `.kernel-backup` copy of the original JSON. On the following launch, the Knot Client immediately delegates to Fabric's original Knot entry point. Unsupported launchers are left untouched and Minecraft continues normally.
 
