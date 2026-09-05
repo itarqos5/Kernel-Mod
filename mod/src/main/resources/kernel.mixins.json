@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.kernel.fabric.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "render.VertexConsumerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

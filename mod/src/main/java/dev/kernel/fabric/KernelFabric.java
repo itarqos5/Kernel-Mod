@@ -10,14 +10,16 @@ import java.io.IOException;
 /**
  * Fabric entry point for Kernel.
  *
- * <p>The Minecraft-facing optimization layer remains empty. At startup, Kernel only attempts to install its
- * launcher handoff for the next launch.</p>
+ * <p>Renderer Mixins are applied before this entry point. Startup also attempts to install Kernel's launcher
+ * handoff for the next launch.</p>
  */
 public final class KernelFabric implements ClientModInitializer {
     private static final Logger LOGGER = LoggerFactory.getLogger("Kernel");
 
     @Override
     public void onInitializeClient() {
+        LOGGER.info("Kernel renderer optimization active: allocation-free baked-quad upload.");
+
         try {
             KnotClientInstaller.InstallResult result = KnotClientInstaller.installForCurrentLaunch();
 
