@@ -4,6 +4,7 @@
   "package": "dev.kernel.fabric.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
+    "render.BlockMixin",
     "render.ModelPartCubeMixin",
     "render.ModelPartMixin",
     "render.PoseStackMixin",
