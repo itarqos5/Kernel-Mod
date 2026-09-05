@@ -75,7 +75,9 @@ Implemented:
 - Aggregate `buildAll` task and release-shaped artifact collection.
 - Original baked-quad upload paths for every supported target that avoid Minecraft's temporary native buffer on 1.21.4 through 1.21.10, avoid per-vertex transformed-position allocations on all supported targets, and reuse convenience-upload arrays on 1.21.x.
 - Allocation-free scalar immediate position and 2D matrix transforms, plus thread-local normal-transform scratch storage, across the supported versions where those APIs exist.
+- Allocation-reduced entity/model-part transforms and cube emission that reuse per-thread quaternion and normal scratch values and use scalar position transforms.
 - Unit coverage for scalar 3D and 2D vertex transforms and the legacy packed-color behavior used by the optimized paths.
+- Unit coverage for the reusable model-render scratch values and their rotation semantics.
 - Fabric metadata that marks Sodium as incompatible, identifies `literal.uu` as the author, and includes the approved Kernel lightning icon.
 
 Not implemented:
