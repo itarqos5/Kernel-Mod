@@ -12,6 +12,7 @@
     "render.PoseStackMixin",
     "render.PoseStackPoseAccessor",
     "render.PoseStackPoseMixin",
+    "render.SectionRenderDispatcherMixin",
     "render.VertexConsumerMixin"
   ],
   "injectors": {
