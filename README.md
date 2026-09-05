@@ -72,6 +72,8 @@ Implemented:
 - Reentrant per-thread lighting-array scratch for the legacy 1.21.4 block tessellator, eliminating two temporary arrays per emitted block quad.
 - Scalar weighted fluid-corner height accumulation across the supported 1.21.x targets, eliminating a temporary two-float array per calculation.
 - Reentrant per-thread fixed-seed model random sources across the supported 1.21.x targets, eliminating a temporary random-source allocation per standalone model render; 26.x already keeps equivalent renderer-owned state.
+- A FIFO, frame-budgeted chunk GPU-upload scheduler on every supported 1.21.x target. Normal render passes execute at least one upload but stop after 2 ms or 32 tasks, while renderer shutdown still drains completely and 1.21.6+ deferred mesh cleanup retains vanilla behavior.
+- Driver-neutral chunk uploads: Kernel schedules Minecraft's existing `VertexBuffer`/graphics-device tasks without issuing raw OpenGL calls or selecting vendor extensions. The 26.x staged uber-buffer pipeline remains native and unchanged.
 - The approved Kernel lightning icon and `literal.uu` author metadata.
 - A hard Fabric incompatibility with Sodium because both mods take ownership of the same renderer hot path.
 
@@ -83,7 +85,8 @@ Not implemented:
 - Automatic profile restoration or uninstall UI; the original JSON backup is created but not consumed yet.
 - Early loading window or GLFW handoff.
 - Startup caching or asynchronous preparation.
-- A complete chunk renderer, GPU submission redesign, renderer settings UI, or verified Sodium feature/performance parity.
+- A complete chunk mesh compiler, mesh-storage/draw-command replacement, persistent-mapped or multi-draw GPU submission system, renderer settings UI, or verified Sodium feature/performance parity.
+- Physical AMD, Intel, NVIDIA, Apple, and software-driver compatibility/performance testing; the current upload scheduler is vendor-neutral by construction but has not been validated on that hardware matrix.
 - Memory, chunk-scheduling, world-generation, or frame-pacing optimizations.
 - Mod Menu integration or configuration UI.
 
@@ -91,7 +94,7 @@ The approved black-and-white lightning icon is included in the Fabric mod metada
 
 ## Direction
 
-Kernel is being developed as an all-in-one Fabric optimization mod. Its initial renderer work reduces allocations in Minecraft's pose-stack, block-model tessellation, standalone model random selection, fluid-height calculation, baked-quad upload, immediate vertex-transform, entity/model-part rendering, and block-face visibility routines. These are only a few hot paths; Kernel does not yet match Sodium's renderer breadth or demonstrated performance. Compatibility, measurable frame-time improvements, and honest benchmarking take priority over feature claims. Kernel contains no Sodium or other third-party mod code, and Fabric Loader will reject installations that also contain Sodium.
+Kernel is being developed as an all-in-one Fabric optimization mod. Its initial renderer work time-slices legacy chunk GPU uploads and reduces allocations in Minecraft's pose-stack, block-model tessellation, standalone model random selection, fluid-height calculation, baked-quad upload, immediate vertex-transform, entity/model-part rendering, and block-face visibility routines. These are only a few hot paths; Kernel does not yet match Sodium's renderer breadth or demonstrated performance. Compatibility, measurable frame-time improvements, and honest benchmarking take priority over feature claims. Kernel contains no Sodium or other third-party mod code, and Fabric Loader will reject installations that also contain Sodium.
 
 On a recognized Fabric profile, the current mod bundles and installs the Knot Client, changes that profile's launcher `mainClass`, and leaves a `.kernel-backup` copy of the original JSON. On the following launch, the Knot Client immediately delegates to Fabric's original Knot entry point. Unsupported launchers are left untouched and Minecraft continues normally.
 

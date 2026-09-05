@@ -81,8 +81,10 @@ Implemented:
 - Reentrant per-thread block-quad upload scratch on 1.21.4 that removes the temporary brightness and light arrays allocated for every tessellated quad.
 - Scalar weighted fluid-corner height accumulation on every supported 1.21.x target, removing the temporary two-float accumulator allocated for each calculation.
 - Reentrant per-thread fixed-seed model random sources on every supported 1.21.x target, removing the temporary random source created for each standalone model render while preserving nested-call isolation; 26.x already owns reusable renderer state.
+- FIFO, frame-budgeted chunk GPU-upload scheduling on every supported 1.21.x target, with a 2 ms/32-task normal-pass limit, guaranteed forward progress, complete shutdown draining, and unchanged deferred mesh cleanup on 1.21.6 and newer.
+- Driver-neutral upload integration that executes Minecraft's existing `VertexBuffer`/graphics-device tasks without raw OpenGL or vendor-extension paths. The native staged uber-buffer pipeline remains unchanged on 26.x.
 - Unit coverage for scalar 3D and 2D vertex transforms and the legacy packed-color behavior used by the optimized paths.
-- Unit coverage for reusable render scratch values, pool reentrancy and thread isolation, exact lighting-array updates, bit-for-bit legacy fluid-height parity, rotation semantics, normal-matrix extraction, and block-face cache identity and eviction behavior.
+- Unit coverage for reusable render scratch values, pool reentrancy and thread isolation, exact lighting-array updates, bit-for-bit legacy fluid-height parity, rotation semantics, normal-matrix extraction, block-face cache identity and eviction behavior, and chunk-upload budget/lifecycle semantics.
 - Fabric metadata that marks Sodium as incompatible, identifies `literal.uu` as the author, and includes the approved Kernel lightning icon.
 
 Not implemented:
@@ -95,7 +97,8 @@ Not implemented:
 - Asynchronous Mixin preparation or transformed-class caching.
 - Resource-pack preparation changes or processed-resource caching.
 - Startup profiler or stutter-attribution overlay.
-- Complete chunk-renderer replacement, GPU submission redesign, occlusion system, renderer settings UI, or verified Sodium feature/performance parity.
+- Complete chunk mesh compiler, mesh-storage/draw-command replacement, persistent-mapped or multi-draw GPU submission system, occlusion system, renderer settings UI, or verified Sodium feature/performance parity.
+- Physical AMD, Intel, NVIDIA, Apple, and software-driver compatibility/performance validation. The current scheduler is vendor-neutral by construction, not a hardware-tested compatibility claim.
 - Frame-time governor, integrated-server coordination, input changes, chunk scheduling, memory optimization, or world-generation optimization.
 - Mod Menu integration and user-facing settings.
 - Sodium, FerriteCore, ModernFix, Lithium, C2ME, Entity Culling, or any other third-party source or bundled code.
