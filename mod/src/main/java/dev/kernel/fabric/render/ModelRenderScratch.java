@@ -1,5 +1,7 @@
 package dev.kernel.fabric.render;
 
+import org.joml.Matrix3f;
+import org.joml.Matrix4fc;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
@@ -11,6 +13,7 @@ public final class ModelRenderScratch {
 
     private final Quaternionf rotation = new Quaternionf();
     private final Vector3f normal = new Vector3f();
+    private final Matrix3f normalMatrix = new Matrix3f();
 
     private ModelRenderScratch() {
     }
@@ -25,5 +28,9 @@ public final class ModelRenderScratch {
 
     public Vector3f normal() {
         return this.normal;
+    }
+
+    public Matrix3f normalMatrix(Matrix4fc matrix) {
+        return this.normalMatrix.set(matrix);
     }
 }

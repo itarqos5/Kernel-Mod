@@ -1,5 +1,7 @@
 package dev.kernel.fabric.render;
 
+import org.joml.Matrix3f;
+import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.junit.jupiter.api.Test;
 
@@ -25,5 +27,16 @@ final class ModelRenderScratchTest {
         assertSame(scratch, ModelRenderScratch.get());
         assertSame(scratch.normal(), ModelRenderScratch.get().normal());
         assertSame(scratch.rotationZYX(0.1F, 0.2F, 0.3F), scratch.rotationZYX(0.4F, 0.5F, 0.6F));
+    }
+
+    @Test
+    void normalMatrixCopiesTheLinearTransformAndReusesStorage() {
+        ModelRenderScratch scratch = ModelRenderScratch.get();
+        Matrix4f source = new Matrix4f().rotateXYZ(0.2F, -0.4F, 0.7F);
+        Matrix3f expected = new Matrix3f(source);
+        Matrix3f first = scratch.normalMatrix(source);
+
+        assertEquals(expected, first);
+        assertSame(first, scratch.normalMatrix(new Matrix4f().scale(2.0F)));
     }
 }

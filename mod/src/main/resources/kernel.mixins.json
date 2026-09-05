@@ -6,6 +6,9 @@
   "client": [
     "render.ModelPartCubeMixin",
     "render.ModelPartMixin",
+    "render.PoseStackMixin",
+    "render.PoseStackPoseAccessor",
+    "render.PoseStackPoseMixin",
     "render.VertexConsumerMixin"
   ],
   "injectors": {
