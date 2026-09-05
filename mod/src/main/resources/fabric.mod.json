@@ -5,7 +5,7 @@
   "name": "${name}",
   "description": "An experimental all-in-one Fabric optimization mod focused on smooth frame delivery.",
   "authors": [
-    "itarqos5"
+    "literal.uu"
   ],
   "contact": {
     "sources": "https://github.com/itarqos5/Kernel-Mod"
@@ -19,9 +19,13 @@
   "mixins": [
     "kernel.mixins.json"
   ],
+  "icon": "assets/kernel/icon.png",
   "depends": {
     "fabricloader": ">=${loader}",
     "minecraft": "=${minecraft}",
     "java": ">=${java}"
+  },
+  "breaks": {
+    "sodium": "*"
   }
 }
