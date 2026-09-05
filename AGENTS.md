@@ -6,7 +6,7 @@ These instructions apply to the entire repository.
 
 Kernel is intended to become an all-in-one, client-side Fabric optimization mod. Its main target is perceptual smoothness: consistent frame delivery, stronger frame-time lows, and fewer visible micro-stutters. It may later address startup and world-loading costs where a normal mod or an explicitly installed bootstrap component can do so safely.
 
-Kernel is not currently an optimization mod in functional terms. This repository is only the initial build scaffold. Do not claim that it improves performance until a feature exists and has reproducible evidence.
+Kernel now contains one narrowly scoped renderer hot-path optimization, but it is not a complete renderer replacement and does not yet have reproducible end-to-end performance evidence. Do not claim Sodium parity or broad FPS/frame-time gains until benchmarks support those claims.
 
 ## Architecture
 
@@ -73,6 +73,9 @@ Implemented:
 - `dev.kernel.client.KernelKnotClient` forwarding to current or legacy Fabric Knot client packages.
 - Unit coverage for argument forwarding, installation, idempotency, backup, and refusal of unknown main classes.
 - Aggregate `buildAll` task and release-shaped artifact collection.
+- Original baked-quad upload paths for every supported target that avoid Minecraft's temporary native buffer on 1.21.4 through 1.21.10 and avoid per-vertex transformed-position allocations on all supported targets.
+- Unit coverage for the scalar vertex transform and legacy packed-color behavior used by the optimized upload path.
+- Fabric metadata that marks Sodium as incompatible, identifies `literal.uu` as the author, and includes the approved Kernel lightning icon.
 
 Not implemented:
 
@@ -84,15 +87,15 @@ Not implemented:
 - Asynchronous Mixin preparation or transformed-class caching.
 - Resource-pack preparation changes or processed-resource caching.
 - Startup profiler or stutter-attribution overlay.
-- Frame-time governor, integrated-server coordination, input changes, chunk scheduling, renderer replacement, memory optimization, or world-generation optimization.
+- Complete chunk-renderer replacement, GPU submission redesign, occlusion system, renderer settings UI, or verified Sodium feature/performance parity.
+- Frame-time governor, integrated-server coordination, input changes, chunk scheduling, memory optimization, or world-generation optimization.
 - Mod Menu integration and user-facing settings.
-- Sodium, FerriteCore, ModernFix, Lithium, C2ME, Entity Culling, or any other third-party implementation or bundled code.
+- Sodium, FerriteCore, ModernFix, Lithium, C2ME, Entity Culling, or any other third-party source or bundled code.
 
-The user supplied a preliminary lightning-bolt icon, but asked to approve an upscaled/gradient preview before it is included. Do not add that icon or a replacement to the mod until approval is explicit.
+The user approved the supplied black-and-white lightning-bolt icon. The mod includes a cleaned, high-resolution rendition at `assets/kernel/icon.png`.
 
 ## Ideas under consideration, not decisions
 
-- A direct Sodium-class renderer competitor or a legally compliant Sodium-derived implementation.
 - An all-in-one set of renderer, memory, chunk, world-generation, and smoothness improvements.
 - Expanding the thin Knot Client installed through reversible launcher metadata rather than a loader fork.
 - A NeoForge-style early window whose GLFW handle is later adopted by Minecraft.
@@ -100,7 +103,7 @@ The user supplied a preliminary lightning-bolt icon, but asked to approve an ups
 - Strictly keyed processed-resource and startup caches.
 - Frame-time attribution and cooperative work-budget coordination.
 
-Treat every item above as unimplemented research. Check overlap, licenses, compatibility, and measurable benefit before recommending or implementing one. Never copy or bundle Sodium or another mod merely to accelerate development; obtain explicit approval and satisfy its license first.
+Treat every item above as unimplemented research. Check overlap, licenses, compatibility, and measurable benefit before recommending or implementing one. Kernel's current renderer work is original and Sodium is marked incompatible, but Kernel is not yet a complete Sodium-class renderer. Never copy or bundle Sodium or another mod merely to accelerate development; obtain explicit approval and satisfy its license first.
 
 ## Change reporting
 
