@@ -18,7 +18,7 @@ public final class KernelFabric implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        LOGGER.info("Kernel renderer optimizations active: allocation-reduced vertex transforms and baked-quad upload.");
+        LOGGER.info("Kernel renderer optimizations active: allocation-reduced model, vertex, and baked-quad paths.");
 
         try {
             KnotClientInstaller.InstallResult result = KnotClientInstaller.installForCurrentLaunch();
