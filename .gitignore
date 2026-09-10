@@ -5,6 +5,8 @@ build/
 out/
 run/
 **/build/
+/knot-client/bin/
+/mod/versions/*/bin/
 **/run/
 **/.gradle/
 *.log
