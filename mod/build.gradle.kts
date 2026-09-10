@@ -37,14 +37,12 @@ loom {
         client()
         generateRunConfig = false
         runDirectory = layout.buildDirectory.dir("gui-smoke-game")
-        jvmArguments.add("-Dfabric.addMods=" + layout.buildDirectory.dir("gui-probe-mod").get().asFile.absolutePath)
         programArguments.addAll("--width", "960", "--height", "540", "--username", "KernelProbe")
     }
     runConfigs.create("guiPreview") {
         client()
         generateRunConfig = false
         runDirectory = layout.buildDirectory.dir("gui-smoke-game")
-        jvmArguments.add("-Dfabric.addMods=" + layout.buildDirectory.dir("gui-probe-mod").get().asFile.absolutePath)
         jvmArguments.add("-Dkernel.guiProbe.preview=true")
         programArguments.addAll("--width", "1280", "--height", "720", "--username", "KernelPreview")
     }
@@ -197,6 +195,7 @@ tasks {
         group = "verification"
         description = "Opens an isolated game, verifies renderer settings, captures three frames and exits."
         dependsOn(prepareGuiProbe)
+        classpath += files(layout.buildDirectory.dir("gui-probe-mod"))
         val completion = layout.buildDirectory.file("gui-smoke-game/probe-complete.json")
         doFirst {
             val marker = completion.get().asFile
@@ -210,5 +209,8 @@ tasks {
         }
         doLast { check(completion.get().asFile.isFile) { "Kernel GUI probe did not complete; inspect the game log." } }
     }
-    named<JavaExec>("runGuiPreview") { dependsOn(prepareGuiProbe) }
+    named<JavaExec>("runGuiPreview") {
+        dependsOn(prepareGuiProbe)
+        classpath += files(layout.buildDirectory.dir("gui-probe-mod"))
+    }
 }
