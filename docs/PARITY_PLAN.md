@@ -40,7 +40,7 @@ work breakdown, not an assertion that all upstream options have already been aud
 | Mesh storage | Vanilla storage | Region allocation, compact vertices with demonstrated precision, index storage, lifetime accounting and reclamation |
 | Draw submission | Vanilla graphics-device paths | Region batching, solid/cutout/translucent passes, capabilities and fallback paths for every target's graphics backend |
 | Visibility | Kernel scanline section-connectivity solver; vanilla traversal | Frustum/occlusion traversal, incremental invalidation, camera transitions, caves, boundary cases and visibility integration |
-| Translucency | Vanilla sorting | Correct camera-dependent sorting, intersecting surfaces, rebuild/resort triggers and visual reference tests |
+| Translucency | Kernel stable radix index sorting with vanilla centroids, resort triggers and index uploads | Geometry-aware sorting for intersecting surfaces, rebuild/resort policy, visual reference tests and pinned-release behavior coverage |
 | Entities and block entities | Allocation-reduced model emission | Visibility decisions, oversized bounds, off-screen render contracts, special effects and mod compatibility |
 | Particles and animated textures | Vanilla paths | Visibility-aware work scheduling without stale animations or altered particle simulation |
 | Configuration | No renderer settings UI | Persistent per-feature controls, reload behavior, diagnostics, translations and accessible controls |
@@ -50,6 +50,11 @@ work breakdown, not an assertion that all upstream options have already been aud
 The connectivity solver replaces one part of occlusion preparation. It does not replace the visibility
 graph traversal, chunk compiler, storage allocator or draw system. Allocation reductions alone do not
 close any of those broader parity requirements.
+
+The [quad sorter](TRANSLUCENT_SORTING.md) preserves vanilla's exact distance-key order while reducing sort
+cost and temporary allocations. It does not correct centroid-order artifacts for intersecting surfaces
+or replace the translucency scheduling and rendering pipeline. Differential tests and factory smoke tests
+are required on all nine targets; GPU render captures and full translucency parity remain outstanding.
 
 ## Game-logic acceptance
 

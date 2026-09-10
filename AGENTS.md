@@ -6,7 +6,7 @@ These instructions apply to the entire repository.
 
 Kernel is intended to become an all-in-one, client-side Fabric optimization mod. Its main target is perceptual smoothness: consistent frame delivery, stronger frame-time lows, and fewer visible micro-stutters. It also contains optional transient class-loading caches in its installed bootstrap; their end-to-end startup benefit remains unverified.
 
-Kernel now contains narrowly scoped allocation reductions in common renderer hot paths, but it is not a complete renderer replacement and does not yet have reproducible end-to-end performance evidence. Do not claim Sodium parity or broad FPS/frame-time gains until benchmarks support those claims.
+Kernel now contains original optimizations for vertex allocation, section connectivity and quad sorting, but it is not a complete renderer replacement and does not yet have reproducible end-to-end performance evidence. Do not claim Sodium parity or broad FPS/frame-time gains until benchmarks support those claims.
 
 ## Architecture
 
@@ -90,6 +90,10 @@ Implemented:
 - Driver-neutral upload integration that executes Minecraft's existing `VertexBuffer`/graphics-device tasks without raw OpenGL or vendor-extension paths. The native staged uber-buffer pipeline remains unchanged on 26.x.
 - Original scanline section-face connectivity on every supported target, reusing bounded per-thread traversal storage and preserving vanilla's sparse shortcut, visibility pairs and destructive visited-bit behavior. Minecraft's existing occlusion traversal still consumes the result.
 - Differential visibility tests against each target's mapped vanilla classes for random sections, walls, tunnels, enclosed cavities, disconnected boundary cells, repeated resolution and concurrent builders; isolated visibility and startup-cache benchmark tasks.
+- Stable descending float-key radix sorting for vanilla's distance-based quad sorting on all nine targets, using vanilla's sorter below 512 quads and a radix path with an already-ordered shortcut for larger batches. Float comparisons, canonical NaN ties, signed zeros, callback order, input object lifetime and returned-array ownership retain vanilla behavior.
+- Reentrant per-thread sorting scratch with at most 16,384 retained key/index entries (128 KiB array payload plus 4 KiB histograms); larger meshes use unretained temporary scratch. Exceptions release the pool, and concurrent workers do not share mutable sorting state.
+- An injection at the distance-sort factory's return that retains the original sorter for subclasses of `CompactVectorArray`. Independently supplied `VertexSorting` implementations remain untouched. The adapter uses `Vector3f[]` through 1.21.8 and `CompactVectorArray` from 1.21.9 onward; centroid generation, camera resort scheduling, index writing and GPU upload behavior remain vanilla.
+- Differential sorting tests against the actual mapped vanilla implementation, real Fabric/Mixin sorting-factory smoke tests on every target without invoking Minecraft's main method, and an isolated `vertexSortingBenchmark` task. Sorting architecture and measurement are documented in `docs/TRANSLUCENT_SORTING.md`.
 - Unit coverage for scalar 3D and 2D vertex transforms and the legacy packed-color behavior used by the optimized paths.
 - Unit coverage for reusable render scratch values, pool reentrancy and thread isolation, exact lighting-array updates, bit-for-bit legacy fluid-height parity, rotation semantics, normal-matrix extraction, block-face cache identity and eviction behavior, and chunk-upload budget/lifecycle semantics.
 - Fabric metadata that marks Sodium as incompatible, identifies `literal.uu` as the author, and includes the approved Kernel lightning icon.

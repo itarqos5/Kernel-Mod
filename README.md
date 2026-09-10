@@ -2,7 +2,7 @@
 
 Kernel is an experimental, client-side Fabric optimization mod intended to improve how smooth Minecraft feels, not merely increase the average FPS counter.
 
-This repository is in an early implementation stage. It contains original allocation-reduction work in common vertex paths, not a complete Sodium-equivalent renderer.
+This repository is in an early implementation stage. It contains original optimizations for vertex allocation, section connectivity and quad sorting. A complete Sodium-equivalent renderer remains a future milestone.
 
 ## Project layout
 
@@ -80,6 +80,9 @@ Implemented:
 - Driver-neutral chunk uploads: Kernel schedules Minecraft's existing `VertexBuffer`/graphics-device tasks without issuing raw OpenGL calls or selecting vendor extensions. The 26.x staged uber-buffer pipeline remains native and unchanged.
 - Original scanline section-face connectivity on every supported target, replacing per-cell flood-fill queues with reusable per-thread storage while preserving vanilla visibility results and visited-bit semantics. Minecraft's occlusion traversal remains in use.
 - Differential visibility tests against each target's actual mapped vanilla implementation, including randomized sections, walls, tunnels, enclosed cavities, repeated calls and concurrent chunk builders; standalone visibility and startup-cache microbenchmarks.
+- Stable radix sorting of translucent quad indices across every supported target, preserving vanilla distance evaluation, equal-key order, NaNs and signed zeros. Batches below 512 quads retain vanilla's sorter; larger batches use the radix path with an already-ordered shortcut. Temporary key/index arrays are reused with a 16,384-quad retention cap per thread, and larger inputs use temporary storage.
+- Compatibility with custom distance functions, nested sorts, concurrent workers and independent returned arrays. Custom `VertexSorting` implementations remain in control; subclasses of the newer compact input format use the original sorter.
+- Differential sorting tests against each target's actual vanilla implementation, real Fabric/Mixin factory smoke tests without launching the game, and an isolated sorting benchmark. Centroid generation, camera resort triggers, index uploads and blending remain vanilla.
 - The approved Kernel lightning icon and `literal.uu` author metadata.
 - A hard Fabric incompatibility with Sodium because both mods take ownership of the same renderer hot path.
 
@@ -102,7 +105,7 @@ The approved black-and-white lightning icon is included in the Fabric mod metada
 
 ## Direction
 
-Kernel is being developed as an all-in-one Fabric optimization mod. Its initial renderer work optimizes section-face connectivity, time-slices legacy chunk GPU uploads and reduces allocations in Minecraft's pose-stack, block-model tessellation, standalone model random selection, fluid-height calculation, baked-quad upload, immediate vertex-transform, entity/model-part rendering, and block-face visibility routines. These are only a few hot paths; Kernel does not yet match Sodium's renderer breadth or demonstrated performance. Compatibility, measurable frame-time improvements, and honest benchmarking take priority over feature claims. Kernel contains no Sodium or other third-party mod code, and Fabric Loader will reject installations that also contain Sodium.
+Kernel is being developed as an all-in-one Fabric optimization mod. Its initial renderer work optimizes translucent quad sorting and section-face connectivity, time-slices legacy chunk GPU uploads and reduces allocations in Minecraft's pose-stack, block-model tessellation, standalone model random selection, fluid-height calculation, baked-quad upload, immediate vertex-transform, entity/model-part rendering, and block-face visibility routines. These are only a few hot paths; Kernel does not yet match Sodium's renderer breadth or demonstrated performance. Compatibility, measurable frame-time improvements, and honest benchmarking take priority over feature claims. Kernel contains no Sodium or other third-party mod code, and Fabric Loader will reject installations that also contain Sodium. See [quad sorting behavior and measurement](docs/TRANSLUCENT_SORTING.md) for its scope and validation.
 
 On a recognized Fabric profile, the mod bundles and installs the Knot Client, changes that profile's launcher `mainClass`, adds its profile-local Java agent argument, and leaves a `.kernel-backup` copy of the original JSON. On the following launch, the agent enables its audited startup-cache hooks and the Knot Client delegates to Fabric's original Knot entry point. Unsupported launchers are left untouched and Minecraft continues normally. No game or loader JAR is patched on disk, and no third-party libraries are bundled into the Knot Client; its optional ASM dependency is supplied by Fabric's launcher classpath.
 
