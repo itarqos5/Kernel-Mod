@@ -86,7 +86,9 @@ Implemented:
 - Differential sorting tests against each target's actual vanilla implementation, real Fabric/Mixin factory smoke tests without launching the game, and an isolated sorting benchmark. Centroid generation, camera resort triggers, index uploads and blending remain vanilla.
 - The approved Kernel lightning icon and `literal.uu` author metadata.
 - A hard Fabric incompatibility with Sodium because both mods take ownership of the same renderer hot path.
-- Persistent per-feature renderer controls under **Options → Video Settings → Kernel optimizations…**, with draft Save/Cancel behavior, restart status, version-aware options, native keyboard/narration widgets and complete Mixin-group disabling. See [settings and recovery](docs/RENDERER_SETTINGS.md).
+- A lightning-icon button left of Options in title/pause menus opens Kernel video settings, also available through the native video settings list. Four translucent tabs use white highlights, native video-option callbacks, Apply/Done/Cancel drafts and restart-only optimization switches. English fallbacks and the icon work without Fabric API. See [settings and recovery](docs/RENDERER_SETTINGS.md).
+
+- One-time conservative video recommendations from logical CPU count, JVM heap capacity and active GPU class, with an options backup and persistent marker that preserves subsequent manual choices. No settings window is opened at launch; Recommended also stages those values on demand.
 
 Not implemented:
 
@@ -101,7 +103,7 @@ Not implemented:
 - Reproducible end-to-end launch-time improvements; isolated repeated-operation microbenchmarks do not establish total startup gains.
 - Physical AMD, Intel, NVIDIA, Apple, and software-driver compatibility/performance testing; the current upload scheduler is vendor-neutral by construction but has not been validated on that hardware matrix.
 - Broader memory, server chunk-scheduling, world-generation, or frame-pacing optimizations.
-- Mod Menu integration, real-screen settings layout/narration validation and broader renderer settings beyond the implemented optimization switches.
+- Mod Menu integration, speech-engine/controller validation and complete renderer-option parity.
 
 The approved black-and-white lightning icon has a transparent background and is included in the Fabric mod metadata. Its original bolt shape is preserved.
 

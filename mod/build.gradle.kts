@@ -32,6 +32,22 @@ loom {
         generateRunConfig = true
         runDirectory = rootProject.file("run/${sc.current.version}")
     }
+
+    runConfigs.create("guiSmoke") {
+        client()
+        generateRunConfig = false
+        runDirectory = layout.buildDirectory.dir("gui-smoke-game")
+        jvmArguments.add("-Dfabric.addMods=" + layout.buildDirectory.dir("gui-probe-mod").get().asFile.absolutePath)
+        programArguments.addAll("--width", "960", "--height", "540", "--username", "KernelProbe")
+    }
+    runConfigs.create("guiPreview") {
+        client()
+        generateRunConfig = false
+        runDirectory = layout.buildDirectory.dir("gui-smoke-game")
+        jvmArguments.add("-Dfabric.addMods=" + layout.buildDirectory.dir("gui-probe-mod").get().asFile.absolutePath)
+        jvmArguments.add("-Dkernel.guiProbe.preview=true")
+        programArguments.addAll("--width", "1280", "--height", "720", "--username", "KernelPreview")
+    }
 }
 
 java {
@@ -168,4 +184,31 @@ tasks {
     }
 
     check { dependsOn("rendererSettingsSmoke") }
+
+    val prepareGuiProbe = register<Sync>("prepareGuiProbe") {
+        group = "verification"
+        dependsOn(testClasses)
+        from(sourceSets.test.get().output.classesDirs) { include("dev/kernel/fabric/verification/**") }
+        from(rootProject.file("mod/src/test/resources/gui-probe"))
+        into(layout.buildDirectory.dir("gui-probe-mod"))
+    }
+
+    named<JavaExec>("runGuiSmoke") {
+        group = "verification"
+        description = "Opens an isolated game, verifies renderer settings, captures three frames and exits."
+        dependsOn(prepareGuiProbe)
+        val completion = layout.buildDirectory.file("gui-smoke-game/probe-complete.json")
+        doFirst {
+            val marker = completion.get().asFile
+            check(!marker.exists() || marker.delete()) { "Cannot remove previous GUI probe completion marker." }
+            val settings = marker.parentFile.resolve("config/kernel-renderer.properties")
+            check(!settings.exists() || settings.delete()) { "Cannot reset isolated GUI probe settings." }
+            val options = marker.parentFile.resolve("options.txt")
+            options.parentFile.mkdirs()
+            val lines = if (options.exists()) options.readLines().filterNot { it.startsWith("onboardAccessibility:") } else emptyList()
+            options.writeText((lines + "onboardAccessibility:false").joinToString("\n", postfix = "\n"))
+        }
+        doLast { check(completion.get().asFile.isFile) { "Kernel GUI probe did not complete; inspect the game log." } }
+    }
+    named<JavaExec>("runGuiPreview") { dependsOn(prepareGuiProbe) }
 }

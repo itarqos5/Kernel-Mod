@@ -1,6 +1,7 @@
 package dev.kernel.fabric.mixin.config;
 
 import dev.kernel.fabric.config.KernelSettingsScreen;
+import dev.kernel.fabric.config.KernelTranslations;
 import net.minecraft.client.Options;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -18,7 +19,7 @@ public abstract class VideoSettingsScreenMixin extends OptionsSubScreen {
 
     @Inject(method = "addOptions", at = @At("TAIL"))
     private void kernel$addSettings(CallbackInfo callback) {
-        list.addSmall(Button.builder(Component.translatable("kernel.settings.open"), button -> {
+        list.addSmall(Button.builder(KernelTranslations.text("kernel.settings.open"), button -> {
             //? if >=26.2 {
             minecraft.gui.setScreen(new KernelSettingsScreen(this));
             //? } else {

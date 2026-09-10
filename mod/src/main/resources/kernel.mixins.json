@@ -5,6 +5,7 @@
   "plugin": "dev.kernel.fabric.config.KernelMixinPlugin",
   "compatibilityLevel": "JAVA_21",
   "client": [
+    "config.MenuSettingsButtonMixin",
     "config.VideoSettingsScreenMixin",
     "render.BlockMixin",
     "render.ChunkTaskMixin",

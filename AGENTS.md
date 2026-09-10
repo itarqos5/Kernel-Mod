@@ -101,8 +101,10 @@ Implemented:
 - Unit coverage for reusable render scratch values, pool reentrancy and thread isolation, exact lighting-array updates, bit-for-bit legacy fluid-height parity, rotation semantics, normal-matrix extraction, block-face cache identity and eviction behavior, and chunk-upload budget/lifecycle semantics.
 - Fabric metadata that marks Sodium as incompatible, identifies `literal.uu` as the author, and includes the approved Kernel lightning icon.
 - Immutable launch-time renderer configuration in `config/kernel-renderer.properties`, with ten per-feature controls, complete dependent-Mixin group activation, version-aware availability, preserved unknown keys, atomic save where supported and fail-open disabling on malformed/unreadable settings.
-- Native renderer settings screen reached through the video settings list, with draft Save/Cancel/Defaults behavior, restart/current-launch status, tooltips, translation keys, keyboard focus and narration widgets. Settings do not mutate applied Mixins during a running game. The bootstrap cache control remains separate.
+- Kernel video settings opened by a lightning-icon button left of Options in title/pause menus or through the video settings list. Translucent panels, white overlays, four tabs, native video controls, draft Apply/Done/Cancel behavior, restart-only optimization switches, translation fallbacks and dynamic icon registration work without Fabric API. The settings screen never opens automatically. See `docs/RENDERER_SETTINGS.md`.
 - Configuration persistence/group tests and real Fabric/Mixin disabled-settings and screen-linkage smoke tests on every supported target. Real graphics, speech-engine and third-party settings-screen compatibility validation remains outstanding; see `docs/RENDERER_SETTINGS.md`.
+
+- One-time conservative video recommendations from logical CPU count, JVM heap capacity and active GPU class, with an options backup and persistent marker that preserves subsequent manual choices. No settings window is opened at launch; Recommended also stages those values on demand.
 
 Not implemented:
 
@@ -119,14 +121,14 @@ Not implemented:
 - Persistent startup/transformed-class caches or reproducible end-to-end launch-time improvements. Cache-hit counts and isolated warmed-operation benchmarks are not total-startup evidence.
 - Physical AMD, Intel, NVIDIA, Apple, and software-driver compatibility/performance validation. The current scheduler is vendor-neutral by construction, not a hardware-tested compatibility claim.
 - Frame-time governor, integrated-server coordination, input changes, server chunk scheduling, broader memory optimization, or world-generation optimization.
-- Mod Menu integration, real-screen settings layout/narration validation and broader renderer settings beyond the implemented optimization switches.
+- Mod Menu integration, speech-engine/controller validation and complete renderer-option parity.
 - Sodium, FerriteCore, ModernFix, Lithium, C2ME, Entity Culling, or any other third-party source or bundled code.
 
 The user approved the supplied black-and-white lightning-bolt icon. The mod includes a cleaned, high-resolution rendition with a transparent background at `assets/kernel/icon.png`; the original bolt shape is preserved.
 
 ## Requested implementation sequence
 
-The user requested full Sodium-style renderer feature parity, then full Lithium-style game-logic feature parity, then the custom pre-Fabric Kernel loading screen whose native window is adopted by Minecraft. The user subsequently authorized launch-time optimizations during renderer work. Keep all nine game targets and both Java generations. Both parity milestones and the loading window remain incomplete; do not count a hot-path optimization as completing a broader renderer subsystem. Pinned comparison versions and acceptance work are tracked in `docs/PARITY_PLAN.md`; cache architecture, recovery and measurement are in `docs/STARTUP_CACHES.md`.
+The user requested full Sodium-style renderer feature parity, then full Lithium-style game-logic feature parity, then the custom pre-Fabric Kernel loading screen whose native window is adopted by Minecraft. The user subsequently authorized launch-time optimizations during renderer work. Keep all nine game targets and both Java generations. The user also requested the themed video settings interface and one-time hardware recommendations, explicitly keeping the loading window while requiring settings to stay closed at startup. Both parity milestones and the loading window remain incomplete; do not count a hot-path optimization as completing a broader renderer subsystem. Pinned comparison versions and acceptance work are tracked in `docs/PARITY_PLAN.md`; cache architecture, recovery and measurement are in `docs/STARTUP_CACHES.md`.
 
 ## Ideas under consideration, not decisions
 

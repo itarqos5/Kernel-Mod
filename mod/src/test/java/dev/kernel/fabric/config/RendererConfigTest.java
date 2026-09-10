@@ -16,6 +16,12 @@ import static org.junit.jupiter.api.Assertions.*;
 class RendererConfigTest {
     @TempDir Path directory;
 
+    @Test void rendererLabelsHaveEnglishFallbacksWithoutAResourceLoaderMod() {
+        assertEquals("Kernel renderer", KernelTranslations.text("kernel.settings.title").getString());
+        assertEquals("Vertex transforms: enabled", KernelTranslations.text("kernel.settings.value",
+            KernelTranslations.text("kernel.option.vertex"), "enabled").getString());
+    }
+
     @Test void missingFileUsesDefaultsWithoutWritingAndEditsDoNotMutateTheActiveSnapshot() {
         Path path = directory.resolve("renderer.properties");
         RendererConfig initial = RendererConfig.load(path).config();

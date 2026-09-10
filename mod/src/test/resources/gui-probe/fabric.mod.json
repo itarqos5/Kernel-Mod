@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "kernel_gui_probe",
+  "version": "1.0.0",
+  "name": "Kernel development GUI probe",
+  "environment": "client",
+  "mixins": ["kernel-gui-probe.mixins.json"],
+  "depends": {"kernel": "*"}
+}

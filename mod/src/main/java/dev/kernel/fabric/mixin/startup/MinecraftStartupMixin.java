@@ -12,5 +12,6 @@ public abstract class MinecraftStartupMixin {
     @Inject(method = "onGameLoadFinished", at = @At("RETURN"), require = 0)
     private void kernel$releaseStartupCaches(CallbackInfo ci) {
         StartupCacheControl.finish();
+        dev.kernel.fabric.config.KernelHardwareSettings.applyOnce((Minecraft) (Object) this);
     }
 }
