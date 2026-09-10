@@ -7,6 +7,11 @@
   "client": [
     "config.MenuSettingsButtonMixin",
     "config.VideoSettingsScreenMixin",
+    "frame.FrameLimitMixin",
+    "frame.FramePresentationMixin",
+    "frame.FrameTimingMixin",
+    "frame.FrameHudMixin",
+    "frame.FrameDebugMixin",
     "render.BlockMixin",
     "render.ChunkTaskMixin",
     "render.ChunkRebuildTaskMixin",

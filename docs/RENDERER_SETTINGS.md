@@ -5,7 +5,7 @@ The existing **Options → Video Settings → Kernel video settings** entry is a
 screen stays closed during startup. It uses the approved Kernel icon, translucent dark panels and
 white selection/hover overlays, with Video, Graphics, Optimizations and Other tabs.
 
-Video controls include fullscreen display modes (resolution and refresh rate together), fullscreen,
+Video controls include [Frame Sync](FRAME_SYNC.md), fullscreen display modes (resolution and refresh rate together), fullscreen,
 Vsync, framerate, render/simulation distance and entity distance. Exclusive fullscreen uses Minecraft's
 native setting on 26.2. Graphics controls include lighting, clouds, particles, shadows, mipmaps and
 brightness, plus the native fast/fancy quality setting before 1.21.11 or detailed leaves on newer

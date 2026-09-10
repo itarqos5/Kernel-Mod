@@ -55,6 +55,13 @@ loom {
         jvmArguments.add("-Dkernel.guiProbe.bootstrap=true")
         programArguments.addAll("--width", "960", "--height", "540", "--username", "KernelBootstrap")
     }
+    runConfigs.create("frameSyncSmoke") {
+        client()
+        generateRunConfig = false
+        runDirectory = layout.buildDirectory.dir("frame-sync-smoke-game")
+        jvmArguments.add("-Dkernel.guiProbe.frameSync=true")
+        programArguments.addAll("--width", "960", "--height", "540", "--username", "KernelFrameProbe")
+    }
 }
 
 java {
@@ -236,5 +243,18 @@ tasks {
             check(!settings.exists() || settings.delete())
         }
         doLast { check(game.get().file("probe-complete.json").asFile.isFile) { "Bootstrap probe did not complete." } }
+    }
+    named<JavaExec>("runFrameSyncSmoke") {
+        dependsOn(prepareGuiProbe)
+        classpath += files(layout.buildDirectory.dir("gui-probe-mod"))
+        val game = layout.buildDirectory.dir("frame-sync-smoke-game")
+        doFirst {
+            val directory = game.get().asFile
+            directory.mkdirs()
+            directory.resolve("options.txt").writeText("onboardAccessibility:false\nguiScale:2\nrenderDistance:6\nsimulationDistance:5\n")
+            val marker = directory.resolve("frame-sync-complete.json")
+            check(!marker.exists() || marker.delete())
+        }
+        doLast { check(game.get().file("frame-sync-complete.json").asFile.isFile) { "Frame Sync probe did not complete." } }
     }
 }

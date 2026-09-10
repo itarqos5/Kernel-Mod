@@ -37,6 +37,7 @@ public final class GuiProbe {
     }
 
     public static void frame(Minecraft minecraft) {
+        if (Boolean.getBoolean("kernel.guiProbe.frameSync")) { FrameSyncProbe.frame(minecraft, readyMillis); return; }
         if (stage == 4) return;
         try { advance(minecraft); }
         catch (RuntimeException | Error failure) { stage = 4; throw failure; }
@@ -157,7 +158,7 @@ public final class GuiProbe {
         capture(minecraft, file, message -> screenshotFinished(minecraft, file));
     }
 
-    private static void capture(Minecraft minecraft, String file, java.util.function.Consumer<Component> complete) {
+    static void capture(Minecraft minecraft, String file, java.util.function.Consumer<Component> complete) {
         //? if >=26.2 {
         var target = minecraft.gameRenderer.mainRenderTarget();
         //? } else {
@@ -177,13 +178,13 @@ public final class GuiProbe {
         captured = true;
     }
 
-    private static Button find(Screen screen, String key) {
+    static Button find(Screen screen, String key) {
         String label = (key.startsWith("kernel.") ? KernelTranslations.text(key) : Component.translatable(key)).getString();
         return screen.children().stream().filter(Button.class::isInstance).map(Button.class::cast)
             .filter(button -> button.getMessage().getString().equals(label)).findFirst().orElseThrow(() -> new AssertionError("Missing " + label + " in " + screen.getClass().getName() + ": " + screen.children().stream().filter(Button.class::isInstance).map(Button.class::cast).map(b -> b.getMessage().getString()).toList()));
     }
 
-    private static void click(Button button) {
+    static void click(Button button) {
         if (!button.active) throw new AssertionError("Inactive probe control: " + button.getMessage().getString());
         //? if >=1.21.9 {
         button.onPress(new KeyEvent(257, 0, 0));
@@ -192,7 +193,7 @@ public final class GuiProbe {
         *///? }
     }
 
-    private static Screen screen(Minecraft minecraft) {
+    static Screen screen(Minecraft minecraft) {
         //? if >=26.2 {
         return minecraft.gui.screen();
         //? } else {

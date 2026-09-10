@@ -109,6 +109,8 @@ Implemented:
 
 - One-time conservative video recommendations from logical CPU count, JVM heap capacity and active GPU class, with an options backup and persistent marker that preserves subsequent manual choices. No settings window is opened at launch; Recommended also stages those values on demand.
 
+- Frame Sync is enabled by default with a persisted GUI toggle, native synchronized presentation, monitor-refresh cap, preserved native FPS/VSync choices and native idle throttles. Actual FPS and a labeled work-time estimate appear in the HUD or F3, with nonblocking GPU timestamps and a CPU-only fallback. See `docs/FRAME_SYNC.md`.
+
 Not implemented:
 
 - Automatic game exit or relaunch messaging.
@@ -131,7 +133,7 @@ The user approved the supplied black-and-white lightning-bolt icon. The mod incl
 
 ## Requested implementation sequence
 
-The user requested full Sodium-style renderer feature parity, then full Lithium-style game-logic feature parity, then the custom pre-Fabric Kernel loading screen whose native window is adopted by Minecraft. The user subsequently authorized launch-time optimizations during renderer work. Keep all nine game targets and both Java generations. The user also requested the themed video settings interface and one-time hardware recommendations, explicitly keeping the loading window while requiring settings to stay closed at startup. The subsequent request to fix pre-Fabric startup moved the loading window forward; same-window OpenGL startup is implemented, while both parity milestones remain incomplete. The user also requested Frame Sync with actual/estimated FPS counters, original shader support with Modrinth/drag-drop installation and Iris incompatibility, and further singleplayer world-loading/generation improvements. Those additional features remain outstanding. Do not count a hot-path optimization as completing a broader renderer subsystem. Pinned comparison versions and acceptance work are tracked in `docs/PARITY_PLAN.md`; cache architecture, recovery and measurement are in `docs/STARTUP_CACHES.md`.
+The user requested full Sodium-style renderer feature parity, then full Lithium-style game-logic feature parity, then the custom pre-Fabric Kernel loading screen whose native window is adopted by Minecraft. The user subsequently authorized launch-time optimizations during renderer work. Keep all nine game targets and both Java generations. The user also requested the themed video settings interface and one-time hardware recommendations, explicitly keeping the loading window while requiring settings to stay closed at startup. The subsequent request to fix pre-Fabric startup moved the loading window forward; same-window OpenGL startup is implemented, while both parity milestones remain incomplete. The user also requested Frame Sync with actual/estimated FPS counters, original shader support with Modrinth/drag-drop installation and Iris incompatibility, and further singleplayer world-loading/generation improvements. Frame Sync is implemented; shader support and the additional world-generation work remain outstanding. Do not count a hot-path optimization as completing a broader renderer subsystem. Pinned comparison versions and acceptance work are tracked in `docs/PARITY_PLAN.md`; cache architecture, recovery and measurement are in `docs/STARTUP_CACHES.md`.
 
 ## Ideas under consideration, not decisions
 

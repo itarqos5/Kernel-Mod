@@ -111,11 +111,11 @@ from completing Minecraft initialization instantly.
 
 ## Additional requested work
 
-- Frame Sync: monitor-refresh cap and synchronized presentation, with actual paced FPS plus a clearly
-  labeled uncapped estimate. The HUD must move its information into F3 rather than overlap debug text.
+- [Frame Sync](FRAME_SYNC.md) is implemented: monitor-refresh cap and synchronized presentation,
+  with actual paced FPS and a clearly labeled uncapped estimate in the HUD or F3.
 - An original shader-pack renderer with Modrinth discovery/installation and drag/drop import, plus an
   explicit Iris incompatibility. A download manager alone does not satisfy working shader support.
 - Further deterministic singleplayer world-generation/world-loading improvements and reduced chunk
   loading stutters. Preserve vanilla world output, random-number consumption and mod lifecycle behavior.
 
-These remain incomplete. No upstream shader engine, optimization mod or reference binary is bundled.
+Shader support and further world-generation work remain incomplete. No upstream shader engine, optimization mod or reference binary is bundled.

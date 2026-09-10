@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.IntStream;
+import dev.kernel.fabric.frame.FrameSync;
 //? if <1.21.11 {
 /*import net.minecraft.client.GraphicsStatus;
 *///? }
@@ -33,6 +34,9 @@ public final class KernelSettingsScreen extends Screen {
     private int page;
     private int pages;
     private boolean saveFailed;
+    private boolean pendingFrameSync = FrameSync.enabled();
+    private VideoSetting<Integer> frameLimit;
+    private VideoSetting<Boolean> vsync;
     private VideoSetting<Integer> distance;
     private VideoSetting<Integer> simulation;
     private VideoSetting<CloudStatus> clouds;
@@ -59,8 +63,8 @@ public final class KernelSettingsScreen extends Screen {
         //? if >=26.2 {
         bool("video", "exclusive", options.exclusiveFullscreen());
         //? }
-        integer("video", "fps", options.framerateLimit(), 10, 260, 10, value -> value == 260 ? tr("unlimited") : Component.literal(value + " fps"));
-        bool("video", "vsync", options.enableVsync());
+        frameLimit = integer("video", "fps", options.framerateLimit(), 10, 260, 10, value -> value == 260 ? tr("unlimited") : Component.literal(value + " fps"));
+        vsync = bool("video", "vsync", options.enableVsync());
         distance = integer("video", "distance", options.renderDistance(), 2, 32, 1, value -> tr("chunks", value));
         simulation = integer("video", "simulation", options.simulationDistance(), 5, 32, 1, value -> tr("chunks", value));
         decimal("video", "entity_distance", options.entityDistanceScaling(), 0.5, 5.0, 0.25);
@@ -89,8 +93,8 @@ public final class KernelSettingsScreen extends Screen {
         var setting = VideoSetting.option(category, "kernel.video." + key, source, choices, slider, format);
         settings.add(setting); return setting;
     }
-    private void bool(String category, String key, OptionInstance<Boolean> source) {
-        add(category, key, source, List.of(false, true), false, value -> value ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF);
+    private VideoSetting<Boolean> bool(String category, String key, OptionInstance<Boolean> source) {
+        return add(category, key, source, List.of(false, true), false, value -> value ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF);
     }
     private VideoSetting<Integer> integer(String category, String key, OptionInstance<Integer> source, int min, int max, int step, Function<Integer, Component> display) {
         return add(category, key, source, IntStream.iterate(min, value -> value <= max, value -> value + step).boxed().toList(), true, display);
@@ -111,7 +115,7 @@ public final class KernelSettingsScreen extends Screen {
         int top = 50, rowHeight = 26;
         int rows = Math.max(1, (height - top - 72) / rowHeight);
         List<VideoSetting<?>> visibleSettings = settings.stream().filter(setting -> setting.tab.equals(tab)).toList();
-        int count = tab.equals("optimizations") ? features.size() : visibleSettings.size();
+        int count = tab.equals("optimizations") ? features.size() : visibleSettings.size() + (tab.equals("video") ? 1 : 0);
         pages = Math.max(1, (count + rows - 1) / rows); page = Math.min(page, pages - 1);
         int first = page * rows;
         addRenderableOnly((graphics, mouseX, mouseY, delta) -> {
@@ -148,7 +152,8 @@ public final class KernelSettingsScreen extends Screen {
         for (int row = 0; row < rows && first + row < count; row++) {
             int y = top + row * rowHeight;
             if (tab.equals("optimizations")) addFeature(features.get(first + row), contentX, y, contentWidth);
-            else addSetting(visibleSettings.get(first + row), contentX, y, contentWidth);
+            else if (tab.equals("video") && first + row == 0) addFrameSync(contentX, y, contentWidth);
+            else addSetting(visibleSettings.get(first + row - (tab.equals("video") ? 1 : 0)), contentX, y, contentWidth);
         }
         if (pages > 1) {
             var previous = addRenderableWidget(new KernelButton(contentX, height - 69, 36, 18, KernelTranslations.text("kernel.settings.previous"), button -> { page--; rebuildWidgets(); }).visual(Component.literal("<")));
@@ -174,20 +179,33 @@ public final class KernelSettingsScreen extends Screen {
         int controls = Math.max(100, width * 45 / 100);
         row(setting.label, x, y, width, controls);
         int controlX = x + width - controls;
+        boolean managed = pendingFrameSync && (setting == frameLimit || setting == vsync);
+        Tooltip tooltip = Tooltip.create(managed ? KernelTranslations.text("kernel.frame.managed") : setting.label);
         if (setting.slider && setting.choices.size() > 1) {
-            addRenderableWidget(new KernelSlider(controlX, y + 1, controls, setting.position(), setting::valueText, setting::narration, value -> {
+            var slider = addRenderableWidget(new KernelSlider(controlX, y + 1, controls, setting.position(), setting::valueText, setting::narration, value -> {
                 setting.position(value); saveFailed = false;
-            })).setTooltip(Tooltip.create(setting.label));
+            }));
+            slider.setTooltip(tooltip); slider.active = !managed;
         } else {
             var previous = addRenderableWidget(new KernelButton(controlX, y + 1, 18, 22, setting.narration(), button -> { setting.cycle(-1); button.setMessage(setting.narration()); saveFailed = false; }).visual(Component.literal("<")));
-            previous.setTooltip(Tooltip.create(setting.label)); previous.active = setting.choices.size() > 1;
+            previous.setTooltip(tooltip); previous.active = !managed && setting.choices.size() > 1;
             addRenderableOnly((graphics, mouseX, mouseY, delta) -> {
                 String value = font.plainSubstrByWidth(setting.valueText().getString(), controls - 40);
                 KernelUi.text(graphics, font, Component.literal(value), controlX + (controls - font.width(value)) / 2, y + 8, 0xFFF3F4F6);
             });
             var next = addRenderableWidget(new KernelButton(x + width - 18, y + 1, 18, 22, setting.narration(), button -> { setting.cycle(1); button.setMessage(setting.narration()); saveFailed = false; }).visual(Component.literal(">")));
-            next.setTooltip(Tooltip.create(setting.label)); next.active = setting.choices.size() > 1;
+            next.setTooltip(tooltip); next.active = !managed && setting.choices.size() > 1;
         }
+    }
+    private void addFrameSync(int x, int y, int width) {
+        Component label = KernelTranslations.text("kernel.frame.setting");
+        row(label, x, y, width, 68);
+        Component state = pendingFrameSync ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF;
+        var button = addRenderableWidget(new KernelButton(x + width - 64, y + 1, 64, 22,
+            Component.empty().append(label).append(": ").append(state), pressed -> {
+                pendingFrameSync = !pendingFrameSync; saveFailed = false; rebuildWidgets();
+            }, () -> pendingFrameSync, false).visual(state));
+        button.setTooltip(Tooltip.create(KernelTranslations.text("kernel.frame.description")));
     }
     private void addFeature(RendererFeature feature, int x, int y, int width) {
         Component label = KernelTranslations.text(feature.translationKey());
@@ -200,12 +218,13 @@ public final class KernelSettingsScreen extends Screen {
             .append(KernelTranslations.text("kernel.settings.current", KernelRendererSettings.enabled(feature) ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF))));
     }
     private Component featureLabel(RendererFeature feature) { return pending.enabled(feature) ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF; }
-    private boolean hasChanges() { return !pending.equals(KernelRendererSettings.saved()) || settings.stream().anyMatch(VideoSetting::changed); }
+    private boolean hasChanges() { return pendingFrameSync != FrameSync.enabled() || !pending.equals(KernelRendererSettings.saved()) || settings.stream().anyMatch(VideoSetting::changed); }
 
     private void apply(boolean close) {
         try {
             // Save restart-only settings first. If that fails, leave all live video settings untouched.
             KernelRendererSettings.save(pending);
+            FrameSync.save(pendingFrameSync);
             int mipmaps = minecraft.options.mipmapLevels().get();
             int scale = minecraft.options.guiScale().get();
             for (var setting : settings) setting.commit();

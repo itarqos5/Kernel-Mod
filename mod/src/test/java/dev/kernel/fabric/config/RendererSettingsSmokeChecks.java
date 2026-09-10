@@ -19,6 +19,16 @@ public final class RendererSettingsSmokeChecks {
         *///? }
         if (KernelChunkTask.class.isAssignableFrom(taskType)) throw new AssertionError("Disabled task adapter applied");
         ClassLoader loader = RendererSettingsSmokeChecks.class.getClassLoader();
+        for (String name : new String[]{"net.minecraft.client.Minecraft", "com.mojang.blaze3d.platform.FramerateLimitTracker",
+            "net.minecraft.client.gui.components.DebugScreenOverlay", "com.mojang.blaze3d.platform.Window"}) {
+            Class.forName(name, false, loader).getDeclaredMethods();
+        }
+        //? if >=26.2 {
+        Class.forName("net.minecraft.client.gui.Hud", false, loader).getDeclaredMethods();
+        Class.forName("com.mojang.blaze3d.systems.GpuSurface$PresentMode", false, loader).getDeclaredMethods();
+        //? } else {
+        /*Class.forName("net.minecraft.client.gui.Gui", false, loader).getDeclaredMethods();
+        *///? }
         Class.forName("net.minecraft.client.gui.screens.options.VideoSettingsScreen", false, loader).getDeclaredMethods();
         Class.forName("dev.kernel.fabric.config.KernelSettingsScreen", false, loader).getDeclaredConstructors();
         if (KernelRendererSettings.restartRequired(KernelRendererSettings.active())) throw new AssertionError("Unchanged settings need restart");
