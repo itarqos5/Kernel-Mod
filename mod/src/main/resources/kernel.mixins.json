@@ -5,6 +5,10 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "render.BlockMixin",
+    "render.ChunkTaskMixin",
+    "render.ChunkRebuildTaskMixin",
+    "render.ChunkResortTaskMixin",
+    "render.ChunkTaskQueueMixin",
     "render.FluidHeightMixin",
     "render.ModelBlockRendererMixin",
     "render.ModelPartCubeMixin",

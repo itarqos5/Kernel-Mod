@@ -6,7 +6,7 @@ These instructions apply to the entire repository.
 
 Kernel is intended to become an all-in-one, client-side Fabric optimization mod. Its main target is perceptual smoothness: consistent frame delivery, stronger frame-time lows, and fewer visible micro-stutters. It also contains optional transient class-loading caches in its installed bootstrap; their end-to-end startup benefit remains unverified.
 
-Kernel now contains original optimizations for vertex allocation, section connectivity and quad sorting, but it is not a complete renderer replacement and does not yet have reproducible end-to-end performance evidence. Do not claim Sodium parity or broad FPS/frame-time gains until benchmarks support those claims.
+Kernel now contains original optimizations for vertex allocation, section connectivity, quad sorting and pending section-task selection, but it is not a complete renderer replacement and does not yet have reproducible end-to-end performance evidence. Do not claim Sodium parity or broad FPS/frame-time gains until benchmarks support those claims.
 
 ## Architecture
 
@@ -88,6 +88,9 @@ Implemented:
 - Reentrant per-thread fixed-seed model random sources on every supported 1.21.x target, removing the temporary random source created for each standalone model render while preserving nested-call isolation; 26.x already owns reusable renderer state.
 - FIFO, frame-budgeted chunk GPU-upload scheduling on every supported 1.21.x target, with a 2 ms/32-task normal-pass limit, guaranteed forward progress, complete shutdown draining, and unchanged deferred mesh cleanup on 1.21.6 and newer.
 - Driver-neutral upload integration that executes Minecraft's existing `VertexBuffer`/graphics-device tasks without raw OpenGL or vendor-extension paths. The native staged uber-buffer pipeline remains unchanged on 26.x.
+- Original spatial indexing for pending native section tasks on every target, with a median-partitioned 3D index for moving cameras, an indexed heap for repeated stationary queries, and direct scans for small indexes. Selection preserves native origin-block-center distances, FIFO ties and recompile quotas; custom subclasses retain live getter evaluation.
+- Prompt cancellation of pending native rebuild/resort jobs, native duplicate coalescing, registration-race handling, stale-handle isolation and complete insertion-ordered queue cancellation. Minecraft's workers, buffer pool, task execution, completion and mesh cleanup remain unchanged; live backlog size is not hard-capped.
+- Differential queue/index tests covering 3D distances against mapped Minecraft classes, extreme coordinates, camera/index transitions, custom tasks, concurrent cancellation, failed clear callbacks and large ordered backlogs. Real Fabric/Mixin task lifecycle smoke tests and the isolated `chunkTaskQueueBenchmark` task are documented in `docs/CHUNK_TASK_SCHEDULING.md`.
 - Original scanline section-face connectivity on every supported target, reusing bounded per-thread traversal storage and preserving vanilla's sparse shortcut, visibility pairs and destructive visited-bit behavior. Minecraft's existing occlusion traversal still consumes the result.
 - Differential visibility tests against each target's mapped vanilla classes for random sections, walls, tunnels, enclosed cavities, disconnected boundary cells, repeated resolution and concurrent builders; isolated visibility and startup-cache benchmark tasks.
 - Stable descending float-key radix sorting for vanilla's distance-based quad sorting on all nine targets, using vanilla's sorter below 512 quads and a radix path with an already-ordered shortcut for larger batches. Float comparisons, canonical NaN ties, signed zeros, callback order, input object lifetime and returned-array ownership retain vanilla behavior.
@@ -112,7 +115,7 @@ Not implemented:
 - Lithium-style game-logic optimizations or verified Lithium feature/performance parity.
 - Persistent startup/transformed-class caches or reproducible end-to-end launch-time improvements. Cache-hit counts and isolated warmed-operation benchmarks are not total-startup evidence.
 - Physical AMD, Intel, NVIDIA, Apple, and software-driver compatibility/performance validation. The current scheduler is vendor-neutral by construction, not a hardware-tested compatibility claim.
-- Frame-time governor, integrated-server coordination, input changes, chunk scheduling, memory optimization, or world-generation optimization.
+- Frame-time governor, integrated-server coordination, input changes, server chunk scheduling, broader memory optimization, or world-generation optimization.
 - Mod Menu integration and user-facing settings.
 - Sodium, FerriteCore, ModernFix, Lithium, C2ME, Entity Culling, or any other third-party source or bundled code.
 

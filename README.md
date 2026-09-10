@@ -2,7 +2,7 @@
 
 Kernel is an experimental, client-side Fabric optimization mod intended to improve how smooth Minecraft feels, not merely increase the average FPS counter.
 
-This repository is in an early implementation stage. It contains original optimizations for vertex allocation, section connectivity and quad sorting. A complete Sodium-equivalent renderer remains a future milestone.
+This repository is in an early implementation stage. It contains original optimizations for vertex allocation, section connectivity, quad sorting and pending section-task selection. A complete Sodium-equivalent renderer remains a future milestone.
 
 ## Project layout
 
@@ -78,6 +78,7 @@ Implemented:
 - Reentrant per-thread fixed-seed model random sources across the supported 1.21.x targets, eliminating a temporary random-source allocation per standalone model render; 26.x already keeps equivalent renderer-owned state.
 - A FIFO, frame-budgeted chunk GPU-upload scheduler on every supported 1.21.x target. Normal render passes execute at least one upload but stop after 2 ms or 32 tasks, while renderer shutdown still drains completely and 1.21.6+ deferred mesh cleanup retains vanilla behavior.
 - Driver-neutral chunk uploads: Kernel schedules Minecraft's existing `VertexBuffer`/graphics-device tasks without issuing raw OpenGL calls or selecting vendor extensions. The 26.x staged uber-buffer pipeline remains native and unchanged.
+- Spatially indexed pending section tasks on every target, with stationary-camera heap reuse, prompt native-task cancellation, preserved distance/recompile priorities, and a live-priority path for custom subclasses. Worker execution and mesh lifecycle remain native. See [task scheduling and validation](docs/CHUNK_TASK_SCHEDULING.md).
 - Original scanline section-face connectivity on every supported target, replacing per-cell flood-fill queues with reusable per-thread storage while preserving vanilla visibility results and visited-bit semantics. Minecraft's occlusion traversal remains in use.
 - Differential visibility tests against each target's actual mapped vanilla implementation, including randomized sections, walls, tunnels, enclosed cavities, repeated calls and concurrent chunk builders; standalone visibility and startup-cache microbenchmarks.
 - Stable radix sorting of translucent quad indices across every supported target, preserving vanilla distance evaluation, equal-key order, NaNs and signed zeros. Batches below 512 quads retain vanilla's sorter; larger batches use the radix path with an already-ordered shortcut. Temporary key/index arrays are reused with a 16,384-quad retention cap per thread, and larger inputs use temporary storage.
@@ -98,7 +99,7 @@ Not implemented:
 - Lithium-style game-logic optimizations or verified Lithium feature/performance parity.
 - Reproducible end-to-end launch-time improvements; isolated repeated-operation microbenchmarks do not establish total startup gains.
 - Physical AMD, Intel, NVIDIA, Apple, and software-driver compatibility/performance testing; the current upload scheduler is vendor-neutral by construction but has not been validated on that hardware matrix.
-- Memory, chunk-scheduling, world-generation, or frame-pacing optimizations.
+- Broader memory, server chunk-scheduling, world-generation, or frame-pacing optimizations.
 - Mod Menu integration or configuration UI.
 
 The approved black-and-white lightning icon is included in the Fabric mod metadata.

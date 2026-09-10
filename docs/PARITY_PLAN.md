@@ -36,7 +36,7 @@ work breakdown, not an assertion that all upstream options have already been aud
 | Capability | Current implementation | Remaining acceptance work |
 | --- | --- | --- |
 | Section mesh compilation | Vanilla compiler with Kernel hot-path optimizations | Own compiler, worker snapshots, block/fluid geometry, AO, lighting, tint, model hooks, resource-pack reloads |
-| Build and upload scheduling | FIFO upload budget on 1.21.x; native 26.x staging | Compile priorities, cancellation, obsolete results, bounded backlogs, renderer shutdown and reload lifecycle |
+| Build and upload scheduling | Indexed pending-task priorities and cancellation on all targets; FIFO upload budget on 1.21.x; native 26.x staging | Broader obsolete-result policy, bounded backlogs, renderer shutdown/reload gameplay validation and worker scheduling |
 | Mesh storage | Vanilla storage | Region allocation, compact vertices with demonstrated precision, index storage, lifetime accounting and reclamation |
 | Draw submission | Vanilla graphics-device paths | Region batching, solid/cutout/translucent passes, capabilities and fallback paths for every target's graphics backend |
 | Visibility | Kernel scanline section-connectivity solver; vanilla traversal | Frustum/occlusion traversal, incremental invalidation, camera transitions, caves, boundary cases and visibility integration |

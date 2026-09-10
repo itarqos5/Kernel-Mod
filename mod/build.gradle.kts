@@ -79,7 +79,7 @@ tasks {
         group = "build"
         description = "Builds and copies this Minecraft version's remapped mod JAR to the root build directory."
 
-        dependsOn(loomx.modJar, test, "vertexSortingSmoke", rootProject.tasks.named("prepareArtifacts"))
+        dependsOn(loomx.modJar, test, "vertexSortingSmoke", "chunkTaskQueueSmoke", rootProject.tasks.named("prepareArtifacts"))
         from(loomx.modJar.flatMap { it.archiveFile })
         into(rootProject.layout.buildDirectory.dir("libs"))
     }
@@ -120,4 +120,31 @@ tasks {
     }
 
     check { dependsOn("vertexSortingSmoke") }
+
+    register<JavaExec>("chunkTaskQueueSmoke") {
+        group = "verification"
+        description = "Checks native queued-task cancellation and selection through Fabric and Mixin."
+        dependsOn(testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath.filter { it.exists() }
+        mainClass = "dev.kernel.fabric.render.ChunkTaskQueueSmoke"
+        javaLauncher = kernelJavaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion) }
+        systemProperty("fabric.development", "true")
+        systemProperty("fabric.gameVersion", sc.current.version)
+        systemProperty("fabric.gameMappingNamespace", if (sc.current.parsed >= "26.1") "official" else "named")
+        workingDir(layout.buildDirectory.dir("queue-smoke-game").get().asFile)
+        args("--gameDir", workingDir.absolutePath)
+        doFirst { workingDir.mkdirs() }
+    }
+
+    check { dependsOn("chunkTaskQueueSmoke") }
+
+    register<JavaExec>("chunkTaskQueueBenchmark") {
+        group = "verification"
+        description = "Measures isolated queued-task workloads against the vanilla linear selection rules."
+        dependsOn(testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath
+        mainClass = "dev.kernel.fabric.render.ChunkTaskQueueBenchmark"
+        javaLauncher = kernelJavaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion) }
+        jvmArgs("-Xms512m", "-Xmx512m")
+    }
 }
