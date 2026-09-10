@@ -18,7 +18,7 @@ public final class KernelFabric implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        LOGGER.info("Kernel renderer optimizations active: scanline section visibility, frame-budgeted chunk uploads, and allocation-reduced pose, block-model, model-random, fluid, vertex, baked-quad, and block-face paths.");
+        LOGGER.info("Kernel renderer optimizations active: stable quad radix sorting, scanline section visibility, frame-budgeted chunk uploads, and allocation-reduced pose, block-model, model-random, fluid, vertex, baked-quad, and block-face paths.");
 
         try {
             KnotClientInstaller.InstallResult result = KnotClientInstaller.installForCurrentLaunch();
