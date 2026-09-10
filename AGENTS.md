@@ -122,7 +122,7 @@ Not implemented:
 - Mod Menu integration, real-screen settings layout/narration validation and broader renderer settings beyond the implemented optimization switches.
 - Sodium, FerriteCore, ModernFix, Lithium, C2ME, Entity Culling, or any other third-party source or bundled code.
 
-The user approved the supplied black-and-white lightning-bolt icon. The mod includes a cleaned, high-resolution rendition at `assets/kernel/icon.png`.
+The user approved the supplied black-and-white lightning-bolt icon. The mod includes a cleaned, high-resolution rendition with a transparent background at `assets/kernel/icon.png`; the original bolt shape is preserved.
 
 ## Requested implementation sequence
 

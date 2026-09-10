@@ -103,7 +103,7 @@ Not implemented:
 - Broader memory, server chunk-scheduling, world-generation, or frame-pacing optimizations.
 - Mod Menu integration, real-screen settings layout/narration validation and broader renderer settings beyond the implemented optimization switches.
 
-The approved black-and-white lightning icon is included in the Fabric mod metadata.
+The approved black-and-white lightning icon has a transparent background and is included in the Fabric mod metadata. Its original bolt shape is preserved.
 
 ## Direction
 
