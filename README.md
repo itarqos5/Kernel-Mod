@@ -7,7 +7,7 @@ This repository is in an early implementation stage. It contains original alloca
 ## Project layout
 
 - `mod/` — shared Fabric mod source managed across Minecraft versions by Stonecutter.
-- `knot-client/` — version-independent launcher entry point that delegates to Fabric Loader.
+- `knot-client/` — version-independent launcher entry point and optional startup-cache Java agent.
 - `mod/versions/` — generated Stonecutter workspaces. Do not treat these as independent source trees.
 - `build/libs/` — collected release-shaped JARs produced by the aggregate build.
 
@@ -63,6 +63,10 @@ Implemented:
 - Content-addressed Knot Client installation, allowing safe updates without overwriting a loaded JAR.
 - Consistent `dev.kernel.fabric` and `dev.kernel.client` package and Gradle group namespaces.
 - A minimal `dev.kernel.client.KernelKnotClient` that forwards unchanged arguments to Fabric Loader.
+- Profile-local installation of the optional startup-cache agent from the same content-addressed Knot Client JAR, preserving unrelated JVM/game arguments and the original profile backup.
+- Bounded, per-launch reuse of raw JAR class entries and byte-identical Mixin target readers. Fabric still resolves resources, enforces classloader isolation, runs its bytecode provider and transformations, and produces fresh mutable target trees.
+- Startup-cache hooks audited against exact Fabric Loader 0.19.3 class bytes, with normal-loading fallback for different bytecode or missing optional dependencies, and cache release at game-load completion or after three minutes.
+- Packaged-agent process tests on Java 21 and Java 25, plus cache mutation/isolation, eviction, shutdown and launcher-update regression tests.
 - Versioned, collected output JARs.
 - Allocation-reduced baked-quad uploads across every supported Minecraft version, including reusable convenience-upload arrays on 1.21.x.
 - Allocation-free immediate position and 2D matrix transforms, plus reusable normal-transform scratch storage, wherever those APIs exist in the supported version matrix.
@@ -74,6 +78,8 @@ Implemented:
 - Reentrant per-thread fixed-seed model random sources across the supported 1.21.x targets, eliminating a temporary random-source allocation per standalone model render; 26.x already keeps equivalent renderer-owned state.
 - A FIFO, frame-budgeted chunk GPU-upload scheduler on every supported 1.21.x target. Normal render passes execute at least one upload but stop after 2 ms or 32 tasks, while renderer shutdown still drains completely and 1.21.6+ deferred mesh cleanup retains vanilla behavior.
 - Driver-neutral chunk uploads: Kernel schedules Minecraft's existing `VertexBuffer`/graphics-device tasks without issuing raw OpenGL calls or selecting vendor extensions. The 26.x staged uber-buffer pipeline remains native and unchanged.
+- Original scanline section-face connectivity on every supported target, replacing per-cell flood-fill queues with reusable per-thread storage while preserving vanilla visibility results and visited-bit semantics. Minecraft's occlusion traversal remains in use.
+- Differential visibility tests against each target's actual mapped vanilla implementation, including randomized sections, walls, tunnels, enclosed cavities, repeated calls and concurrent chunk builders; standalone visibility and startup-cache microbenchmarks.
 - The approved Kernel lightning icon and `literal.uu` author metadata.
 - A hard Fabric incompatibility with Sodium because both mods take ownership of the same renderer hot path.
 
@@ -84,8 +90,10 @@ Not implemented:
 - Launcher-profile support outside the official-launcher-style `versions/<id>/<id>.json` layout.
 - Automatic profile restoration or uninstall UI; the original JSON backup is created but not consumed yet.
 - Early loading window or GLFW handoff.
-- Startup caching or asynchronous preparation.
-- A complete chunk mesh compiler, mesh-storage/draw-command replacement, persistent-mapped or multi-draw GPU submission system, renderer settings UI, or verified Sodium feature/performance parity.
+- Persistent startup caches, transformed-class caches, asynchronous Mixin preparation or processed-resource caching.
+- A complete chunk mesh compiler, mesh-storage/draw-command replacement, persistent-mapped or multi-draw GPU submission system, occlusion traversal replacement, renderer settings UI, or verified Sodium feature/performance parity.
+- Lithium-style game-logic optimizations or verified Lithium feature/performance parity.
+- Reproducible end-to-end launch-time improvements; isolated repeated-operation microbenchmarks do not establish total startup gains.
 - Physical AMD, Intel, NVIDIA, Apple, and software-driver compatibility/performance testing; the current upload scheduler is vendor-neutral by construction but has not been validated on that hardware matrix.
 - Memory, chunk-scheduling, world-generation, or frame-pacing optimizations.
 - Mod Menu integration or configuration UI.
@@ -94,8 +102,12 @@ The approved black-and-white lightning icon is included in the Fabric mod metada
 
 ## Direction
 
-Kernel is being developed as an all-in-one Fabric optimization mod. Its initial renderer work time-slices legacy chunk GPU uploads and reduces allocations in Minecraft's pose-stack, block-model tessellation, standalone model random selection, fluid-height calculation, baked-quad upload, immediate vertex-transform, entity/model-part rendering, and block-face visibility routines. These are only a few hot paths; Kernel does not yet match Sodium's renderer breadth or demonstrated performance. Compatibility, measurable frame-time improvements, and honest benchmarking take priority over feature claims. Kernel contains no Sodium or other third-party mod code, and Fabric Loader will reject installations that also contain Sodium.
+Kernel is being developed as an all-in-one Fabric optimization mod. Its initial renderer work optimizes section-face connectivity, time-slices legacy chunk GPU uploads and reduces allocations in Minecraft's pose-stack, block-model tessellation, standalone model random selection, fluid-height calculation, baked-quad upload, immediate vertex-transform, entity/model-part rendering, and block-face visibility routines. These are only a few hot paths; Kernel does not yet match Sodium's renderer breadth or demonstrated performance. Compatibility, measurable frame-time improvements, and honest benchmarking take priority over feature claims. Kernel contains no Sodium or other third-party mod code, and Fabric Loader will reject installations that also contain Sodium.
 
-On a recognized Fabric profile, the current mod bundles and installs the Knot Client, changes that profile's launcher `mainClass`, and leaves a `.kernel-backup` copy of the original JSON. On the following launch, the Knot Client immediately delegates to Fabric's original Knot entry point. Unsupported launchers are left untouched and Minecraft continues normally.
+On a recognized Fabric profile, the mod bundles and installs the Knot Client, changes that profile's launcher `mainClass`, adds its profile-local Java agent argument, and leaves a `.kernel-backup` copy of the original JSON. On the following launch, the agent enables its audited startup-cache hooks and the Knot Client delegates to Fabric's original Knot entry point. Unsupported launchers are left untouched and Minecraft continues normally. No game or loader JAR is patched on disk, and no third-party libraries are bundled into the Knot Client; its optional ASM dependency is supplied by Fabric's launcher classpath.
+
+The game-profile JVM option `-Dkernel.startupCache=false` disables startup caching. Cache contents live only in the current process and are released when initial loading completes, with a three-minute fallback expiry. See [startup cache behavior and measurement](docs/STARTUP_CACHES.md) for limits, recovery and benchmark commands.
+
+The requested sequence and pinned comparison versions are tracked in [the parity plan](docs/PARITY_PLAN.md): renderer parity, then game-logic parity, then the custom same-window loading screen. Launch-time optimization work can proceed during those milestones. The custom loading screen and both parity milestones remain incomplete.
 
 Contributor and coding-agent rules are documented in [AGENTS.md](AGENTS.md).

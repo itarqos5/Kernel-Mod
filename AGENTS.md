@@ -4,7 +4,7 @@ These instructions apply to the entire repository.
 
 ## Product intent
 
-Kernel is intended to become an all-in-one, client-side Fabric optimization mod. Its main target is perceptual smoothness: consistent frame delivery, stronger frame-time lows, and fewer visible micro-stutters. It may later address startup and world-loading costs where a normal mod or an explicitly installed bootstrap component can do so safely.
+Kernel is intended to become an all-in-one, client-side Fabric optimization mod. Its main target is perceptual smoothness: consistent frame delivery, stronger frame-time lows, and fewer visible micro-stutters. It also contains optional transient class-loading caches in its installed bootstrap; their end-to-end startup benefit remains unverified.
 
 Kernel now contains narrowly scoped allocation reductions in common renderer hot paths, but it is not a complete renderer replacement and does not yet have reproducible end-to-end performance evidence. Do not claim Sodium parity or broad FPS/frame-time gains until benchmarks support those claims.
 
@@ -20,11 +20,11 @@ Stonecutter owns the Minecraft-version matrix. Shared source lives under `mod/sr
 
 ### Kernel Knot Client (`knot-client/`)
 
-The Knot Client is a small, version-independent launcher layer. Its current `dev.kernel.client.KernelKnotClient` main class forwards the original arguments to Fabric Loader. Knot Client code uses the `dev.kernel.client` namespace and Gradle group. It may eventually provide an early loading window, startup measurements, and narrowly scoped pre-Fabric behavior.
+The Knot Client is a small, version-independent launcher layer. Its `dev.kernel.client.KernelKnotClient` main class forwards the original arguments to Fabric Loader. Its optional `dev.kernel.client.KernelAgent` provides bounded, transient startup caches through two audited in-memory Fabric hooks. Knot Client code uses the `dev.kernel.client` namespace and Gradle group. The early loading window remains unimplemented.
 
 Do not move ordinary Minecraft mod behavior into the Knot Client. Before Fabric and Minecraft initialize, game registries, Fabric APIs, renderer state, resources, and normal mod lifecycle objects are unavailable or unsafe.
 
-The Knot Client must remain auditable and recoverable. Do not patch or overwrite Minecraft or Fabric Loader JARs unless the user explicitly changes that architectural decision. The current installer may only rewrite a recognized Fabric version-profile JSON after creating a one-time backup; unknown launchers and main classes must fail open without modification.
+The Knot Client must remain auditable and recoverable. Do not patch or overwrite Minecraft or Fabric Loader JARs unless the user explicitly changes that architectural decision. The current installer may only rewrite a recognized Fabric version-profile JSON after creating a one-time backup; unknown launchers and main classes must fail open without modification. It may add the Kernel agent argument only to that profile's structured JVM argument list, preserving unrelated arguments. Agent hooks require the audited Fabric class fingerprints; never silently broaden them to unknown bytecode. Do not cache mutable ClassNodes or bypass Fabric's bytecode provider, access wideners, resource resolution or classloader isolation.
 
 ## Supported targets
 
@@ -71,6 +71,11 @@ Implemented:
 - One-time profile backup plus atomic JSON replacement.
 - Content-addressed Knot Client library paths and idempotent profile updates.
 - `dev.kernel.client.KernelKnotClient` forwarding to current or legacy Fabric Knot client packages.
+- Profile-local installation of `dev.kernel.client.KernelAgent` from the same content-addressed Knot Client JAR, preserving unrelated JVM/game arguments and refusing malformed JVM argument structures.
+- Bounded per-launch raw JAR class-entry reuse and exact-byte-keyed ASM target-reader reuse for the audited Fabric Loader 0.19.3 bytecode. Both adapters modify loaded method bytes in memory only; no Fabric/Minecraft JAR is rewritten. Optional ASM classes are supplied by Fabric and are not bundled.
+- Cache isolation from mutable directory resources, returned arrays and ClassNodes; per-request Fabric resource/parent-loader checks and pre-Mixin transformations remain intact. There are no persistent cache files.
+- Cache release at initial game-load completion on every supported target, normal Knot Client exit, or a three-minute fallback expiry; `-Dkernel.startupCache=false` disables the optional agent hooks for that process.
+- Packaged-agent smoke tests on Java 21 and Java 25, including real Fabric hook execution, parent-loader isolation after cache warming, provider invocation, reader flags, cache release and missing-dependency fallback.
 - Unit coverage for argument forwarding, installation, idempotency, backup, and refusal of unknown main classes.
 - Aggregate `buildAll` task and release-shaped artifact collection.
 - Original baked-quad upload paths for every supported target that avoid Minecraft's temporary native buffer on 1.21.4 through 1.21.10, avoid per-vertex transformed-position allocations on all supported targets, and reuse convenience-upload arrays on 1.21.x.
@@ -83,6 +88,8 @@ Implemented:
 - Reentrant per-thread fixed-seed model random sources on every supported 1.21.x target, removing the temporary random source created for each standalone model render while preserving nested-call isolation; 26.x already owns reusable renderer state.
 - FIFO, frame-budgeted chunk GPU-upload scheduling on every supported 1.21.x target, with a 2 ms/32-task normal-pass limit, guaranteed forward progress, complete shutdown draining, and unchanged deferred mesh cleanup on 1.21.6 and newer.
 - Driver-neutral upload integration that executes Minecraft's existing `VertexBuffer`/graphics-device tasks without raw OpenGL or vendor-extension paths. The native staged uber-buffer pipeline remains unchanged on 26.x.
+- Original scanline section-face connectivity on every supported target, reusing bounded per-thread traversal storage and preserving vanilla's sparse shortcut, visibility pairs and destructive visited-bit behavior. Minecraft's existing occlusion traversal still consumes the result.
+- Differential visibility tests against each target's mapped vanilla classes for random sections, walls, tunnels, enclosed cavities, disconnected boundary cells, repeated resolution and concurrent builders; isolated visibility and startup-cache benchmark tasks.
 - Unit coverage for scalar 3D and 2D vertex transforms and the legacy packed-color behavior used by the optimized paths.
 - Unit coverage for reusable render scratch values, pool reentrancy and thread isolation, exact lighting-array updates, bit-for-bit legacy fluid-height parity, rotation semantics, normal-matrix extraction, block-face cache identity and eviction behavior, and chunk-upload budget/lifecycle semantics.
 - Fabric metadata that marks Sodium as incompatible, identifies `literal.uu` as the author, and includes the approved Kernel lightning icon.
@@ -97,7 +104,9 @@ Not implemented:
 - Asynchronous Mixin preparation or transformed-class caching.
 - Resource-pack preparation changes or processed-resource caching.
 - Startup profiler or stutter-attribution overlay.
-- Complete chunk mesh compiler, mesh-storage/draw-command replacement, persistent-mapped or multi-draw GPU submission system, occlusion system, renderer settings UI, or verified Sodium feature/performance parity.
+- Complete chunk mesh compiler, mesh-storage/draw-command replacement, persistent-mapped or multi-draw GPU submission system, occlusion traversal replacement, renderer settings UI, or verified Sodium feature/performance parity.
+- Lithium-style game-logic optimizations or verified Lithium feature/performance parity.
+- Persistent startup/transformed-class caches or reproducible end-to-end launch-time improvements. Cache-hit counts and isolated warmed-operation benchmarks are not total-startup evidence.
 - Physical AMD, Intel, NVIDIA, Apple, and software-driver compatibility/performance validation. The current scheduler is vendor-neutral by construction, not a hardware-tested compatibility claim.
 - Frame-time governor, integrated-server coordination, input changes, chunk scheduling, memory optimization, or world-generation optimization.
 - Mod Menu integration and user-facing settings.
@@ -105,13 +114,17 @@ Not implemented:
 
 The user approved the supplied black-and-white lightning-bolt icon. The mod includes a cleaned, high-resolution rendition at `assets/kernel/icon.png`.
 
+## Requested implementation sequence
+
+The user requested full Sodium-style renderer feature parity, then full Lithium-style game-logic feature parity, then the custom pre-Fabric Kernel loading screen whose native window is adopted by Minecraft. The user subsequently authorized launch-time optimizations during renderer work. Keep all nine game targets and both Java generations. Both parity milestones and the loading window remain incomplete; do not count a hot-path optimization as completing a broader renderer subsystem. Pinned comparison versions and acceptance work are tracked in `docs/PARITY_PLAN.md`; cache architecture, recovery and measurement are in `docs/STARTUP_CACHES.md`.
+
 ## Ideas under consideration, not decisions
 
 - An all-in-one set of renderer, memory, chunk, world-generation, and smoothness improvements.
-- Expanding the thin Knot Client installed through reversible launcher metadata rather than a loader fork.
+- Further expansion of the Knot Client through reversible launcher metadata rather than a loader fork.
 - A NeoForge-style early window whose GLFW handle is later adopted by Minecraft.
 - Parallel preparation with ordered, single-threaded application for startup work.
-- Strictly keyed processed-resource and startup caches.
+- Strictly keyed persistent processed-resource and startup caches.
 - Frame-time attribution and cooperative work-budget coordination.
 
 Treat every item above as unimplemented research. Check overlap, licenses, compatibility, and measurable benefit before recommending or implementing one. Kernel's current renderer work is original and Sodium is marked incompatible, but Kernel is not yet a complete Sodium-class renderer. Never copy or bundle Sodium or another mod merely to accelerate development; obtain explicit approval and satisfy its license first.
