@@ -100,6 +100,9 @@ Implemented:
 - Unit coverage for scalar 3D and 2D vertex transforms and the legacy packed-color behavior used by the optimized paths.
 - Unit coverage for reusable render scratch values, pool reentrancy and thread isolation, exact lighting-array updates, bit-for-bit legacy fluid-height parity, rotation semantics, normal-matrix extraction, block-face cache identity and eviction behavior, and chunk-upload budget/lifecycle semantics.
 - Fabric metadata that marks Sodium as incompatible, identifies `literal.uu` as the author, and includes the approved Kernel lightning icon.
+- Immutable launch-time renderer configuration in `config/kernel-renderer.properties`, with ten per-feature controls, complete dependent-Mixin group activation, version-aware availability, preserved unknown keys, atomic save where supported and fail-open disabling on malformed/unreadable settings.
+- Native renderer settings screen reached through the video settings list, with draft Save/Cancel/Defaults behavior, restart/current-launch status, tooltips, translation keys, keyboard focus and narration widgets. Settings do not mutate applied Mixins during a running game. The bootstrap cache control remains separate.
+- Configuration persistence/group tests and real Fabric/Mixin disabled-settings and screen-linkage smoke tests on every supported target. Real graphics, speech-engine and third-party settings-screen compatibility validation remains outstanding; see `docs/RENDERER_SETTINGS.md`.
 
 Not implemented:
 
@@ -111,12 +114,12 @@ Not implemented:
 - Asynchronous Mixin preparation or transformed-class caching.
 - Resource-pack preparation changes or processed-resource caching.
 - Startup profiler or stutter-attribution overlay.
-- Complete chunk mesh compiler, mesh-storage/draw-command replacement, persistent-mapped or multi-draw GPU submission system, occlusion traversal replacement, renderer settings UI, or verified Sodium feature/performance parity.
+- Complete chunk mesh compiler, mesh-storage/draw-command replacement, persistent-mapped or multi-draw GPU submission system, occlusion traversal replacement, or verified Sodium feature/performance parity.
 - Lithium-style game-logic optimizations or verified Lithium feature/performance parity.
 - Persistent startup/transformed-class caches or reproducible end-to-end launch-time improvements. Cache-hit counts and isolated warmed-operation benchmarks are not total-startup evidence.
 - Physical AMD, Intel, NVIDIA, Apple, and software-driver compatibility/performance validation. The current scheduler is vendor-neutral by construction, not a hardware-tested compatibility claim.
 - Frame-time governor, integrated-server coordination, input changes, server chunk scheduling, broader memory optimization, or world-generation optimization.
-- Mod Menu integration and user-facing settings.
+- Mod Menu integration, real-screen settings layout/narration validation and broader renderer settings beyond the implemented optimization switches.
 - Sodium, FerriteCore, ModernFix, Lithium, C2ME, Entity Culling, or any other third-party source or bundled code.
 
 The user approved the supplied black-and-white lightning-bolt icon. The mod includes a cleaned, high-resolution rendition at `assets/kernel/icon.png`.

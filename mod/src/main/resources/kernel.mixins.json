@@ -2,8 +2,10 @@
   "required": true,
   "minVersion": "0.8",
   "package": "dev.kernel.fabric.mixin",
+  "plugin": "dev.kernel.fabric.config.KernelMixinPlugin",
   "compatibilityLevel": "JAVA_21",
   "client": [
+    "config.VideoSettingsScreenMixin",
     "render.BlockMixin",
     "render.ChunkTaskMixin",
     "render.ChunkRebuildTaskMixin",

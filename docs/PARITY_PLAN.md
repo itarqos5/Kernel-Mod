@@ -43,7 +43,7 @@ work breakdown, not an assertion that all upstream options have already been aud
 | Translucency | Kernel stable radix index sorting with vanilla centroids, resort triggers and index uploads | Geometry-aware sorting for intersecting surfaces, rebuild/resort policy, visual reference tests and pinned-release behavior coverage |
 | Entities and block entities | Allocation-reduced model emission | Visibility decisions, oversized bounds, off-screen render contracts, special effects and mod compatibility |
 | Particles and animated textures | Vanilla paths | Visibility-aware work scheduling without stale animations or altered particle simulation |
-| Configuration | No renderer settings UI | Persistent per-feature controls, reload behavior, diagnostics, translations and accessible controls |
+| Configuration | Persistent per-feature switches, immutable startup snapshots and native settings screen with restart status, diagnostics and translation keys | Mod Menu integration, real-screen/narration checks, broader renderer options and pinned-release configuration coverage |
 | Mod and pack compatibility | Sodium conflict explicitly declared | Fabric rendering integration, custom model/quad formats, pack reloads, mod hooks and a maintained test matrix |
 | Performance and platforms | Local isolated benchmarks only | Reproducible gameplay traces, render correctness captures, frame-time distributions, memory, upload stalls and physical GPU/OS testing |
 

@@ -79,7 +79,7 @@ tasks {
         group = "build"
         description = "Builds and copies this Minecraft version's remapped mod JAR to the root build directory."
 
-        dependsOn(loomx.modJar, test, "vertexSortingSmoke", "chunkTaskQueueSmoke", rootProject.tasks.named("prepareArtifacts"))
+        dependsOn(loomx.modJar, test, "vertexSortingSmoke", "chunkTaskQueueSmoke", "rendererSettingsSmoke", rootProject.tasks.named("prepareArtifacts"))
         from(loomx.modJar.flatMap { it.archiveFile })
         into(rootProject.layout.buildDirectory.dir("libs"))
     }
@@ -147,4 +147,25 @@ tasks {
         javaLauncher = kernelJavaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion) }
         jvmArgs("-Xms512m", "-Xmx512m")
     }
+
+    register<JavaExec>("rendererSettingsSmoke") {
+        group = "verification"
+        description = "Checks persisted feature disabling and the settings screen through real Fabric and Mixin."
+        dependsOn(testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath.filter { it.exists() }
+        mainClass = "dev.kernel.fabric.config.RendererSettingsSmoke"
+        javaLauncher = kernelJavaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion) }
+        systemProperty("fabric.development", "true")
+        systemProperty("fabric.gameVersion", sc.current.version)
+        systemProperty("fabric.gameMappingNamespace", if (sc.current.parsed >= "26.1") "official" else "named")
+        workingDir(layout.buildDirectory.dir("settings-disabled-smoke-game").get().asFile)
+        args("--gameDir", workingDir.absolutePath)
+        doFirst {
+            val config = workingDir.resolve("config/kernel-renderer.properties")
+            config.parentFile.mkdirs()
+            rootProject.file("mod/src/test/resources/settings-disabled.properties").copyTo(config, overwrite = true)
+        }
+    }
+
+    check { dependsOn("rendererSettingsSmoke") }
 }

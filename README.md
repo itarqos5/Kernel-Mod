@@ -86,6 +86,7 @@ Implemented:
 - Differential sorting tests against each target's actual vanilla implementation, real Fabric/Mixin factory smoke tests without launching the game, and an isolated sorting benchmark. Centroid generation, camera resort triggers, index uploads and blending remain vanilla.
 - The approved Kernel lightning icon and `literal.uu` author metadata.
 - A hard Fabric incompatibility with Sodium because both mods take ownership of the same renderer hot path.
+- Persistent per-feature renderer controls under **Options → Video Settings → Kernel optimizations…**, with draft Save/Cancel behavior, restart status, version-aware options, native keyboard/narration widgets and complete Mixin-group disabling. See [settings and recovery](docs/RENDERER_SETTINGS.md).
 
 Not implemented:
 
@@ -95,12 +96,12 @@ Not implemented:
 - Automatic profile restoration or uninstall UI; the original JSON backup is created but not consumed yet.
 - Early loading window or GLFW handoff.
 - Persistent startup caches, transformed-class caches, asynchronous Mixin preparation or processed-resource caching.
-- A complete chunk mesh compiler, mesh-storage/draw-command replacement, persistent-mapped or multi-draw GPU submission system, occlusion traversal replacement, renderer settings UI, or verified Sodium feature/performance parity.
+- A complete chunk mesh compiler, mesh-storage/draw-command replacement, persistent-mapped or multi-draw GPU submission system, occlusion traversal replacement, or verified Sodium feature/performance parity.
 - Lithium-style game-logic optimizations or verified Lithium feature/performance parity.
 - Reproducible end-to-end launch-time improvements; isolated repeated-operation microbenchmarks do not establish total startup gains.
 - Physical AMD, Intel, NVIDIA, Apple, and software-driver compatibility/performance testing; the current upload scheduler is vendor-neutral by construction but has not been validated on that hardware matrix.
 - Broader memory, server chunk-scheduling, world-generation, or frame-pacing optimizations.
-- Mod Menu integration or configuration UI.
+- Mod Menu integration, real-screen settings layout/narration validation and broader renderer settings beyond the implemented optimization switches.
 
 The approved black-and-white lightning icon is included in the Fabric mod metadata.
 

@@ -1,6 +1,8 @@
 package dev.kernel.fabric;
 
 import dev.kernel.fabric.bootstrap.KnotClientInstaller;
+import dev.kernel.fabric.config.KernelRendererSettings;
+import dev.kernel.fabric.config.RendererFeature;
 import net.fabricmc.api.ClientModInitializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +20,9 @@ public final class KernelFabric implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        LOGGER.info("Kernel renderer optimizations active: stable quad radix sorting, scanline section visibility, frame-budgeted chunk uploads, and allocation-reduced pose, block-model, model-random, fluid, vertex, baked-quad, and block-face paths.");
+        for (RendererFeature feature : RendererFeature.values()) {
+            if (KernelRendererSettings.supported(feature)) LOGGER.info("Kernel renderer {}: {}", feature.key(), KernelRendererSettings.enabled(feature) ? "enabled" : "disabled");
+        }
 
         try {
             KnotClientInstaller.InstallResult result = KnotClientInstaller.installForCurrentLaunch();
