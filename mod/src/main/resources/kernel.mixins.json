@@ -13,7 +13,8 @@
     "render.PoseStackPoseAccessor",
     "render.PoseStackPoseMixin",
     "render.SectionRenderDispatcherMixin",
-    "render.VertexConsumerMixin"
+    "render.VertexConsumerMixin",
+    "render.VisGraphMixin"
   ],
   "injectors": {
     "defaultRequire": 1

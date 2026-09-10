@@ -7,6 +7,7 @@ version = "${property("mod_version")}+${sc.current.version}"
 base.archivesName = "kernel-fabric"
 
 val knotClientJar = project(":knot-client").tasks.named<Jar>("jar").flatMap { it.archiveFile }
+val kernelJavaToolchains = extensions.getByType<org.gradle.jvm.toolchain.JavaToolchainService>()
 
 val requiredJava = when {
     sc.current.parsed >= "26.1" -> JavaVersion.VERSION_25
@@ -81,5 +82,15 @@ tasks {
         dependsOn(loomx.modJar, test, rootProject.tasks.named("prepareArtifacts"))
         from(loomx.modJar.flatMap { it.archiveFile })
         into(rootProject.layout.buildDirectory.dir("libs"))
+    }
+
+    register<JavaExec>("visibilityBenchmark") {
+        group = "verification"
+        description = "Compares Kernel's visibility solver with this Minecraft version's vanilla solver."
+        dependsOn(testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath
+        mainClass = "dev.kernel.fabric.render.SectionVisibilityBenchmark"
+        javaLauncher = kernelJavaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion) }
+        jvmArgs("-Xms512m", "-Xmx512m")
     }
 }
