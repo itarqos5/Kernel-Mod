@@ -10,10 +10,13 @@ The first profile backup at `<profile>.json.kernel-backup` is retained. Restorat
 restore that backup while the launcher and game are closed. There is no automatic rollback or uninstall
 UI. Unknown main classes and malformed JVM argument structures are left untouched.
 
-Use the game profile's JVM option `-Dkernel.startupCache=false` to disable the agent hooks. This is a
+Use the game profile's JVM option `-Dkernel.startupCache=false` to disable the cache hooks. This is a
 process-local troubleshooting option, not a change to every Java process. An unsupported Fabric build
 or absent ASM dependency also leaves normal loading in place. Audited hooks currently match the exact
 released Fabric Loader 0.19.3 class bytes; other versions are not claimed to benefit from the caches.
+
+The [early loading window](BOOTSTRAP_WINDOW.md) has its own `-Dkernel.loadingWindow=false` switch.
+Disabling caches leaves that display and its optional activity labels available.
 
 ## What is cached
 

@@ -30,6 +30,7 @@ public final class GuiProbe {
     private static boolean waiting;
     private static Screen parent;
     private static boolean started;
+    private static boolean loadingCaptureRequested;
 
     public static void ready() {
         if (readyMillis < 0) readyMillis = ManagementFactory.getRuntimeMXBean().getUptime();
@@ -43,7 +44,19 @@ public final class GuiProbe {
 
     private static void advance(Minecraft minecraft) {
         if (System.nanoTime() - START > 120_000_000_000L) throw new AssertionError("Kernel GUI probe timed out");
-        if (readyMillis < 0 || stage == 4) return;
+        //? if >=26.2 {
+        boolean overlayVisible = minecraft.gui.overlay() != null;
+        //? } else {
+        /*boolean overlayVisible = minecraft.getOverlay() != null;
+        *///? }
+        if (Boolean.getBoolean("kernel.guiProbe.bootstrap") && !loadingCaptureRequested && overlayVisible) {
+            loadingCaptureRequested = true;
+            capture(minecraft, "kernel-loading-window.png", message -> {});
+        }
+        if (readyMillis < 0) {
+            return;
+        }
+        if (stage == 4) return;
         if (stage == 0 && !started) {
             // The game-load callback precedes the final loading-overlay fade. Capture the real screen.
             //? if >=26.2 {
@@ -59,6 +72,25 @@ public final class GuiProbe {
             /*minecraft.resizeDisplay();
             *///? }
             if (parent instanceof KernelSettingsScreen) throw new AssertionError("Settings opened automatically at launch");
+            if (Boolean.getBoolean("kernel.guiProbe.bootstrap")) {
+                try {
+                    Class<?> owner = Class.forName("dev.kernel.client.loading.EarlyLoadingWindow", false, ClassLoader.getSystemClassLoader());
+                    long earlyHandle = (long) owner.getMethod("handle").invoke(null);
+                    //? if >=1.21.9 {
+                    long actualHandle = minecraft.getWindow().handle();
+                    //? } else {
+                    /*long actualHandle = minecraft.getWindow().getWindow();
+                    *///? }
+                    if (!(boolean) owner.getMethod("adopted").invoke(null) || earlyHandle == 0 || earlyHandle != actualHandle) {
+                        throw new AssertionError("Minecraft did not adopt the original Kernel window");
+                    }
+                    Class<?> progress = Class.forName("dev.kernel.client.loading.StartupProgress", false, ClassLoader.getSystemClassLoader());
+                    if (!(boolean) progress.getMethod("visibleBeforeFabric").invoke(null)) {
+                        throw new AssertionError("The Kernel window was not visible before Fabric's KnotClient was defined");
+                    }
+                    System.out.println("Kernel bootstrap probe verified the original window handle: " + earlyHandle);
+                } catch (ReflectiveOperationException exception) { throw new AssertionError(exception); }
+            }
             if (Boolean.getBoolean("kernel.guiProbe.preview")) {
                 click(find(parent, "kernel.settings.open"));
                 stage = 4;
@@ -122,15 +154,19 @@ public final class GuiProbe {
         String file = "kernel-settings-" + stage + ".png";
         try { Files.deleteIfExists(minecraft.gameDirectory.toPath().resolve("screenshots").resolve(file)); }
         catch (IOException exception) { throw new AssertionError("Cannot replace probe screenshot", exception); }
+        capture(minecraft, file, message -> screenshotFinished(minecraft, file));
+    }
+
+    private static void capture(Minecraft minecraft, String file, java.util.function.Consumer<Component> complete) {
         //? if >=26.2 {
         var target = minecraft.gameRenderer.mainRenderTarget();
         //? } else {
         /*var target = minecraft.getMainRenderTarget();
         *///? }
         //? if >=1.21.6 {
-        Screenshot.grab(minecraft.gameDirectory, file, target, 1, message -> screenshotFinished(minecraft, file));
+        Screenshot.grab(minecraft.gameDirectory, file, target, 1, complete);
         //? } else {
-        /*Screenshot.grab(minecraft.gameDirectory, file, target, message -> screenshotFinished(minecraft, file));
+        /*Screenshot.grab(minecraft.gameDirectory, file, target, complete);
         *///? }
     }
 

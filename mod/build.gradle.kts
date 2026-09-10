@@ -46,6 +46,15 @@ loom {
         jvmArguments.add("-Dkernel.guiProbe.preview=true")
         programArguments.addAll("--width", "1280", "--height", "720", "--username", "KernelPreview")
     }
+    runConfigs.create("bootstrapSmoke") {
+        client()
+        mainClass.set("dev.kernel.client.KernelKnotClient")
+        generateRunConfig = false
+        runDirectory = layout.buildDirectory.dir("bootstrap-smoke-game")
+        jvmArguments.add("-javaagent:" + knotClientJar.get().asFile.absolutePath)
+        jvmArguments.add("-Dkernel.guiProbe.bootstrap=true")
+        programArguments.addAll("--width", "960", "--height", "540", "--username", "KernelBootstrap")
+    }
 }
 
 java {
@@ -212,5 +221,20 @@ tasks {
     named<JavaExec>("runGuiPreview") {
         dependsOn(prepareGuiProbe)
         classpath += files(layout.buildDirectory.dir("gui-probe-mod"))
+    }
+    named<JavaExec>("runBootstrapSmoke") {
+        dependsOn(prepareGuiProbe, knotClientJar)
+        classpath += files(knotClientJar, layout.buildDirectory.dir("gui-probe-mod"))
+        val game = layout.buildDirectory.dir("bootstrap-smoke-game")
+        doFirst {
+            val directory = game.get().asFile
+            directory.mkdirs()
+            directory.resolve("options.txt").writeText("onboardAccessibility:false\nguiScale:2\n")
+            val marker = directory.resolve("probe-complete.json")
+            check(!marker.exists() || marker.delete())
+            val settings = directory.resolve("config/kernel-renderer.properties")
+            check(!settings.exists() || settings.delete())
+        }
+        doLast { check(game.get().file("probe-complete.json").asFile.isFile) { "Bootstrap probe did not complete." } }
     }
 }

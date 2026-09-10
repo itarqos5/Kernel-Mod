@@ -23,7 +23,10 @@
     "render.VertexConsumerMixin",
     "render.VertexSortingMixin",
     "render.VisGraphMixin",
-    "startup.MinecraftStartupMixin"
+    "startup.MinecraftStartupMixin",
+    "startup.WindowMixin",
+    "startup.LoadingOverlayMixin",
+    "startup.ResourceProgressMixin"
   ],
   "injectors": {
     "defaultRequire": 1

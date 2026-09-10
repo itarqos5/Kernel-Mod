@@ -40,6 +40,9 @@ java {
 }
 
 dependencies {
+    // Minecraft supplies LWJGL and its natives; no third-party binaries are bundled.
+    compileOnly("org.lwjgl:lwjgl:3.3.3")
+    compileOnly("org.lwjgl:lwjgl-glfw:3.3.3")
     // Supplied by Fabric's launcher classpath, never bundled into Kernel's artifacts.
     compileOnly("org.ow2.asm:asm-tree:9.9.1")
     testImplementation("org.ow2.asm:asm-tree:9.9.1")

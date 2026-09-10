@@ -94,7 +94,7 @@ JARs. Test files live only under that version project's `build/gui-smoke-game` d
 Minecraft's accessibility onboarding as already completed in that isolated directory to reach the title
 menu. It does not change onboarding in ordinary game installations.
 
-Speech-engine output, controller integrations, third-party menu replacements and the full hardware
+Real OpenGL client probes have exercised these controls on all nine targets on the available Windows/AMD
+machine. Speech-engine output, controller integrations, third-party menu replacements and the full hardware
 compatibility matrix still require further testing. Mod Menu integration is not implemented. The
-separate pre-Fabric loading window and native-window adoption remain planned; this settings screen
-neither implements nor replaces that window.
+separate [pre-Fabric loading window](BOOTSTRAP_WINDOW.md) keeps settings closed at startup.

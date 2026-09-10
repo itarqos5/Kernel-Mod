@@ -10,14 +10,19 @@ import java.util.concurrent.TimeUnit;
 /** Optional, process-local startup hooks; never attaches to or changes another Java process. */
 public final class KernelAgent {
     private static volatile boolean active;
+    private static volatile boolean loadingArmed;
     private KernelAgent() {
     }
 
     public static void premain(String options, Instrumentation instrumentation) {
-        if (active || "false".equalsIgnoreCase(System.getProperty("kernel.startupCache"))) return;
+        if (loadingArmed) return;
+        instrumentation.addTransformer(new dev.kernel.client.loading.LoadingClassObserver(), false);
+        loadingArmed = true;
         try {
             Class.forName("org.objectweb.asm.ClassReader", false, KernelAgent.class.getClassLoader());
             Class.forName("org.objectweb.asm.tree.ClassNode", false, KernelAgent.class.getClassLoader());
+            instrumentation.addTransformer(new dev.kernel.client.loading.LoadingStageTransformer(), false);
+            if ("false".equalsIgnoreCase(System.getProperty("kernel.startupCache"))) return;
             instrumentation.addTransformer(new StartupCacheTransformer(), false);
             active = true;
             // Recovery if the mod is removed or loading fails before Minecraft's completion callback.
@@ -31,4 +36,5 @@ public final class KernelAgent {
     public static void finishStartup() {
         if (active) StartupCaches.finish();
     }
+    public static boolean loadingArmed() { return loadingArmed; }
 }

@@ -20,7 +20,7 @@ Stonecutter owns the Minecraft-version matrix. Shared source lives under `mod/sr
 
 ### Kernel Knot Client (`knot-client/`)
 
-The Knot Client is a small, version-independent launcher layer. Its `dev.kernel.client.KernelKnotClient` main class forwards the original arguments to Fabric Loader. Its optional `dev.kernel.client.KernelAgent` provides bounded, transient startup caches through two audited in-memory Fabric hooks. Knot Client code uses the `dev.kernel.client` namespace and Gradle group. The early loading window remains unimplemented.
+The Knot Client is a small, version-independent launcher layer. Its `dev.kernel.client.KernelKnotClient` main class displays the optional early GLFW window and forwards the original arguments to Fabric Loader. Its Java agent observes loading activity and owns bounded startup caches. Knot Client code uses the `dev.kernel.client` namespace and Gradle group. See `docs/BOOTSTRAP_WINDOW.md` for native ownership and recovery.
 
 Do not move ordinary Minecraft mod behavior into the Knot Client. Before Fabric and Minecraft initialize, game registries, Fabric APIs, renderer state, resources, and normal mod lifecycle objects are unavailable or unsafe.
 
@@ -74,11 +74,14 @@ Implemented:
 - Profile-local installation of `dev.kernel.client.KernelAgent` from the same content-addressed Knot Client JAR, preserving unrelated JVM/game arguments and refusing malformed JVM argument structures.
 - Bounded per-launch raw JAR class-entry reuse and exact-byte-keyed ASM target-reader reuse for the audited Fabric Loader 0.19.3 bytecode. Both adapters modify loaded method bytes in memory only; no Fabric/Minecraft JAR is rewritten. Optional ASM classes are supplied by Fabric and are not bundled.
 - Cache isolation from mutable directory resources, returned arrays and ClassNodes; per-request Fabric resource/parent-loader checks and pre-Mixin transformations remain intact. There are no persistent cache files.
-- Cache release at initial game-load completion on every supported target, normal Knot Client exit, or a three-minute fallback expiry; `-Dkernel.startupCache=false` disables the optional agent hooks for that process.
+- Cache release at initial game-load completion on every supported target, normal Knot Client exit, or a three-minute fallback expiry; `-Dkernel.startupCache=false` disables the optional cache hooks for that process.
+- An optional pre-Fabric OpenGL 3.3 GLFW window in the Knot Client, with original bitmap lettering, the Kernel bolt, real class/mod/Mixin activity and indeterminate early progress. The bootstrap uses five explicit GL functions and never initializes a second LWJGL OpenGL dispatch table. GLFW event polling stays on the launch thread; a temporary painter releases the context before Minecraft adopts the same window.
+- Native-library identity checks and process-local selection of the already-loaded GLFW library prevent cross-classloader window ownership errors. Unsupported backends, missing dependencies or a missing adoption adapter fall back to normal Minecraft window creation. `-Dkernel.loadingWindow=false` disables the early display independently of caches.
+- Fabric-side adapters for window creation, resource-lookup activity and Kernel resource-loading visuals across all nine targets. Minecraft's reload completion/error callbacks remain intact; the completed splash's presentation fade is skipped. Native reload progress is labeled as resource progress, never as a fabricated total-launch percentage.
 - Packaged-agent smoke tests on Java 21 and Java 25, including real Fabric hook execution, parent-loader isolation after cache warming, provider invocation, reader flags, cache release and missing-dependency fallback.
 - Unit coverage for argument forwarding, installation, idempotency, backup, and refusal of unknown main classes.
 - Aggregate `buildAll` task and release-shaped artifact collection.
-- Original baked-quad upload paths for every supported target that avoid Minecraft's temporary native buffer on 1.21.4 through 1.21.10, avoid per-vertex transformed-position allocations on all supported targets, and reuse convenience-upload arrays on 1.21.x.
+- Original baked-quad upload paths for every supported target that avoid Minecraft's temporary native buffer on 1.21.4 through 1.21.10, avoid per-vertex transformed-position allocations on all supported targets, and reuse convenience-upload arrays for exact native BufferBuilder consumers on 1.21.x. Custom consumers retain independent array ownership and reentrant normal values.
 - Allocation-free scalar immediate position and 2D matrix transforms, plus thread-local normal-transform scratch storage, across the supported versions where those APIs exist.
 - Allocation-reduced entity/model-part transforms and cube emission that reuse per-thread quaternion and normal scratch values and use scalar position transforms.
 - Reusable pose-stack entries on 1.21.4, where vanilla still allocates matrix pairs on every push, and reusable temporary normal matrices for pose multiplication on every supported target.
@@ -102,17 +105,17 @@ Implemented:
 - Fabric metadata that marks Sodium as incompatible, identifies `literal.uu` as the author, and includes the approved Kernel lightning icon.
 - Immutable launch-time renderer configuration in `config/kernel-renderer.properties`, with ten per-feature controls, complete dependent-Mixin group activation, version-aware availability, preserved unknown keys, atomic save where supported and fail-open disabling on malformed/unreadable settings.
 - Kernel video settings opened by a lightning-icon button left of Options in title/pause menus or through the video settings list. Translucent panels, white overlays, four tabs, native video controls, draft Apply/Done/Cancel behavior, restart-only optimization switches, translation fallbacks and dynamic icon registration work without Fabric API. The settings screen never opens automatically. See `docs/RENDERER_SETTINGS.md`.
-- Configuration persistence/group tests and real Fabric/Mixin disabled-settings and screen-linkage smoke tests on every supported target. Real graphics, speech-engine and third-party settings-screen compatibility validation remains outstanding; see `docs/RENDERER_SETTINGS.md`.
+- Configuration persistence/group tests and real Fabric/Mixin disabled-settings and screen-linkage smoke tests on every supported target. Real Windows/OpenGL launch probes verify pre-Fabric visibility, native-window adoption, settings interaction and clean exit across all nine targets on the available AMD machine. Speech-engine, additional OS/driver and third-party settings-screen validation remains outstanding; see `docs/RENDERER_SETTINGS.md`.
 
 - One-time conservative video recommendations from logical CPU count, JVM heap capacity and active GPU class, with an options backup and persistent marker that preserves subsequent manual choices. No settings window is opened at launch; Recommended also stages those values on demand.
 
 Not implemented:
 
 - Automatic game exit or relaunch messaging.
-- Custom installer/helper GUI, custom title bar, taskbar integration, or approved artwork.
+- Custom installer/helper GUI, custom title bar or taskbar integration.
 - Launcher layouts other than the official-launcher-style version JSON structure.
 - Automatic rollback, restoration, cleanup of old content-addressed Knot Client JARs, or uninstall UI.
-- Early GLFW window, progress reporting, OpenGL context transfer, or Minecraft window adoption.
+- Early-window adoption for Vulkan, other graphics backends or a complete OS/driver, fullscreen, DPI and accessibility validation matrix. Prompt display does not make Minecraft initialization instantaneous.
 - Asynchronous Mixin preparation or transformed-class caching.
 - Resource-pack preparation changes or processed-resource caching.
 - Startup profiler or stutter-attribution overlay.
@@ -128,13 +131,12 @@ The user approved the supplied black-and-white lightning-bolt icon. The mod incl
 
 ## Requested implementation sequence
 
-The user requested full Sodium-style renderer feature parity, then full Lithium-style game-logic feature parity, then the custom pre-Fabric Kernel loading screen whose native window is adopted by Minecraft. The user subsequently authorized launch-time optimizations during renderer work. Keep all nine game targets and both Java generations. The user also requested the themed video settings interface and one-time hardware recommendations, explicitly keeping the loading window while requiring settings to stay closed at startup. Both parity milestones and the loading window remain incomplete; do not count a hot-path optimization as completing a broader renderer subsystem. Pinned comparison versions and acceptance work are tracked in `docs/PARITY_PLAN.md`; cache architecture, recovery and measurement are in `docs/STARTUP_CACHES.md`.
+The user requested full Sodium-style renderer feature parity, then full Lithium-style game-logic feature parity, then the custom pre-Fabric Kernel loading screen whose native window is adopted by Minecraft. The user subsequently authorized launch-time optimizations during renderer work. Keep all nine game targets and both Java generations. The user also requested the themed video settings interface and one-time hardware recommendations, explicitly keeping the loading window while requiring settings to stay closed at startup. The subsequent request to fix pre-Fabric startup moved the loading window forward; same-window OpenGL startup is implemented, while both parity milestones remain incomplete. The user also requested Frame Sync with actual/estimated FPS counters, original shader support with Modrinth/drag-drop installation and Iris incompatibility, and further singleplayer world-loading/generation improvements. Those additional features remain outstanding. Do not count a hot-path optimization as completing a broader renderer subsystem. Pinned comparison versions and acceptance work are tracked in `docs/PARITY_PLAN.md`; cache architecture, recovery and measurement are in `docs/STARTUP_CACHES.md`.
 
 ## Ideas under consideration, not decisions
 
 - An all-in-one set of renderer, memory, chunk, world-generation, and smoothness improvements.
 - Further expansion of the Knot Client through reversible launcher metadata rather than a loader fork.
-- A NeoForge-style early window whose GLFW handle is later adopted by Minecraft.
 - Parallel preparation with ordered, single-threaded application for startup work.
 - Strictly keyed persistent processed-resource and startup caches.
 - Frame-time attribution and cooperative work-budget coordination.

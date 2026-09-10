@@ -2,7 +2,8 @@
 
 The requested order is full renderer feature parity, then full Lithium-style game-logic parity, then the
 Kernel loading window with a same-window transition into the game. The subsequent request also authorizes
-launch-time optimizations while the renderer work proceeds. Neither parity milestone is complete.
+launch-time optimizations while the renderer work proceeds. The later request to repair pre-Fabric startup
+moved the loading window forward. Neither parity milestone is complete.
 
 Implementations must be original. No upstream mod source, binary, or asset is included. The renderer and
 game logic stay inside the Fabric mod; launcher-only work stays in the Knot Client. All nine existing game
@@ -43,7 +44,7 @@ work breakdown, not an assertion that all upstream options have already been aud
 | Translucency | Kernel stable radix index sorting with vanilla centroids, resort triggers and index uploads | Geometry-aware sorting for intersecting surfaces, rebuild/resort policy, visual reference tests and pinned-release behavior coverage |
 | Entities and block entities | Allocation-reduced model emission | Visibility decisions, oversized bounds, off-screen render contracts, special effects and mod compatibility |
 | Particles and animated textures | Vanilla paths | Visibility-aware work scheduling without stale animations or altered particle simulation |
-| Configuration | Persistent per-feature switches, immutable startup snapshots and native settings screen with restart status, diagnostics and translation keys | Mod Menu integration, real-screen/narration checks, broader renderer options and pinned-release configuration coverage |
+| Configuration | Persistent per-feature switches, immutable startup snapshots, themed native video settings, one-time hardware recommendations and actual screen checks on all nine targets | Mod Menu integration, speech-engine/controller checks, broader renderer options and pinned-release configuration coverage |
 | Mod and pack compatibility | Sodium conflict explicitly declared | Fabric rendering integration, custom model/quad formats, pack reloads, mod hooks and a maintained test matrix |
 | Performance and platforms | Local isolated benchmarks only | Reproducible gameplay traces, render correctness captures, frame-time distributions, memory, upload stalls and physical GPU/OS testing |
 
@@ -95,7 +96,10 @@ listeners or claim that a modpack loads instantly. End-to-end launch improvement
 
 ## Loading-window milestone
 
-This remains deferred until the renderer and game-logic milestones are satisfied, as requested.
+Same-window OpenGL startup is now implemented in response to the later loading-window request. The
+[bootstrap guide](BOOTSTRAP_WINDOW.md) records ownership, real activity/progress, installation, recovery
+and remaining platform limits. Real launch probes pass across all nine game targets on the available
+Windows/AMD machine. No full-platform or instantaneous-initialization claim is made.
 
 Acceptance requires a promptly displayed pre-Fabric Kernel window; honest phase/activity reporting with
 indeterminate progress when total work is unknown; normal handling of errors and user cancellation; and
@@ -104,3 +108,14 @@ can be replaced only while preserving the actual resource preparation and comple
 full-screen transitions, DPI, resize, focus, accessibility, context ownership and fallback recovery on
 all supported game targets and the intended OS/driver matrix. Showing a window promptly is distinct
 from completing Minecraft initialization instantly.
+
+## Additional requested work
+
+- Frame Sync: monitor-refresh cap and synchronized presentation, with actual paced FPS plus a clearly
+  labeled uncapped estimate. The HUD must move its information into F3 rather than overlap debug text.
+- An original shader-pack renderer with Modrinth discovery/installation and drag/drop import, plus an
+  explicit Iris incompatibility. A download manager alone does not satisfy working shader support.
+- Further deterministic singleplayer world-generation/world-loading improvements and reduced chunk
+  loading stutters. Preserve vanilla world output, random-number consumption and mod lifecycle behavior.
+
+These remain incomplete. No upstream shader engine, optimization mod or reference binary is bundled.

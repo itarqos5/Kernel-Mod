@@ -16,15 +16,22 @@ public final class KernelKnotClient {
     }
 
     public static void main(String[] arguments) throws Throwable {
-        Class<?> fabricClient = findFabricClient();
-        Method main = fabricClient.getMethod("main", String[].class);
-
+        if (KernelAgent.loadingArmed()) {
+            try { dev.kernel.client.loading.EarlyLoadingWindow.start(arguments); }
+            catch (LinkageError exception) { System.err.println("[Kernel] Early window dependencies unavailable; continuing normally."); }
+        }
         try {
+            Class<?> fabricClient = findFabricClient();
+            Method main = fabricClient.getMethod("main", String[].class);
             main.invoke(null, (Object) arguments);
         } catch (InvocationTargetException exception) {
             throw exception.getCause();
         } finally {
             KernelAgent.finishStartup();
+            if (KernelAgent.loadingArmed()) {
+                try { dev.kernel.client.loading.EarlyLoadingWindow.cleanup(); }
+                catch (LinkageError ignored) { }
+            }
         }
     }
 
