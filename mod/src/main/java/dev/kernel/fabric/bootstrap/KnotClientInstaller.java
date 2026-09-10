@@ -39,6 +39,9 @@ public final class KnotClientInstaller {
     private static final String BOOTSTRAP_PROPERTIES_RESOURCE = "/kernel-bootstrap.properties";
     private static final String LIBRARY_PREFIX = "dev.kernel.client:kernel-knot-client:";
     private static final String LEGACY_LIBRARY_PREFIX = "kernel.client:kernel-knot-client:";
+    static final String AGENT_PREFIX = "-javaagent:${library_directory}/dev/kernel/client/kernel-knot-client/";
+    private static final Pattern OWNED_AGENT = Pattern.compile(Pattern.quote(AGENT_PREFIX)
+        + "([A-Za-z0-9._+\\-]+)/kernel-knot-client-\\1\\.jar");
     private static final Pattern SAFE_VERSION_ID = Pattern.compile("[A-Za-z0-9._+\\-]+", Pattern.UNICODE_CASE);
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
 
@@ -75,6 +78,9 @@ public final class KnotClientInstaller {
                 "the selected profile does not use a recognized Fabric KnotClient entry point"
             );
         }
+        if (!hasSupportedJvmArguments(profileJson)) {
+            return new InstallResult(Outcome.UNSUPPORTED_LAUNCHER, "the profile has an unsupported JVM arguments structure");
+        }
 
         String hash = sha256(knotClient);
         String installedVersion = semanticVersion + "-k" + hash.substring(0, 12);
@@ -86,7 +92,8 @@ public final class KnotClientInstaller {
             .resolve("kernel-knot-client-" + installedVersion + ".jar");
 
         boolean jarChanged = installJar(installedJar, knotClient, hash);
-        boolean profileChanged = patchProfile(profileJson, currentMainClass, coordinate, semanticVersion, hash);
+        String agentArgument = AGENT_PREFIX + installedVersion + "/kernel-knot-client-" + installedVersion + ".jar";
+        boolean profileChanged = patchProfile(profileJson, currentMainClass, coordinate, semanticVersion, hash, agentArgument);
 
         if (profileChanged) {
             backupOnce(profile.profileJson());
@@ -152,7 +159,8 @@ public final class KnotClientInstaller {
         String currentMainClass,
         String coordinate,
         String semanticVersion,
-        String hash
+        String hash,
+        String agentArgument
     ) {
         boolean changed = false;
         String originalMainClass = currentMainClass;
@@ -210,6 +218,8 @@ public final class KnotClientInstaller {
         changed |= setString(kernelMetadata, "originalMainClass", originalMainClass);
         changed |= setString(kernelMetadata, "knotClientVersion", semanticVersion);
         changed |= setString(kernelMetadata, "knotClientSha256", hash);
+        changed |= patchAgentArgument(profile, agentArgument);
+        changed |= setString(kernelMetadata, "javaAgentArgument", agentArgument);
 
         if (!profile.has("kernel") || profile.get("kernel") != kernelMetadata) {
             profile.add("kernel", kernelMetadata);
@@ -217,6 +227,30 @@ public final class KnotClientInstaller {
         }
 
         return changed;
+    }
+
+    private static boolean hasSupportedJvmArguments(JsonObject profile) {
+        if (!profile.has("arguments")) return true;
+        if (!profile.get("arguments").isJsonObject()) return false;
+        JsonObject arguments = profile.getAsJsonObject("arguments");
+        return !arguments.has("jvm") || arguments.get("jvm").isJsonArray();
+    }
+
+    private static boolean patchAgentArgument(JsonObject profile, String agentArgument) {
+        JsonObject arguments = profile.has("arguments") ? profile.getAsJsonObject("arguments") : new JsonObject();
+        JsonArray original = arguments.has("jvm") ? arguments.getAsJsonArray("jvm") : new JsonArray();
+        JsonArray updated = new JsonArray();
+        for (JsonElement argument : original) {
+            if (argument.isJsonPrimitive() && argument.getAsJsonPrimitive().isString()
+                && OWNED_AGENT.matcher(argument.getAsString()).matches()) continue;
+            // Keep third-party agents, conditional launcher arguments, and game arguments verbatim.
+            updated.add(argument);
+        }
+        updated.add(agentArgument);
+        if (original.equals(updated)) return false;
+        arguments.add("jvm", updated);
+        profile.add("arguments", arguments);
+        return true;
     }
 
     private static boolean setString(JsonObject object, String key, String value) {

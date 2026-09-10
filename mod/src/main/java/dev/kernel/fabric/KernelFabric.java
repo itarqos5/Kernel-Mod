@@ -24,7 +24,7 @@ public final class KernelFabric implements ClientModInitializer {
             KnotClientInstaller.InstallResult result = KnotClientInstaller.installForCurrentLaunch();
 
             switch (result.outcome()) {
-                case INSTALLED -> LOGGER.info("Kernel Knot Client installed. It will run before Fabric on the next launch.");
+                case INSTALLED -> LOGGER.info("Kernel Knot Client and its startup-cache agent installed for this profile's next launch.");
                 case ALREADY_INSTALLED -> LOGGER.debug("Kernel Knot Client is already installed for this launch profile.");
                 case UNSUPPORTED_LAUNCHER -> LOGGER.warn("Kernel Knot Client was not installed: {}", result.detail());
             }

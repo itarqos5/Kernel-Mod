@@ -14,7 +14,8 @@
     "render.PoseStackPoseMixin",
     "render.SectionRenderDispatcherMixin",
     "render.VertexConsumerMixin",
-    "render.VisGraphMixin"
+    "render.VisGraphMixin",
+    "startup.MinecraftStartupMixin"
   ],
   "injectors": {
     "defaultRequire": 1

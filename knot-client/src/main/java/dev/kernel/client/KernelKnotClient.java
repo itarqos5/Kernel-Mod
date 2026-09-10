@@ -23,6 +23,8 @@ public final class KernelKnotClient {
             main.invoke(null, (Object) arguments);
         } catch (InvocationTargetException exception) {
             throw exception.getCause();
+        } finally {
+            KernelAgent.finishStartup();
         }
     }
 
