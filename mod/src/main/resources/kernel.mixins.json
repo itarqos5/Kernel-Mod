@@ -22,6 +22,7 @@
     "render.ChunkRebuildTaskMixin",
     "render.ChunkResortTaskMixin",
     "render.ChunkTaskQueueMixin",
+    "render.ChunkUniformMixin",
     "render.FluidHeightMixin",
     "render.ModelBlockRendererMixin",
     "render.ModelPartCubeMixin",

@@ -35,6 +35,8 @@
   "kernel.option.chunk_upload": "Chunk upload budget",
   "kernel.option.chunk_upload.description": "Spread chunk uploads across render passes. Adapt the 0.25–2 ms budget to recent frame work, with at most 32 tasks per pass.",
   "kernel.option.chunk_queue": "Chunk build priorities",
+  "kernel.option.chunk_uniforms": "Chunk camera snapshots",
+  "kernel.option.chunk_uniforms.description": "Share unchanged camera matrices within each chunk drawing batch. Keep previous snapshots intact for the graphics uploader.",
   "kernel.option.chunk_queue.description": "Index pending section tasks by position and remove cancelled tasks promptly. Keep the game's original priority rules.",
   "kernel.option.visibility": "Section visibility solver",
   "kernel.option.visibility.description": "Use a scanline search to calculate which section faces are connected through empty space.",

@@ -55,6 +55,11 @@ kernel-knot-client-0.1.0.jar
 
 Implemented:
 
+- Invocation-local chunk camera snapshots on 1.21.11, 26.1.2 and 26.2: unchanged native matrix copies
+  are shared within one draw-preparation batch, with raw-value/property comparison and fresh copies for
+  changed input. Previously uploaded snapshots are never mutated. The restart-only `chunk_uniforms`
+  setting owns the hook; earlier targets keep their native paths. See [chunk camera snapshots](docs/CHUNK_UNIFORMS.md).
+
 - Bounded preallocation for uncached local JAR class reads during bootstrap, avoiding intermediate read
   buffers for entries up to 1 MiB while preserving complete-stream reads, I/O errors and cache isolation.
   See [startup cache behavior and measurements](docs/STARTUP_CACHES.md).

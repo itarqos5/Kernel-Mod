@@ -85,5 +85,10 @@ class RendererConfigTest {
         assertTrue(RendererFeature.CHUNK_QUEUE.supports("26.2"));
         assertFalse(RendererFeature.CHUNK_UPLOAD.supports("26.2"));
         assertTrue(RendererFeature.CHUNK_UPLOAD.supports("1.21.11"));
+        assertTrue(RendererFeature.CHUNK_UNIFORMS.supports("1.21.11"));
+        assertTrue(RendererFeature.CHUNK_UNIFORMS.supports("26.1.2"));
+        assertTrue(RendererFeature.CHUNK_UNIFORMS.supports("26.2"));
+        for (String version : new String[]{"1.21.4", "1.21.5", "1.21.6", "1.21.8", "1.21.9", "1.21.10"})
+            assertFalse(RendererFeature.CHUNK_UNIFORMS.supports(version));
     }
 }

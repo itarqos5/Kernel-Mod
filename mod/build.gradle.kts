@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("dev.kikugie.loom-back-compat")
 }
@@ -242,6 +244,16 @@ tasks {
         jvmArgs("-Xms512m", "-Xmx512m")
     }
 
+    register<JavaExec>("chunkMatrixBenchmark") {
+        group = "verification"
+        description = "Measures unchanged chunk camera copies against bounded invocation-local snapshot reuse."
+        dependsOn(testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath
+        mainClass = "dev.kernel.fabric.render.ChunkMatrixBenchmark"
+        javaLauncher = kernelJavaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion) }
+        jvmArgs("-Xms256m", "-Xmx256m")
+    }
+
     for (mode in listOf("Enabled", "Disabled", "Conflict")) {
         val worldSmoke = register<JavaExec>("worldOptimization${mode}Smoke") {
             group = "verification"
@@ -355,12 +367,21 @@ tasks {
         classpath += files(layout.buildDirectory.dir("gui-probe-mod"))
         if (providers.gradleProperty("kernelShaderLive").orNull == "true") systemProperty("kernel.guiProbe.liveModrinth", "true")
         val game = layout.buildDirectory.dir("shader-smoke-game")
+        val chunkUniforms = providers.gradleProperty("kernelChunkUniforms").orNull
+        require(chunkUniforms == null || chunkUniforms == "true" || chunkUniforms == "false") { "kernelChunkUniforms must be true or false" }
         doFirst {
             val directory = game.get().asFile
             directory.mkdirs()
             directory.resolve("options.txt").writeText("onboardAccessibility:false\nguiScale:2\nrenderDistance:4\nsimulationDistance:5\npauseOnLostFocus:false\nsoundCategory_master:0.0\n")
             directory.resolve("config").mkdirs()
             directory.resolve("config/kernel-shaders.properties").writeText("selected=\n")
+            if (chunkUniforms != null) {
+                val config = directory.resolve("config/kernel-renderer.properties")
+                val settings = Properties()
+                if (config.isFile) config.reader().use { settings.load(it) }
+                settings.setProperty("chunk_uniforms", chunkUniforms)
+                config.writer().use { settings.store(it, "Kernel isolated renderer probe") }
+            }
             val marker = directory.resolve("shader-probe-complete.json")
             check(!marker.exists() || marker.delete())
         }

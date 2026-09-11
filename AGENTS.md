@@ -64,6 +64,11 @@ Never bump either version automatically. Only change `mod_version` or `knot_clie
 
 Implemented:
 
+- Invocation-local chunk camera snapshots on 1.21.11, 26.1.2 and 26.2: unchanged native matrix copies
+  are shared within one draw-preparation batch, with raw-value/property comparison and fresh copies for
+  changed input. Previously uploaded snapshots are never mutated. The restart-only `chunk_uniforms`
+  setting owns the hook; earlier targets keep their native paths. See `docs/CHUNK_UNIFORMS.md`.
+
 - Known-size reads for eligible local JAR class entries during bootstrap: entries up to 1 MiB use one
   output buffer, with EOF determining the returned length and bounded fallback for incorrect/unknown
   hints. Cache keys, independent returned arrays, classloader checks and release behavior are unchanged.

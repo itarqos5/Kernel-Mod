@@ -9,6 +9,7 @@ public enum RendererFeature {
     FLUID("fluid", false),
     CHUNK_UPLOAD("chunk_upload", false),
     CHUNK_QUEUE("chunk_queue", true),
+    CHUNK_UNIFORMS("chunk_uniforms", true),
     VISIBILITY("visibility", true),
     QUAD_SORTING("quad_sorting", true);
 
@@ -18,7 +19,10 @@ public enum RendererFeature {
     RendererFeature(String key, boolean modern) { this.key = key; this.modern = modern; }
     public String key() { return key; }
     public String translationKey() { return "kernel.option." + key; }
-    public boolean supports(String gameVersion) { return modern || !gameVersion.startsWith("26."); }
+    public boolean supports(String gameVersion) {
+        if (this == CHUNK_UNIFORMS) return gameVersion.equals("1.21.11") || gameVersion.startsWith("26.");
+        return modern || !gameVersion.startsWith("26.");
+    }
 
     public static RendererFeature forMixin(String className) {
         return switch (className.substring(className.lastIndexOf('.') + 1)) {
@@ -30,6 +34,7 @@ public enum RendererFeature {
             case "FluidHeightMixin" -> FLUID;
             case "SectionRenderDispatcherMixin" -> CHUNK_UPLOAD;
             case "ChunkTaskMixin", "ChunkTaskQueueMixin", "ChunkRebuildTaskMixin", "ChunkResortTaskMixin" -> CHUNK_QUEUE;
+            case "ChunkUniformMixin" -> CHUNK_UNIFORMS;
             case "VisGraphMixin" -> VISIBILITY;
             case "VertexSortingMixin" -> QUAD_SORTING;
             default -> null;
