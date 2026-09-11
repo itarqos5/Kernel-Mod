@@ -40,6 +40,7 @@ public final class ShaderProbe {
         *///? }
         long elapsed = System.nanoTime() - changedAt;
         if (stage == 0 && !KernelShaders.busy()) {
+            dev.kernel.fabric.shader.ShaderWorldGlChecks.run();
             dev.kernel.fabric.shader.ShaderTextureGlChecks.run();
             ShaderGlChecks.run();
             ShaderMultipleTargetsChecks.run();
@@ -94,7 +95,7 @@ public final class ShaderProbe {
             return;
         }
         if (stage == 6 && minecraft.level != null && minecraft.player != null && GuiProbe.screen(minecraft) == null && elapsed > 3_000_000_000L) {
-            if (verifiedWorldFrames == 0) return;
+            if (verifiedWorldFrames == 0 || !ShaderWorldGlChecks.weatherObserved()) return;
             Path bad = KernelShaders.directory().resolve("unsupported-probe.zip");
             zip(bad, "#version 120\nuniform sampler2D shadowtex0; void main() { gl_FragColor = texture2D(shadowtex0,vec2(0.5)); }");
             KernelShaders.select("unsupported-probe.zip"); next(7); return;
@@ -125,7 +126,7 @@ public final class ShaderProbe {
         GuiProbe.screen(minecraft).onClose(); GuiProbe.screen(minecraft).onClose();
         GuiProbe.click(GuiProbe.find(GuiProbe.screen(minecraft), "menu.singleplayer")); next(5);
     }
-    private static void assertWorldPixel(Minecraft minecraft) {
+    private static void assertWorldPixel(Minecraft minecraft, net.minecraft.client.DeltaTracker deltaTracker) {
         //? if >=26.2 {
         var target = minecraft.gameRenderer.mainRenderTarget();
         //? } else {
@@ -149,16 +150,19 @@ public final class ShaderProbe {
             var pixel = stack.malloc(4); GL33C.glReadPixels(target.width / 4, target.height / 2, 1, 1, GL33C.GL_RGBA, GL33C.GL_UNSIGNED_BYTE, pixel);
             int[] expected = {64, 128, 191, 255};
             for (int i = 0; i < 4; i++) if (Math.abs((pixel.get(i) & 255) - expected[i]) > 1) throw new AssertionError("World shader pass did not produce expected pixel: channel " + i + "=" + (pixel.get(i) & 255));
+            dev.kernel.fabric.shader.ShaderWorldGlChecks.verifyWorldPixels(minecraft, deltaTracker, target.height);
         } finally {
             GL33C.glBindFramebuffer(GL33C.GL_READ_FRAMEBUFFER, read); GL33C.glDeleteFramebuffers(fbo);
             GL33C.glBindBuffer(GL33C.GL_PIXEL_PACK_BUFFER, packBuffer);
             for (int i = 0; i < 3; i++) GL33C.glPixelStorei(stores[i], previous[i]);
         }
     }
-    public static void verifyWorldFrame() {
+    public static void verifyWorldFrame(net.minecraft.client.DeltaTracker deltaTracker) {
         if (!Boolean.getBoolean("kernel.guiProbe.shaders") || (stage != 6 && stage != 7)) return;
         // The native HUD vignette intentionally darkens the final image afterwards; inspect before that HUD pass.
-        assertWorldPixel(Minecraft.getInstance()); verifiedWorldFrames++;
+        assertWorldPixel(Minecraft.getInstance(), deltaTracker);
+        if (stage == 6 && verifiedWorldFrames == 0) ShaderWorldGlChecks.beginLiveWeatherSample(Minecraft.getInstance());
+        verifiedWorldFrames++;
     }
     private static void next(int value) { stage = value; changedAt = System.nanoTime(); verifiedWorldFrames = 0; }
 }

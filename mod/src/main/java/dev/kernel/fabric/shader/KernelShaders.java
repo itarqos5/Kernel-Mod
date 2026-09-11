@@ -147,7 +147,7 @@ public final class KernelShaders {
             }
         } catch (IOException | RuntimeException failure) { fail(failure.getMessage()); LoggerFactory.getLogger("Kernel").warn("Shader compilation failed; retaining the previous pipeline", failure); }
     }
-    public static void renderWorld() {
+    public static void renderWorld(net.minecraft.client.DeltaTracker deltaTracker) {
         if (pipeline == null || closed) return;
         try {
             var minecraft = Minecraft.getInstance();
@@ -156,7 +156,8 @@ public final class KernelShaders {
             //? } else {
             /*var target = minecraft.getMainRenderTarget();
             *///? }
-            pipeline.render(colorTexture(minecraft), target.width, target.height);
+            ShaderWorldData world = pipeline.needsWorldData() ? ShaderWorldCapture.capture(minecraft, deltaTracker) : null;
+            pipeline.render(colorTexture(minecraft), target.width, target.height, world);
         } catch (IOException | RuntimeException failure) {
             pipeline.close(); pipeline = null; active = "";
             fail("Shaders disabled after a rendering error: " + failure.getMessage());

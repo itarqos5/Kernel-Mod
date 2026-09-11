@@ -12,7 +12,7 @@ public abstract class ShaderFrameMixin {
     @Inject(method = "render", at = @At("HEAD"))
     private void kernel$prepareShaders(CallbackInfo callback) { KernelShaders.beginFrame(); }
     @Inject(method = "renderLevel", at = @At("RETURN"))
-    private void kernel$renderShaders(CallbackInfo callback) { KernelShaders.renderWorld(); }
+    private void kernel$renderShaders(net.minecraft.client.DeltaTracker deltaTracker, CallbackInfo callback) { KernelShaders.renderWorld(deltaTracker); }
     @Inject(method = "close", at = @At("HEAD"))
     private void kernel$closeShaders(CallbackInfo callback) { KernelShaders.close(); }
 }

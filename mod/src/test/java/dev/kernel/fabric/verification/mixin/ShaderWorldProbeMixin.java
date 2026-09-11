@@ -10,5 +10,5 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(GameRenderer.class)
 public abstract class ShaderWorldProbeMixin {
     @Inject(method = "renderLevel", at = @At("RETURN"), order = 2000)
-    private void kernelProbe$shaderWorld(CallbackInfo callback) { ShaderProbe.verifyWorldFrame(); }
+    private void kernelProbe$shaderWorld(net.minecraft.client.DeltaTracker deltaTracker, CallbackInfo callback) { ShaderProbe.verifyWorldFrame(deltaTracker); }
 }

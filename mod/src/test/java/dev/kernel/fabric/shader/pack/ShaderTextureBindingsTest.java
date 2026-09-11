@@ -23,6 +23,8 @@ class ShaderTextureBindingsTest {
             throw new AssertionError("Texture names or aliases differ");
         for(String bad:new String[]{"texture.composite.gaux4=a.png\ntexture.composite.colortex7=b.png",
             "customTexture.lookup=a.png\ncustomTexture.lookup=b.png", "customTexture.gl_test=a.png", "customTexture.frameCounter=a.png",
+            "customTexture.worldTime=a.png", "customTexture.worldDay=a.png", "customTexture.moonPhase=a.png",
+            "customTexture.rainStrength=a.png", "customTexture.thunderStrength=a.png",
             "customTexture.colortex0=a.png", "customTexture.noise=a.raw TEXTURE_3D R8 8 8 8 RED UNSIGNED_BYTE",
             "texture.deferred.colortex0=a.png", "texture.composite.colortex0=minecraft:textures/block/stone.png",
             "texture.composite.colortex0=C:/secret.png", "#if FLAG\ncustomTexture.name=a.png\n#endif", "texture.composite.colortex16=a.png"}) {

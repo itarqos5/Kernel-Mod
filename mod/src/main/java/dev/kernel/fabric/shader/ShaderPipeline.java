@@ -27,7 +27,7 @@ public final class ShaderPipeline implements AutoCloseable {
     private int vao, sampler, mipmapSampler, frame, textureUnits, outputSlots;
     private final long started = System.nanoTime();
     private long lastFrame = started;
-    private boolean closed;
+    private boolean closed, usesWorldData;
 
     public ShaderPipeline(PreparedShaderPack pack) throws IOException {
         try (var state = new ShaderGlState()) {
@@ -48,6 +48,7 @@ public final class ShaderPipeline implements AutoCloseable {
                 for (var program : programs) {
                     required |= program.written;
                     mipmaps |= program.mipmaps;
+                    for (var uniform : program.uniforms) if (uniform.buffer < 0 && ShaderUniforms.isWorldInput(uniform.name)) usesWorldData = true;
                     for (var uniform : program.uniforms) if (uniform.buffer >= 0) {
                         sampled |= 1L << uniform.buffer;
                         legacyDepth |= uniform.buffer == 1 && uniform.name.equals("gdepth");
@@ -69,9 +70,14 @@ public final class ShaderPipeline implements AutoCloseable {
             } catch (IOException | RuntimeException failure) { close(); throw failure; }
         }
     }
+    public boolean needsWorldData() { return usesWorldData; }
     public void render(int sourceTexture, int width, int height) throws IOException {
+        render(sourceTexture, width, height, null);
+    }
+    public void render(int sourceTexture, int width, int height, ShaderWorldData world) throws IOException {
         if (closed) throw new IOException("Shader pipeline is closed");
         if (sourceTexture <= 0 || width <= 0 || height <= 0) return;
+        if (usesWorldData && world == null) throw new IOException("This shader requires current world inputs");
         try (var state = new ShaderGlState(Math.max(1, textureUnits), outputSlots)) {
             state.prepare(); targets.begin(sourceTexture, width, height);
             long now = System.nanoTime(); float delta = (now - lastFrame) * 1.0e-9f;
@@ -91,10 +97,15 @@ public final class ShaderPipeline implements AutoCloseable {
                 }
                 for (var uniform : program.uniforms) {
                     if (uniform.buffer >= 0) GL33C.glUniform1i(uniform.location, uniform.unit);
-                    else if (uniform.type == GL33C.GL_INT) GL33C.glUniform1i(uniform.location, frame);
+                    else if (uniform.type == GL33C.GL_INT) GL33C.glUniform1i(uniform.location, switch (uniform.name) {
+                        case "frameCounter" -> frame; case "worldTime" -> world.worldTime(); case "worldDay" -> world.worldDay();
+                        case "moonPhase" -> world.moonPhase(); default -> throw new AssertionError(uniform.name);
+                    });
                     else GL33C.glUniform1f(uniform.location, switch (uniform.name) {
                         case "viewWidth" -> width; case "viewHeight" -> height; case "aspectRatio" -> (float) width / height;
-                        case "frameTime" -> delta; case "frameTimeCounter" -> elapsed; default -> throw new AssertionError(uniform.name);
+                        case "frameTime" -> delta; case "frameTimeCounter" -> elapsed;
+                        case "rainStrength" -> world.rainStrength(); case "thunderStrength" -> world.thunderStrength();
+                        default -> throw new AssertionError(uniform.name);
                     });
                 }
                 GL33C.glDrawArrays(GL33C.GL_TRIANGLES, 0, 3);

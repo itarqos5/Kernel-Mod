@@ -32,7 +32,8 @@ the native window resolution; required buffer pairs are allocated lazily within 
 The budget counts both images, any complete mip chains using each selected format's declared bytes
 per pixel, and active custom PNG textures; driver overhead and internal padding can add physical GPU
 memory beyond that accounting.
-There is no automatic shader download or activation.
+Imports and downloads require selection before first activation. A saved selection is restored on later
+launches; Kernel does not download packs automatically.
 
 Supported uniforms are scalar `viewWidth`, `viewHeight`, `aspectRatio`, `frameTime`, `frameTimeCounter`
 (seconds modulo 3600), integer `frameCounter` (modulo 720720), and `colortex0` through `colortex15`.
@@ -41,6 +42,21 @@ Legacy aliases are `gcolor`/`texture` (0), `gdepth` (1), `gnormal` (2), `composi
 its format. This is a color-buffer alias, not a depth image. Buffer 1 defaults to white; auxiliary buffers
 2–15 default to transparent black. These buffers do not contain terrain normals, material data or depth
 automatically. By default they clear each frame; supported clear declarations can retain auxiliary history.
+
+World-dependent passes can also use integer `worldTime`, `worldDay` and `moonPhase`, and float
+`rainStrength` and `thunderStrength`. These follow the [world/weather uniform contract](https://shaders.properties/current/reference/uniforms/world/).
+Native day-clock ticks provide time within a 24,000-tick day and elapsed days, with the legacy integer day
+counter wrapping modulo `Integer.MAX_VALUE`. Normal clocks yield `worldTime` from 0 through 23999;
+negative custom clock values retain Java's signed remainder/division behavior. The 26.x adapter reads
+the Overworld clock to retain these legacy semantics; custom timeline periods are not substituted.
+Moon phases come from the native level through 1.21.10 and camera environment attributes on newer
+targets. Rain and thunder use native world interpolation, including Minecraft's rain-weighted thunder.
+
+All passes share one immutable world-input snapshot captured on the render thread. Packs without active
+world uniforms incur no world snapshot or environment lookup. A world-dependent program requires actual
+world inputs, and an unavailable world produces an explicit error instead of default zero values. These
+names are reserved against custom PNG sampler bindings. Sun/shadow transforms, wetness smoothing and
+the remaining world uniforms are still unsupported; these inputs do not provide terrain or depth stages.
 
 Supported formats are `R8`, `RG8`, `RGBA8`, `R16`, `RG16`, `RGBA16`, `R16F`, `RG16F`, `RGBA16F`,
 `R32F`, `RG32F` and `RGBA32F` (`RGBA` aliases RGBA8). For example,
@@ -178,7 +194,12 @@ check every channel against a CPU filtering/wrapping reference, aliases and nois
 missing files, cancellation before/after decoding, per-pass unit reuse, GPU lifecycle and nondefault
 pixel-upload state. Repeated decode/free cycles compare all RGBA bytes, including hidden color under
 transparent pixels, and ensure native cleanup preserves later image allocations.
-The probe then imports an original PNG-sampling ZIP through the native drop handler,
+World-input pixel fixtures distinguish frame count from world time/day and moon phase, update all five
+inputs across frames, reject incorrect types/arrays, and recover from missing world data. Pure tests
+cover midnight, time resets, signed custom clocks and the legacy day-counter wrap. In the real world,
+the probe changes the isolated client's weather and verifies nonzero rain/thunder in the shader output.
+The probe then imports a uniquely named original PNG-sampling ZIP through the native drop handler,
+verifies the installed bytes against that exact source,
 persists activation, creates a separate flat test world,
 checks the world-pass pixels, rejects an unsupported shader while retaining the working one, and disables
 shaders before saving/exiting. It never opens existing user worlds. Physical GPU/OS coverage remains
@@ -198,7 +219,7 @@ same-window startup with shader integration installed. The multi-target update p
 pixel and gameplay/GUI probes. The final parser checks additionally exercise conditional scope changes
 and a megabyte of malformed comment prefixes. Release artifacts are checked for exact game/Java
 metadata, matching bundled bootstrap bytes and absence of test or third-party implementation classes.
-The current adapter passed `buildAll`, 1,223 unit tests in 331 suites, 27 world
+The current adapter passed `buildAll`, 1,241 unit tests in 340 suites, 27 world
 activation/conflict probes, the renderer/bootstrap checks and all nine native shader/gameplay probes.
 The twelve-format pixel, precision, conversion, retained-history and mipmap checks run inside each
 supported Minecraft target. Release verification confirms nine mod JARs and one matching Knot Client JAR.

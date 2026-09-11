@@ -9,8 +9,16 @@ public final class ShaderUniforms {
     private static final Pattern COLOR = Pattern.compile("colortex(?:[0-9]|1[0-5])");
     private static final Map<String, Integer> SCALARS = Map.ofEntries(
         Map.entry("viewWidth", GL33C.GL_FLOAT), Map.entry("viewHeight", GL33C.GL_FLOAT), Map.entry("aspectRatio", GL33C.GL_FLOAT),
-        Map.entry("frameCounter", GL33C.GL_INT), Map.entry("frameTime", GL33C.GL_FLOAT), Map.entry("frameTimeCounter", GL33C.GL_FLOAT));
+        Map.entry("frameCounter", GL33C.GL_INT), Map.entry("frameTime", GL33C.GL_FLOAT), Map.entry("frameTimeCounter", GL33C.GL_FLOAT),
+        Map.entry("worldTime", GL33C.GL_INT), Map.entry("worldDay", GL33C.GL_INT), Map.entry("moonPhase", GL33C.GL_INT),
+        Map.entry("rainStrength", GL33C.GL_FLOAT), Map.entry("thunderStrength", GL33C.GL_FLOAT));
     private ShaderUniforms() {}
+    public static boolean isWorldInput(String name) {
+        return switch (name) {
+            case "worldTime", "worldDay", "moonPhase", "rainStrength", "thunderStrength" -> true;
+            default -> false;
+        };
+    }
     public static int scalarType(String name) { return SCALARS.getOrDefault(name, -1); }
     public static int colorBuffer(String name) {
         return switch (name) {

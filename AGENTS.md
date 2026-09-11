@@ -135,6 +135,11 @@ Implemented:
 
 - An original OpenGL color post-processing shader pipeline with ordered composite/final passes, native Shaders GUI, Modrinth discovery/install, ZIP drag/drop, verified downloads, persistent selection and failed-pack recovery. Conditional and guarded literal includes use the native GLSL preprocessor, with bounded expansion and source diagnostics. Up to sixteen color buffers and eight simultaneous outputs support explicit target routing and indexed graphics-state restoration. Twelve normalized/floating-point formats, per-pass color mipmaps, literal clear settings and retained auxiliary history support feedback across passes and frames, with reset on resizing or world changes. Pack-local PNG inputs support named samplers, composite/final color overrides, noise textures and literal filtering/wrapping metadata, with bounded worker decoding, shared-image memory accounting and per-pass sampler units. Unsupported terrain/shadow/depth stages and integer formats remain explicitly rejected. See `docs/SHADERS.md`.
 
+- Shader world-time/day, native moon phase and interpolated rain/thunder uniforms use one immutable
+  snapshot per world render, captured only for programs that request them. Legacy clock arithmetic is
+  retained across 26.x's clock API; camera environment attributes supply moon phases on newer targets.
+  Missing world inputs fail explicitly, and custom PNG names cannot override the built-in uniforms.
+
 - Single-allocation noise interpolation slices on all nine targets: each zero-filled row is allocated once instead of creating and immediately discarding an identical row. Independent restart-only GUI/config control, Lithium ownership guard, native-method allocation checks and world-output verification preserve generation semantics.
 
 - Bounded exact-result reuse for native End island heights, with 1,024 primitive entries and four weak noise-source identities per thread. Native calculations run unchanged on misses; custom noise subclasses retain live evaluation. A separate restart-only setting yields to Lithium, with native differential checks and isolated End generation comparison tasks.

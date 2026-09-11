@@ -183,7 +183,17 @@ public final class ShaderTextureGlChecks {
     }
     public static void writeImportFixture(java.nio.file.Path path) throws Exception {
         var files=Map.of(
-            "shaders/final.fsh", "#version 120\nuniform sampler2D probeImage; void main(){gl_FragColor=texture2D(probeImage,vec2(.5));}".getBytes(StandardCharsets.UTF_8),
+            "shaders/final.fsh", """
+                #version 120
+                uniform sampler2D probeImage;
+                uniform int worldTime, worldDay, moonPhase;
+                uniform float rainStrength, thunderStrength;
+                void main() {
+                    if (gl_FragCoord.x < 2.0) gl_FragColor = vec4(rainStrength, thunderStrength, float(moonPhase)/7.0, 1.0);
+                    else if (gl_FragCoord.x < 4.0) gl_FragColor = vec4(float(worldTime)/24000.0, float(worldDay%256)/255.0, 0.0, 1.0);
+                    else gl_FragColor = texture2D(probeImage,vec2(.5));
+                }
+                """.getBytes(StandardCharsets.UTF_8),
             "shaders/shaders.properties", "customTexture.probeImage=probe.png\n".getBytes(StandardCharsets.UTF_8),
             "shaders/probe.png", png(1,1,new int[]{0xff4080bf}));
         try(var output=new ZipOutputStream(Files.newOutputStream(path))) {

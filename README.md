@@ -112,6 +112,9 @@ Implemented:
 
 - An original OpenGL color post-processing shader pipeline with ordered composite/final passes, native Shaders GUI, Modrinth discovery/install, ZIP drag/drop, verified downloads, persistent selection and failed-pack recovery. Conditional and guarded literal includes use the native GLSL preprocessor, with bounded expansion and source diagnostics. Up to sixteen color buffers and eight simultaneous outputs support explicit target routing and indexed graphics-state restoration. Twelve normalized/floating-point formats, per-pass color mipmaps, literal clear settings and retained auxiliary history support feedback across passes and frames, with reset on resizing or world changes. Pack-local PNG inputs support named samplers, composite/final color overrides, noise textures and literal filtering/wrapping metadata, with bounded worker decoding, shared-image memory accounting and per-pass sampler units. Unsupported terrain/shadow/depth stages and integer formats remain explicitly rejected. See [shader support and limits](docs/SHADERS.md).
 
+- Shader world-time/day, native moon phase and interpolated rain/thunder uniforms share one snapshot
+  across a frame's passes, captured only for packs that request those inputs. See [shader inputs](docs/SHADERS.md).
+
 - Single-allocation noise interpolation slices on all nine targets: each zero-filled row is allocated once instead of creating and immediately discarding an identical row. Independent restart-only GUI/config control, Lithium ownership guard, native-method allocation checks and world-output verification preserve generation semantics.
 
 - Bounded reuse of identical native End island heights across repeated terrain samples. The cache preserves exact float results, uses weak noise-source identities, leaves custom noise subclasses uncached and has an independent restart-only setting. See [world optimizations](docs/WORLD_OPTIMIZATIONS.md) for scope and validation.
