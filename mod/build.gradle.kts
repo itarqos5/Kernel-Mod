@@ -393,6 +393,9 @@ tasks {
     named<JavaExec>("runShaderSmoke") {
         dependsOn(prepareGuiProbe)
         classpath += files(layout.buildDirectory.dir("gui-probe-mod"))
+        systemProperty("kernel.sectionBufferBenchmark", providers.gradleProperty("kernelSectionBufferBenchmark").getOrElse("false"))
+        val sectionBuffers = providers.gradleProperty("kernelSectionBuffers").orNull
+        require(sectionBuffers == null || sectionBuffers == "true" || sectionBuffers == "false") { "kernelSectionBuffers must be true or false" }
         if (providers.gradleProperty("kernelShaderLive").orNull == "true") systemProperty("kernel.guiProbe.liveModrinth", "true")
         val game = layout.buildDirectory.dir("shader-smoke-game")
         val chunkUniforms = providers.gradleProperty("kernelChunkUniforms").orNull
@@ -403,6 +406,13 @@ tasks {
             directory.resolve("options.txt").writeText("onboardAccessibility:false\nguiScale:2\nrenderDistance:4\nsimulationDistance:5\npauseOnLostFocus:false\nsoundCategory_master:0.0\n")
             directory.resolve("config").mkdirs()
             directory.resolve("config/kernel-shaders.properties").writeText("selected=\n")
+            if (sectionBuffers != null) {
+                val config = directory.resolve("config/kernel-renderer.properties")
+                val settings = Properties()
+                if (config.isFile) config.reader().use { settings.load(it) }
+                settings.setProperty("section_buffers", sectionBuffers)
+                config.writer().use { settings.store(it, "Kernel isolated renderer probe") }
+            }
             if (chunkUniforms != null) {
                 val config = directory.resolve("config/kernel-renderer.properties")
                 val settings = Properties()

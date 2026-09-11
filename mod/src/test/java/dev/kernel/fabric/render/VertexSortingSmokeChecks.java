@@ -13,6 +13,10 @@ import java.util.stream.IntStream;
 public final class VertexSortingSmokeChecks {
     public static void run() throws ClassNotFoundException {
         FrustumSmokeChecks.run(true);
+        //? if <=1.21.4 {
+        /*Class.forName("com.mojang.blaze3d.vertex.VertexBuffer", false, VertexSortingSmokeChecks.class.getClassLoader()).getDeclaredMethods();
+        Class.forName("net.minecraft.client.renderer.chunk.SectionRenderDispatcher$RenderSection", false, VertexSortingSmokeChecks.class.getClassLoader()).getDeclaredMethods();
+        *///? }
         // Resolve every renderer target without initializing Minecraft or a graphics device. This
         // catches Mixin structural failures which helper-only unit tests cannot detect.
         for (String name : new String[] {

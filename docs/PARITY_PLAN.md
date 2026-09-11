@@ -38,7 +38,7 @@ work breakdown, not an assertion that all upstream options have already been aud
 | --- | --- | --- |
 | Section mesh compilation | Vanilla compiler with Kernel hot-path optimizations | Own compiler, worker snapshots, block/fluid geometry, AO, lighting, tint, model hooks, resource-pack reloads |
 | Build and upload scheduling | Indexed pending-task priorities and cancellation on all targets; adaptive FIFO upload budget on 1.21.x; native 26.x staging | Broader obsolete-result policy, bounded backlogs, reload gameplay validation, measured stutter reduction and worker scheduling |
-| Mesh storage | Vanilla storage | Region allocation, compact vertices with demonstrated precision, index storage, lifetime accounting and reclamation |
+| Mesh storage | Native storage with deferred first allocation for 1.21.4 section layers; newer allocation paths unchanged | Region allocation, compact vertices with demonstrated precision, index storage, lifetime accounting and reclamation |
 | Draw submission | Vanilla graphics-device paths; shared unchanged camera snapshots within native chunk batches on 1.21.11/26.x | Region batching, solid/cutout/translucent passes, capabilities and fallback paths for every target's graphics backend |
 | Visibility | Kernel scanline section-connectivity solver and boolean native frustum queries; vanilla traversal | Occlusion traversal, incremental invalidation, camera transitions, caves, boundary cases and broader visibility integration |
 | Translucency | Kernel stable radix index sorting with vanilla centroids, resort triggers and index uploads | Geometry-aware sorting for intersecting surfaces, rebuild/resort policy, visual reference tests and pinned-release behavior coverage |

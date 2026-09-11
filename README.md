@@ -144,6 +144,8 @@ Implemented:
 
 - Bounded reuse of identical native End island heights across repeated terrain samples. The cache preserves exact float results, uses weak noise-source identities, leaves custom noise subclasses uncached and has an independent restart-only setting. See [world optimizations](docs/WORLD_OPTIMIZATIONS.md) for scope and validation.
 
+- Deferred first GPU allocation for native section-layer buffers on 1.21.4, with stable worker-visible objects, render-thread materialization and native upload/release ownership. Other targets retain their existing upload-time allocation. The independent restart-only control and validation are described in [deferred chunk buffers](docs/SECTION_BUFFERS.md).
+
 Not implemented:
 
 - First-run relaunch window.

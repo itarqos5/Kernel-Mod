@@ -40,6 +40,7 @@ public final class ShaderProbe {
         *///? }
         long elapsed = System.nanoTime() - changedAt;
         if (stage == 0 && !KernelShaders.busy()) {
+            SectionBufferGlChecks.run();
             ShaderDepthGlChecks.run();
             ShaderProjectionGlChecks.run();
             ShaderCameraGlChecks.run();
@@ -115,6 +116,7 @@ public final class ShaderProbe {
         if (stage == 8 && captured) { KernelShaders.disable(); next(9); return; }
         if (stage == 9 && !KernelShaders.busy()) {
             ChunkUniformProbe.verifyComplete();
+            SectionBufferGlChecks.verifyWorld(minecraft);
             if (!KernelShaders.active().isEmpty() || !ShaderConfig.load(minecraft.gameDirectory.toPath().resolve("config/kernel-shaders.properties")).selected().isEmpty()) throw new AssertionError("Shaders off did not apply/save");
             Files.writeString(minecraft.gameDirectory.toPath().resolve("shader-probe-complete.json"), "{\"pixels\":true,\"resize\":true,\"glState\":true,\"dragDrop\":true,\"settings\":true,\"worldPass\":true,\"failureRecovery\":true}\n");
             System.out.println("Kernel shader probe passed: native GUI, import, selection, real world rendering, failed-pack recovery and disable.");

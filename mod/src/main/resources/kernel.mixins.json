@@ -38,6 +38,8 @@
     "render.PoseStackPoseAccessor",
     "render.PoseStackPoseMixin",
     "render.SectionRenderDispatcherMixin",
+    "render.SectionBufferFactoryMixin",
+    "render.DeferredVertexBufferMixin",
     "render.VertexConsumerMixin",
     "render.VertexSortingMixin",
     "render.VisGraphMixin",

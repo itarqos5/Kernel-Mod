@@ -132,7 +132,7 @@ Implemented:
 - Unit coverage for scalar 3D and 2D vertex transforms and the legacy packed-color behavior used by the optimized paths.
 - Unit coverage for reusable render scratch values, pool reentrancy and thread isolation, exact lighting-array updates, bit-for-bit legacy fluid-height parity, rotation semantics, normal-matrix extraction, block-face cache identity and eviction behavior, and chunk-upload budget/lifecycle semantics.
 - Fabric metadata that marks Sodium and Iris as incompatible, identifies `literal.uu` as the author, and includes the approved Kernel lightning icon.
-- Immutable launch-time renderer configuration in `config/kernel-renderer.properties`, with twelve per-feature controls, complete dependent-Mixin group activation, version-aware availability, preserved unknown keys, atomic save where supported and fail-open disabling on malformed/unreadable settings.
+- Immutable launch-time renderer configuration in `config/kernel-renderer.properties`, with thirteen per-feature controls, complete dependent-Mixin group activation, version-aware availability, preserved unknown keys, atomic save where supported and fail-open disabling on malformed/unreadable settings.
 - Kernel video settings opened by a lightning-icon button left of Options in title/pause menus or through the video settings list. Translucent panels, white overlays, four video/optimization tabs plus Shaders, native video controls, draft Apply/Done/Cancel behavior, restart-only optimization switches, translation fallbacks and dynamic icon registration work without Fabric API. The settings screen never opens automatically. See `docs/RENDERER_SETTINGS.md`.
 - Configuration persistence/group tests and real Fabric/Mixin disabled-settings and screen-linkage smoke tests on every supported target. Real Windows/OpenGL launch probes verify pre-Fabric visibility, native-window adoption, settings interaction and clean exit across all nine targets on the available AMD machine. Speech-engine, additional OS/driver and third-party settings-screen validation remains outstanding; see `docs/RENDERER_SETTINGS.md`.
 
@@ -173,6 +173,8 @@ Implemented:
 - Single-allocation noise interpolation slices on all nine targets: each zero-filled row is allocated once instead of creating and immediately discarding an identical row. Independent restart-only GUI/config control, Lithium ownership guard, native-method allocation checks and world-output verification preserve generation semantics.
 
 - Bounded exact-result reuse for native End island heights, with 1,024 primitive entries and four weak noise-source identities per thread. Native calculations run unchanged on misses; custom noise subclasses retain live evaluation. A separate restart-only setting yields to Lithium, with native differential checks and isolated End generation comparison tasks.
+
+- Deferred first GPU allocation for native section-layer buffers on 1.21.4, with stable worker-visible objects, render-thread materialization and native upload/release ownership. Other targets retain their existing upload-time allocation. The independent restart-only control and validation are described in `docs/SECTION_BUFFERS.md`.
 
 Not implemented:
 

@@ -59,7 +59,7 @@ CPU/heap inputs and recommended distances. The Other tab identifies the active G
 ## Optimization persistence and recovery
 
 Optimization settings belong to the game directory's `config/kernel-renderer.properties`. This file
-is created when the screen saves settings. All twelve feature keys default to `true`:
+is created when the screen saves settings. All thirteen feature keys default to `true`:
 
 ```properties
 vertex=true
@@ -69,6 +69,7 @@ block_face=true
 block_model=true
 fluid=true
 chunk_upload=true
+section_buffers=true
 chunk_queue=true
 chunk_uniforms=true
 visibility=true
@@ -86,6 +87,9 @@ the option is hidden on earlier targets.
 
 [View visibility tests](FRUSTUM_TESTS.md) reduces boolean frustum-query work on every target. It is
 independent of the section-face connectivity solver controlled by `visibility`.
+
+[Deferred chunk buffers](SECTION_BUFFERS.md) avoids eagerly creating GPU objects for unused layers
+on 1.21.4. Newer targets already allocate their layer storage on upload, so the option is hidden there.
 
 Unknown keys survive saves. Invalid booleans disable the affected feature; unreadable or malformed
 files disable Kernel renderer optimizations for that launch and log diagnostics. Malformed files are

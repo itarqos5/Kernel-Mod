@@ -141,7 +141,9 @@ public final class GuiProbe {
                     || !RendererConfig.load(settingsPath).config().equals(RendererConfig.defaults())) {
                     throw new AssertionError("Save failed to persist the settings or return to its parent");
                 }
-                verifyFrustumSetting(minecraft, parent);
+                verifyRendererSetting(minecraft, parent, RendererFeature.FRUSTUM);
+                if (KernelRendererSettings.supported(RendererFeature.SECTION_BUFFERS))
+                    verifyRendererSetting(minecraft, parent, RendererFeature.SECTION_BUFFERS);
                 try { WorldSettingsProbe.verify(minecraft, parent); }
                 catch (IOException exception) { throw new AssertionError("World settings persistence", exception); }
                 stage = 4;
@@ -182,23 +184,23 @@ public final class GuiProbe {
         captured = true;
     }
 
-    private static void verifyFrustumSetting(Minecraft minecraft, Screen parent) {
+    private static void verifyRendererSetting(Minecraft minecraft, Screen parent, RendererFeature feature) {
         var saved = KernelRendererSettings.saved();
-        boolean active = KernelRendererSettings.enabled(RendererFeature.FRUSTUM);
-        String label = KernelTranslations.text(RendererFeature.FRUSTUM.translationKey()).getString();
+        boolean active = KernelRendererSettings.enabled(feature);
+        String label = KernelTranslations.text(feature.translationKey()).getString();
         for (boolean apply : new boolean[]{false, true}) {
             click(find(parent, "kernel.settings.open"));
             click(find(screen(minecraft), "kernel.video.tab.optimizations"));
             click(findSetting(minecraft, label));
             click(find(screen(minecraft), apply ? "kernel.settings.apply" : "gui.cancel"));
             if (apply) {
-                if (KernelRendererSettings.saved().enabled(RendererFeature.FRUSTUM) == saved.enabled(RendererFeature.FRUSTUM))
-                    throw new AssertionError("Frustum Apply did not persist the draft");
-                if (KernelRendererSettings.enabled(RendererFeature.FRUSTUM) != active) throw new AssertionError("Frustum setting applied without restart");
+                if (KernelRendererSettings.saved().enabled(feature) == saved.enabled(feature))
+                    throw new AssertionError(feature + " Apply did not persist the draft");
+                if (KernelRendererSettings.enabled(feature) != active) throw new AssertionError(feature + " setting applied without restart");
                 click(findSetting(minecraft, label)); click(find(screen(minecraft), "gui.done"));
             }
             if (screen(minecraft) != parent || !KernelRendererSettings.saved().equals(saved))
-                throw new AssertionError("Frustum Cancel/Done did not preserve or restore the saved settings");
+                throw new AssertionError(feature + " Cancel/Done did not preserve or restore the saved settings");
         }
     }
     private static Button findSetting(Minecraft minecraft, String label) {

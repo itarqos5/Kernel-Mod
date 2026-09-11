@@ -33,6 +33,8 @@
   "kernel.option.fluid": "Fluid height calculation",
   "kernel.option.fluid.description": "Calculate fluid corner heights without allocating a temporary accumulator.",
   "kernel.option.chunk_upload": "Chunk upload budget",
+  "kernel.option.section_buffers": "Deferred chunk buffers",
+  "kernel.option.section_buffers.description": "Create GPU objects for a chunk layer when it is first used. Empty layers avoid unnecessary allocation. Available on 1.21.4; newer versions already allocate layers on upload.",
   "kernel.option.chunk_upload.description": "Spread chunk uploads across render passes. Adapt the 0.25–2 ms budget to recent frame work, with at most 32 tasks per pass.",
   "kernel.option.chunk_queue": "Chunk build priorities",
   "kernel.option.chunk_uniforms": "Chunk camera snapshots",
