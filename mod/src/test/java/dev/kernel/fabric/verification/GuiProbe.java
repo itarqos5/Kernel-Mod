@@ -37,6 +37,7 @@ public final class GuiProbe {
     }
 
     public static void frame(Minecraft minecraft) {
+        if (Boolean.getBoolean("kernel.guiProbe.chunkBudget")) { ChunkUploadProbe.frame(minecraft, readyMillis); return; }
         if (Boolean.getBoolean("kernel.guiProbe.shaders")) { ShaderProbe.frame(minecraft, readyMillis); return; }
         if (Boolean.getBoolean("kernel.guiProbe.worldGeneration")) { WorldGenerationProbe.frame(minecraft, readyMillis); return; }
         if (Boolean.getBoolean("kernel.guiProbe.frameSync")) { FrameSyncProbe.frame(minecraft, readyMillis); return; }

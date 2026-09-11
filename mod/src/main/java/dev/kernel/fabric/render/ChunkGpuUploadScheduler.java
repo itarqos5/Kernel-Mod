@@ -12,7 +12,6 @@ import java.util.function.LongSupplier;
  * NVIDIA, Apple, and software-backed drivers.</p>
  */
 public final class ChunkGpuUploadScheduler {
-    static final long UPLOAD_BUDGET_NANOS = 2_000_000L;
     static final int MAX_UPLOADS_PER_PASS = 32;
 
     private ChunkGpuUploadScheduler() {
@@ -24,7 +23,10 @@ public final class ChunkGpuUploadScheduler {
      * @return the number of tasks executed
      */
     public static int drain(Queue<Runnable> uploads, boolean drainCompletely) {
-        return drain(uploads, drainCompletely, System::nanoTime, UPLOAD_BUDGET_NANOS, MAX_UPLOADS_PER_PASS);
+        if (uploads.isEmpty()) return 0;
+        long started = System.nanoTime();
+        try { return drain(uploads, drainCompletely, System::nanoTime, ChunkFrameBudget.budgetNanos(), MAX_UPLOADS_PER_PASS); }
+        finally { ChunkFrameBudget.recordUploads(System.nanoTime() - started); }
     }
 
     static int drain(

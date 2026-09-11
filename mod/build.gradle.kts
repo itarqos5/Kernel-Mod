@@ -69,6 +69,16 @@ loom {
         jvmArguments.add("-Dkernel.guiProbe.shaders=true")
         programArguments.addAll("--width", "960", "--height", "540", "--username", "KernelShader")
     }
+    for (mode in listOf("Fixed", "Adaptive")) {
+        runConfigs.create("chunkUpload$mode") {
+            client()
+            generateRunConfig = false
+            runDirectory = layout.buildDirectory.dir("chunk-upload-${mode.lowercase()}-game")
+            jvmArguments.add("-Dkernel.guiProbe.chunkBudget=true")
+            jvmArguments.add("-Dkernel.chunkUpload.adaptive=${mode == "Adaptive"}")
+            programArguments.addAll("--width", "960", "--height", "540", "--username", "KernelChunks")
+        }
+    }
     for (mode in listOf("Baseline", "Optimized")) {
         runConfigs.create("worldGeneration$mode") {
             client()
@@ -329,6 +339,23 @@ tasks {
             check(!marker.exists() || marker.delete())
         }
         doLast { check(game.get().file("shader-probe-complete.json").asFile.isFile) { "Shader probe did not complete." } }
+    }
+    for (mode in listOf("Fixed", "Adaptive")) {
+        named<JavaExec>("runChunkUpload$mode") {
+            dependsOn(prepareGuiProbe)
+            classpath += files(layout.buildDirectory.dir("gui-probe-mod"))
+            val game = layout.buildDirectory.dir("chunk-upload-${mode.lowercase()}-game")
+            doFirst {
+                val directory = game.get().asFile
+                directory.mkdirs()
+                directory.resolve("options.txt").writeText("onboardAccessibility:false\nguiScale:2\nrenderDistance:8\nsimulationDistance:5\npauseOnLostFocus:false\nsoundCategory_master:0.0\n")
+                directory.resolve("config").mkdirs()
+                directory.resolve("config/kernel-shaders.properties").writeText("selected=\n")
+                val marker = directory.resolve("chunk-upload-complete.txt")
+                check(!marker.exists() || marker.delete())
+            }
+            doLast { check(game.get().file("chunk-upload-complete.txt").asFile.isFile) { "Chunk upload probe did not complete." } }
+        }
     }
     for (mode in listOf("Baseline", "Optimized")) {
         named<JavaExec>("runWorldGeneration$mode") {

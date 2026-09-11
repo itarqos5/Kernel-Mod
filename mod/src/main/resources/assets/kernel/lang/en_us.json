@@ -33,7 +33,7 @@
   "kernel.option.fluid": "Fluid height calculation",
   "kernel.option.fluid.description": "Calculate fluid corner heights without allocating a temporary accumulator.",
   "kernel.option.chunk_upload": "Chunk upload budget",
-  "kernel.option.chunk_upload.description": "Spread pending chunk GPU uploads across render passes, using a 2 ms or 32 task budget.",
+  "kernel.option.chunk_upload.description": "Spread chunk uploads across render passes. Adapt the 0.25–2 ms budget to recent frame work, with at most 32 tasks per pass.",
   "kernel.option.chunk_queue": "Chunk build priorities",
   "kernel.option.chunk_queue.description": "Index pending section tasks by position and remove cancelled tasks promptly. Keep the game's original priority rules.",
   "kernel.option.visibility": "Section visibility solver",

@@ -3,6 +3,7 @@ package dev.kernel.fabric.mixin.frame;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import dev.kernel.fabric.frame.FrameSync;
+import dev.kernel.fabric.render.ChunkFrameBudget;
 import net.minecraft.client.Minecraft;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -24,33 +25,36 @@ public abstract class FrameTimingMixin {
     //? } else {
     /*@Inject(method = "runTick", at = @At("HEAD"))
     *///? }
-    private void kernel$begin(CallbackInfo callback) { FrameSync.beginFrame(); }
+    private void kernel$begin(CallbackInfo callback) { ChunkFrameBudget.beginFrame(); FrameSync.beginFrame(); }
     //? if >=26.1 {
     @Inject(method = "renderFrame", at = @At("RETURN"))
     //? } else {
     /*@Inject(method = "runTick", at = @At("RETURN"))
     *///? }
-    private void kernel$end(CallbackInfo callback) { FrameSync.endFrame(); }
+    private void kernel$end(CallbackInfo callback) { FrameSync.endFrame(); ChunkFrameBudget.endFrame(); }
     @Inject(method = "close", at = @At("HEAD"))
-    private void kernel$close(CallbackInfo callback) { FrameSync.close(); }
+    private void kernel$close(CallbackInfo callback) { FrameSync.close(); ChunkFrameBudget.reset(); }
 
     //? if >=26.2 {
     @WrapOperation(method = "renderFrame", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/systems/GpuSurface;present()V"))
     private void kernel$present(GpuSurface surface, Operation<Void> original) {
+        ChunkFrameBudget.beginWait();
         FrameSync.beginWait();
-        try { original.call(surface); } finally { FrameSync.endWait(); }
+        try { original.call(surface); } finally { FrameSync.endWait(); ChunkFrameBudget.endWait(); }
     }
     //? } elif >=26.1 {
     /*@WrapOperation(method = "renderFrame", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/systems/RenderSystem;flipFrame(Lcom/mojang/blaze3d/TracyFrameCapture;)V"))
     private void kernel$present(TracyFrameCapture capture, Operation<Void> original) {
+        ChunkFrameBudget.beginWait();
         FrameSync.beginWait();
-        try { original.call(capture); } finally { FrameSync.endWait(); }
+        try { original.call(capture); } finally { FrameSync.endWait(); ChunkFrameBudget.endWait(); }
     }
     *///? } else {
     /*@WrapOperation(method = "runTick", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/platform/Window;updateDisplay(Lcom/mojang/blaze3d/TracyFrameCapture;)V"))
     private void kernel$present(Window window, TracyFrameCapture capture, Operation<Void> original) {
+        ChunkFrameBudget.beginWait();
         FrameSync.beginWait();
-        try { original.call(window, capture); } finally { FrameSync.endWait(); }
+        try { original.call(window, capture); } finally { FrameSync.endWait(); ChunkFrameBudget.endWait(); }
     }
     *///? }
 
@@ -63,7 +67,8 @@ public abstract class FrameTimingMixin {
         // Synchronized presentation already paces to this monitor. Sleeping again misses vblanks.
         // Lower native menu/idle limits still use Minecraft's limiter.
         if (FrameSync.synchronizedLimit(limit)) return;
+        ChunkFrameBudget.beginWait();
         FrameSync.beginWait();
-        try { original.call(limit); } finally { FrameSync.endWait(); }
+        try { original.call(limit); } finally { FrameSync.endWait(); ChunkFrameBudget.endWait(); }
     }
 }
