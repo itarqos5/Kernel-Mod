@@ -27,8 +27,16 @@ public final class ShaderSource {
             throw new IOException("Shader extensions are not supported by the current fullscreen adapter");
         }
         String header = "#version " + Math.max(330, version) + " core\n#define KERNEL 1\n";
+        boolean legacyTexture = hasTextureSampler(source);
+        if (legacyTexture) {
+            if (Pattern.compile("\\bkernel_texture2D\\b").matcher(ShaderLexical.maskComments(source, null)).find())
+                throw new IOException("Shader identifier conflicts with the legacy texture2D adapter");
+            // Resolve the built-in before the pack declares its sampler named 'texture'.
+            header += "vec4 kernel_texture2D(sampler2D s, vec2 p) { return texture(s, p); }\n";
+            if (!vertex) header += "vec4 kernel_texture2D(sampler2D s, vec2 p, float bias) { return texture(s, p, bias); }\n";
+        }
         source = token(source, "varying", vertex ? "out" : "in");
-        source = token(source, "texture2D", "texture");
+        source = token(source, "texture2D", legacyTexture ? "kernel_texture2D" : "texture");
         source = token(source, "texture2DLod", "textureLod");
         source = token(source, "texture2DGradARB", "textureGrad");
         if (vertex) {
@@ -60,6 +68,20 @@ public final class ShaderSource {
                 header += "layout(location = " + slot + ") out vec4 kernel_fragColor" + slot + ";\n";
         }
         return header + "#line 1 0\n" + source;
+    }
+    private static boolean hasTextureSampler(String source) {
+        String code = ShaderLexical.maskComments(source, null);
+        var sampler = Pattern.compile("\\buniform\\s+(?:(?:lowp|mediump|highp)\\s+)?sampler2D\\s+").matcher(code);
+        var name = Pattern.compile("\\btexture\\b");
+        int offset = 0;
+        while (sampler.find(offset)) {
+            int end = sampler.end();
+            while (end < code.length() && code.charAt(end) != ';' && code.charAt(end) != '{' && code.charAt(end) != '}') end++;
+            if (end == code.length()) return false; // The driver diagnoses this unterminated declaration.
+            if (code.charAt(end) == ';' && name.matcher(code.substring(sampler.end(), end)).find()) return true;
+            offset = end + 1;
+        }
+        return false;
     }
     private static String token(String source, String from, String to) { return source.replaceAll("\\b" + from + "\\b", to); }
 }

@@ -45,8 +45,15 @@ final class ShaderGlChecks {
             void main() { texcoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy; gl_Position = ftransform(); }
             """;
         var pass = new PreparedShaderPack.Pass("invert", ShaderSource.translate(vertex, true), ShaderSource.translate(source, false));
+        var legacyAlias = new PreparedShaderPack.Pass("texture_alias", ShaderSource.translate(vertex, true),
+            ShaderSource.translate(source.replace("colortex0", "texture"), false));
+        var biasedAlias = new PreparedShaderPack.Pass("texture_bias", ShaderSource.translate(vertex, true),
+            ShaderSource.translate(source.replace("colortex0", "texture").replace("texture, texcoord)", "texture, texcoord, 0.0)"), false));
+        String sampledVertex = vertex.replace("varying vec2 texcoord;", "varying vec2 texcoord; uniform sampler2D texture;")
+            .replace("gl_Position = ftransform();", "gl_Position = ftransform(); gl_Position.x += texture2D(texture,vec2(.5)).r * .0000001;");
+        var vertexAlias = new PreparedShaderPack.Pass("vertex_texture", ShaderSource.translate(sampledVertex, true), ShaderSource.translate(source, false));
         try {
-            for (var fixture : List.of(pass, conditionalIncludes().passes().getFirst())) for (int passes : new int[]{1, 2}) {
+            for (var fixture : List.of(pass, legacyAlias, biasedAlias, vertexAlias, conditionalIncludes().passes().getFirst())) for (int passes : new int[]{1, 2}) {
                 var list = passes == 1 ? List.of(fixture) : List.of(fixture, fixture);
                 int[] before = bindings();
                 try (var pipeline = new ShaderPipeline(new PreparedShaderPack("test", list))) {

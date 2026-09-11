@@ -161,10 +161,12 @@ same-window startup with shader integration installed. The multi-target update p
 pixel and gameplay/GUI probes. The final parser checks additionally exercise conditional scope changes
 and a megabyte of malformed comment prefixes. Release artifacts are checked for exact game/Java
 metadata, matching bundled bootstrap bytes and absence of test or third-party implementation classes.
-The mipmap update passed `buildAll`, 1,142 unit tests in 286 suites, 27 world
+The current adapter passed `buildAll`, 1,169 unit tests in 295 suites, 27 world
 activation/conflict probes, the renderer/bootstrap checks and all nine native shader/gameplay probes.
 The twelve-format pixel, precision, conversion, retained-history and mipmap checks run inside each
 supported Minecraft target. Release verification confirms nine mod JARs and one matching Knot Client JAR.
+Legacy `texture2D` calls retain support for a sampler named `texture`, including fragment bias and
+vertex sampling; native pixel checks exercise those cases on every supported target.
 
 Buffer routing follows the documented [render-target declarations](https://shaders.properties/current/reference/constants/rendertargets/)
 and [color-buffer conventions](https://shaders.properties/current/reference/buffers/colortex/), within the
