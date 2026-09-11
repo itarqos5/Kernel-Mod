@@ -2,9 +2,13 @@ package dev.kernel.fabric.shader;
 
 import dev.kernel.fabric.shader.pack.PreparedShaderPack;
 import dev.kernel.fabric.shader.pack.ShaderFragmentOutputs;
+import dev.kernel.fabric.shader.pack.ShaderTextureImage;
+import dev.kernel.fabric.shader.pack.ShaderUniforms;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -15,14 +19,11 @@ import org.lwjgl.system.MemoryStack;
 
 /** Render-thread-owned fullscreen color pipeline. New packs compile completely before replacing a live one. */
 public final class ShaderPipeline implements AutoCloseable {
-    private static final Map<String, Integer> UNIFORMS = Map.ofEntries(
-        Map.entry("viewWidth", GL33C.GL_FLOAT), Map.entry("viewHeight", GL33C.GL_FLOAT), Map.entry("aspectRatio", GL33C.GL_FLOAT),
-        Map.entry("frameCounter", GL33C.GL_INT), Map.entry("frameTime", GL33C.GL_FLOAT), Map.entry("frameTimeCounter", GL33C.GL_FLOAT));
-    private record Uniform(String name, int location, int type, int buffer) {}
-    private record Program(int handle, List<Uniform> uniforms, int[] targets, int written, int mipmaps) {}
+    private record Uniform(String name, int location, int type, int buffer, int unit) {}
+    private record Program(int handle, List<Uniform> uniforms, int[] targets, int written, int mipmaps, int[] inputs) {}
     private final List<Program> programs = new ArrayList<>();
-    private final int[] samplerBuffers = new int[16], unitForBuffer = new int[16];
     private ShaderColorTargets targets;
+    private ShaderCustomTextures images;
     private int vao, sampler, mipmapSampler, frame, textureUnits, outputSlots;
     private final long started = System.nanoTime();
     private long lastFrame = started;
@@ -32,29 +33,36 @@ public final class ShaderPipeline implements AutoCloseable {
         try (var state = new ShaderGlState()) {
             state.prepare();
             try {
-                for (var pass : pack.passes()) programs.add(compile(pass));
-                int required = 1, sampled = 0, mipmaps = 0;
+                if (pack.textures().size() > 32) throw new IOException("Too many custom shader texture bindings");
+                var uniqueImages = new ArrayList<ShaderTextureImage>();
+                var identity = new IdentityHashMap<ShaderTextureImage, Integer>();
+                var imageBindings = new HashMap<String, Integer>();
+                for (var binding : pack.textures().entrySet()) {
+                    int index = identity.computeIfAbsent(binding.getValue(), image -> { uniqueImages.add(image); return uniqueImages.size() + 15; });
+                    imageBindings.put(binding.getKey(), index);
+                }
+                for (var pass : pack.passes()) programs.add(compile(pass, imageBindings));
+                int required = 1, mipmaps = 0;
+                long sampled = 0;
                 boolean legacyDepth = false;
                 for (var program : programs) {
                     required |= program.written;
                     mipmaps |= program.mipmaps;
                     for (var uniform : program.uniforms) if (uniform.buffer >= 0) {
-                        sampled |= 1 << uniform.buffer;
-                        legacyDepth |= uniform.name.equals("gdepth");
+                        sampled |= 1L << uniform.buffer;
+                        legacyDepth |= uniform.buffer == 1 && uniform.name.equals("gdepth");
                     }
                 }
-                required |= sampled;
-                Arrays.fill(unitForBuffer, -1);
-                for (int buffer = 0; buffer < 16; buffer++) if ((sampled & (1 << buffer)) != 0) {
-                    samplerBuffers[textureUnits] = buffer; unitForBuffer[buffer] = textureUnits++;
-                }
+                required |= (int) sampled & 0xffff;
+                for (var program : programs) textureUnits = Math.max(textureUnits, program.inputs.length);
                 outputSlots = 1;
                 for (var program : programs) for (int slot = 0; slot < program.targets.length; slot++)
                     if ((required & (1 << program.targets[slot])) != 0) outputSlots = Math.max(outputSlots, slot + 1);
                 if (textureUnits > GL33C.glGetInteger(GL33C.GL_MAX_TEXTURE_IMAGE_UNITS)
                     || outputSlots > GL33C.glGetInteger(GL33C.GL_MAX_DRAW_BUFFERS))
                     throw new IOException("This shader exceeds the graphics device's texture/output limits");
-                targets = new ShaderColorTargets(required, legacyDepth ? pack.buffers().withLegacyDepth() : pack.buffers(), mipmaps);
+                images = new ShaderCustomTextures(uniqueImages, sampled);
+                targets = new ShaderColorTargets(required, legacyDepth ? pack.buffers().withLegacyDepth() : pack.buffers(), mipmaps, images.bytes());
                 vao = GL33C.glGenVertexArrays();
                 sampler = sampler(false);
                 if (mipmaps != 0) mipmapSampler = sampler(true);
@@ -74,13 +82,15 @@ public final class ShaderPipeline implements AutoCloseable {
                 targets.mipmaps(program.mipmaps);
                 targets.outputs(program.targets);
                 GL33C.glUseProgram(program.handle);
-                for (int unit = 0; unit < textureUnits; unit++) {
+                for (int unit = 0; unit < program.inputs.length; unit++) {
+                    int input = program.inputs[unit];
                     GL33C.glActiveTexture(GL33C.GL_TEXTURE0 + unit);
-                    GL33C.glBindTexture(GL33C.GL_TEXTURE_2D, targets.texture(samplerBuffers[unit]));
-                    GL33C.glBindSampler(unit, (program.mipmaps & (1 << samplerBuffers[unit])) == 0 ? sampler : mipmapSampler);
+                    GL33C.glBindTexture(GL33C.GL_TEXTURE_2D, input < 16 ? targets.texture(input) : images.texture(input - 16));
+                    GL33C.glBindSampler(unit, input >= 16 ? images.sampler(input - 16)
+                        : (program.mipmaps & (1 << input)) == 0 ? sampler : mipmapSampler);
                 }
                 for (var uniform : program.uniforms) {
-                    if (uniform.buffer >= 0) GL33C.glUniform1i(uniform.location, unitForBuffer[uniform.buffer]);
+                    if (uniform.buffer >= 0) GL33C.glUniform1i(uniform.location, uniform.unit);
                     else if (uniform.type == GL33C.GL_INT) GL33C.glUniform1i(uniform.location, frame);
                     else GL33C.glUniform1f(uniform.location, switch (uniform.name) {
                         case "viewWidth" -> width; case "viewHeight" -> height; case "aspectRatio" -> (float) width / height;
@@ -96,7 +106,7 @@ public final class ShaderPipeline implements AutoCloseable {
     }
     /** Invalidates retained auxiliary images without changing the selected programs. */
     public void resetHistory() { if (targets != null) targets.resetHistory(); }
-    private static Program compile(PreparedShaderPack.Pass pass) throws IOException {
+    private static Program compile(PreparedShaderPack.Pass pass, Map<String, Integer> imageBindings) throws IOException {
         var names = ShaderFragmentOutputs.read(pass.fragment());
         int vertex = 0, fragment = 0, program = 0;
         try {
@@ -123,6 +133,7 @@ public final class ShaderPipeline implements AutoCloseable {
                 || (GL.getCapabilities().OpenGL43 && GL43C.glGetProgramInterfacei(program, GL43C.GL_SHADER_STORAGE_BLOCK, GL43C.GL_ACTIVE_RESOURCES) != 0))
                 throw new IOException(pass.name() + " requires unsupported shader buffer bindings");
             var uniforms = new ArrayList<Uniform>();
+            var inputUnits = new LinkedHashMap<Integer, Integer>();
             try (var stack = MemoryStack.stackPush()) {
                 var size = stack.mallocInt(1); var type = stack.mallocInt(1);
                 for (int i = 0, n = GL33C.glGetProgrami(program, GL33C.GL_ACTIVE_ATTRIBUTES); i < n; i++) {
@@ -133,18 +144,22 @@ public final class ShaderPipeline implements AutoCloseable {
                 }
                 for (int i = 0, n = GL33C.glGetProgrami(program, GL33C.GL_ACTIVE_UNIFORMS); i < n; i++) {
                     String name = GL33C.glGetActiveUniform(program, i, size, type);
-                    int buffer = samplerBuffer(name);
-                    int expectedType = buffer >= 0 ? GL33C.GL_SAMPLER_2D : UNIFORMS.getOrDefault(name, -1);
+                    int color = ShaderUniforms.colorBuffer(name);
+                    int buffer = imageBindings.getOrDefault(color >= 0 ? "colortex" + color : name, color);
+                    if (buffer >= 16 && color >= 0 && (pass.mipmaps() & (1 << color)) != 0)
+                        throw new IOException(pass.name() + " requests color mipmaps for an overridden image: " + name);
+                    int expectedType = buffer >= 0 ? GL33C.GL_SAMPLER_2D : ShaderUniforms.scalarType(name);
                     if (size.get(0) != 1 || type.get(0) != expectedType) {
                         throw new IOException(pass.name() + " requires unsupported uniform: " + name);
                     }
-                    uniforms.add(new Uniform(name, GL33C.glGetUniformLocation(program, name), type.get(0), buffer));
+                    int unit = buffer < 0 ? -1 : inputUnits.computeIfAbsent(buffer, ignored -> inputUnits.size());
+                    uniforms.add(new Uniform(name, GL33C.glGetUniformLocation(program, name), type.get(0), buffer, unit));
                 }
             }
             int sampled = 0;
-            for (var uniform : uniforms) if (uniform.buffer >= 0) sampled |= 1 << uniform.buffer;
+            for (var uniform : uniforms) if (uniform.buffer >= 0 && uniform.buffer < 16) sampled |= 1 << uniform.buffer;
             var result = new Program(program, List.copyOf(uniforms), pass.drawTargets().stream().mapToInt(Integer::intValue).toArray(), written,
-                pass.mipmaps() & sampled); program = 0; return result;
+                pass.mipmaps() & sampled, inputUnits.keySet().stream().mapToInt(Integer::intValue).toArray()); program = 0; return result;
         } finally {
             if (program != 0) GL33C.glDeleteProgram(program);
             if (vertex != 0) GL33C.glDeleteShader(vertex); if (fragment != 0) GL33C.glDeleteShader(fragment);
@@ -158,18 +173,6 @@ public final class ShaderPipeline implements AutoCloseable {
             return shader;
         } catch (IOException | RuntimeException failure) { GL33C.glDeleteShader(shader); throw failure; }
     }
-    private static int samplerBuffer(String name) {
-        return switch (name) {
-            case "gcolor", "texture" -> 0;
-            case "gdepth" -> 1;
-            case "gnormal" -> 2; case "composite" -> 3;
-            case "gaux1" -> 4; case "gaux2" -> 5; case "gaux3" -> 6; case "gaux4" -> 7;
-            default -> {
-                if (!name.matches("colortex(?:[0-9]|1[0-5])")) yield -1;
-                yield Integer.parseInt(name.substring(8));
-            }
-        };
-    }
     private static int sampler(boolean mipmaps) {
         int sampler = GL33C.glGenSamplers();
         GL33C.glSamplerParameteri(sampler, GL33C.GL_TEXTURE_MIN_FILTER, mipmaps ? GL33C.GL_LINEAR_MIPMAP_LINEAR : GL33C.GL_LINEAR);
@@ -181,6 +184,7 @@ public final class ShaderPipeline implements AutoCloseable {
     @Override public void close() {
         if (closed) return; closed = true;
         if (targets != null) targets.close();
+        if (images != null) images.close();
         for (var program : programs) GL33C.glDeleteProgram(program.handle);
         programs.clear();
         if (vao != 0) GL33C.glDeleteVertexArrays(vao);

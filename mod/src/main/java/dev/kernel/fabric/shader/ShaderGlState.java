@@ -22,6 +22,9 @@ final class ShaderGlState implements AutoCloseable {
     private final int[] textures;
     private final int[] samplers;
     private final int unpack = GL33C.glGetInteger(GL33C.GL_PIXEL_UNPACK_BUFFER_BINDING);
+    private static final int[] UNPACK_STATES = { GL33C.GL_UNPACK_ROW_LENGTH, GL33C.GL_UNPACK_SKIP_ROWS,
+        GL33C.GL_UNPACK_SKIP_PIXELS, GL33C.GL_UNPACK_ALIGNMENT };
+    private final int[] unpackValues = new int[UNPACK_STATES.length];
     private final int[] viewport = new int[4];
     private final boolean[] color;
     private final int[] polygon = new int[2];
@@ -36,6 +39,7 @@ final class ShaderGlState implements AutoCloseable {
         color = new boolean[outputs * 4]; blend = new boolean[outputs];
         GL33C.glGetIntegerv(GL33C.GL_VIEWPORT, viewport);
         GL33C.glGetIntegerv(GL33C.GL_POLYGON_MODE, polygon);
+        for (int index = 0; index < UNPACK_STATES.length; index++) unpackValues[index] = GL33C.glGetInteger(UNPACK_STATES[index]);
         try (var stack = MemoryStack.stackPush()) {
             var mask = stack.malloc(4);
             for (int output = 0; output < outputs; output++) {
@@ -61,6 +65,7 @@ final class ShaderGlState implements AutoCloseable {
         GL33C.glPolygonMode(GL33C.GL_FRONT_AND_BACK, GL33C.GL_FILL);
         GL33C.glBindSampler(0, 0);
         GL33C.glBindBuffer(GL33C.GL_PIXEL_UNPACK_BUFFER, 0);
+        for (int index = 0; index < UNPACK_STATES.length; index++) GL33C.glPixelStorei(UNPACK_STATES[index], index == 3 ? 1 : 0);
         if (clipControl) GL45C.glClipControl(GL45C.GL_LOWER_LEFT, GL45C.GL_NEGATIVE_ONE_TO_ONE);
     }
     @Override public void close() {
@@ -78,6 +83,7 @@ final class ShaderGlState implements AutoCloseable {
             if (enabled[i]) GL33C.glEnable(CAPABILITIES[i]); else GL33C.glDisable(CAPABILITIES[i]);
         }
         GL33C.glBindBuffer(GL33C.GL_PIXEL_UNPACK_BUFFER, unpack);
+        for (int index = 0; index < UNPACK_STATES.length; index++) GL33C.glPixelStorei(UNPACK_STATES[index], unpackValues[index]);
         for (int unit = 0; unit < textures.length; unit++) {
             GL33C.glActiveTexture(GL33C.GL_TEXTURE0 + unit);
             GL33C.glBindTexture(GL33C.GL_TEXTURE_2D, textures[unit]); GL33C.glBindSampler(unit, samplers[unit]);

@@ -66,15 +66,23 @@ public final class ShaderPackArchive implements AutoCloseable {
     }
     public boolean contains(String relativePath) throws IOException { return files.containsKey(root + normalize(relativePath)); }
     public String source(String relativePath) throws IOException {
-        String name = root + normalize(relativePath);
-        ZipEntry entry = files.get(name);
-        if (entry == null) throw new IOException("Missing shader source: " + relativePath);
-        if (entry.getSize() > MAX_SOURCE_BYTES) throw new IOException("Shader source exceeds 4 MiB: " + relativePath);
-        byte[] bytes;
-        try (var input = zip.getInputStream(entry)) { bytes = input.readNBytes(MAX_SOURCE_BYTES + 1); }
-        if (bytes.length > MAX_SOURCE_BYTES) throw new IOException("Shader source exceeds 4 MiB: " + relativePath);
+        return text(relativePath, MAX_SOURCE_BYTES);
+    }
+    String text(String relativePath, int limit) throws IOException {
+        byte[] bytes = bytes(relativePath, limit);
         String text = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString();
         return text.startsWith("\uFEFF") ? text.substring(1) : text;
+    }
+    byte[] bytes(String relativePath, int limit) throws IOException {
+        if (limit < 0 || limit > ShaderTextureImage.MAX_ENCODED_BYTES) throw new IllegalArgumentException("Invalid shader entry limit");
+        String name = root + normalize(relativePath);
+        ZipEntry entry = files.get(name);
+        if (entry == null) throw new IOException("Missing shader file: " + relativePath);
+        if (entry.getSize() > limit) throw new IOException("Shader file exceeds " + limit + " bytes: " + relativePath);
+        byte[] bytes;
+        try (var input = zip.getInputStream(entry)) { bytes = input.readNBytes(limit + 1); }
+        if (bytes.length > limit) throw new IOException("Shader file exceeds " + limit + " bytes: " + relativePath);
+        return bytes;
     }
     public record Expanded(String source, Map<Integer, String> sourceFiles) {}
     public Expanded expand(String relativePath) throws IOException {
@@ -158,7 +166,7 @@ public final class ShaderPackArchive implements AutoCloseable {
             if (output.length() > MAX_EXPANDED_CHARS) throw new IOException("Expanded shader source exceeds 16 MiB");
         }
     }
-    private static String normalize(String path) throws IOException {
+    static String normalize(String path) throws IOException {
         if (path.isEmpty() || path.startsWith("/") || path.indexOf('\\') >= 0 || path.indexOf(':') >= 0 || path.indexOf('\0') >= 0) throw new IOException("Invalid shader path: " + path);
         var parts = new ArrayDeque<String>();
         for (String part : path.split("/")) {

@@ -38,6 +38,7 @@ public final class ShaderProbe {
         *///? }
         long elapsed = System.nanoTime() - changedAt;
         if (stage == 0 && !KernelShaders.busy()) {
+            dev.kernel.fabric.shader.ShaderTextureGlChecks.run();
             ShaderGlChecks.run();
             ShaderMultipleTargetsChecks.run();
             dev.kernel.fabric.shader.ShaderBufferGlChecks.run();
@@ -48,7 +49,7 @@ public final class ShaderProbe {
         }
         if (stage == 1 && !KernelShaders.busy()) {
             Path source = minecraft.gameDirectory.toPath().resolve("original-probe.zip");
-            zip(source, "#version 120\nvoid main() { gl_FragColor = vec4(0.25, 0.5, 0.75, 1.0); }");
+            dev.kernel.fabric.shader.ShaderTextureGlChecks.writeImportFixture(source);
             GuiProbe.screen(minecraft).onFilesDrop(List.of(source)); next(2); return;
         }
         if (stage == 2 && !KernelShaders.busy()) {

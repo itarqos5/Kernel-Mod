@@ -308,7 +308,8 @@ tasks {
         group = "verification"
         dependsOn(testClasses)
         from(sourceSets.test.get().output.classesDirs) {
-            include("dev/kernel/fabric/verification/**", "dev/kernel/fabric/shader/ShaderBufferGlChecks*.class")
+            include("dev/kernel/fabric/verification/**", "dev/kernel/fabric/shader/ShaderBufferGlChecks*.class",
+                "dev/kernel/fabric/shader/ShaderTextureGlChecks*.class", "dev/kernel/fabric/shader/pack/ShaderTexturePreparationChecks*.class")
         }
         from(rootProject.file("mod/src/test/resources/gui-probe"))
         into(layout.buildDirectory.dir("gui-probe-mod"))

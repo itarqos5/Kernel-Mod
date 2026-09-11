@@ -29,14 +29,15 @@ images and writes separate alternate images, then flips its declared targets. Pa
 auxiliary buffers preserve the displayed color. `final` always writes the displayed color image.
 Linear filtering and edge clamping are supplied by an owned sampler. Intermediates default to RGBA8 at
 the native window resolution; required buffer pairs are allocated lazily within a 512 MiB combined budget.
-The budget counts both images and any complete mip chains using each selected format's declared bytes
-per pixel; driver overhead and internal padding can add physical GPU memory beyond that accounting.
+The budget counts both images, any complete mip chains using each selected format's declared bytes
+per pixel, and active custom PNG textures; driver overhead and internal padding can add physical GPU
+memory beyond that accounting.
 There is no automatic shader download or activation.
 
 Supported uniforms are scalar `viewWidth`, `viewHeight`, `aspectRatio`, `frameTime`, `frameTimeCounter`
 (seconds modulo 3600), integer `frameCounter` (modulo 720720), and `colortex0` through `colortex15`.
 Legacy aliases are `gcolor`/`texture` (0), `gdepth` (1), `gnormal` (2), `composite` (3), and `gaux1` through
-`gaux4` (4–7). An active `gdepth` sampler upgrades buffer 1 to RGBA32F unless the pack explicitly sets
+`gaux4` (4–7). An active, non-overridden `gdepth` sampler upgrades buffer 1 to RGBA32F unless the pack explicitly sets
 its format. This is a color-buffer alias, not a depth image. Buffer 1 defaults to white; auxiliary buffers
 2–15 default to transparent black. These buffers do not contain terrain normals, material data or depth
 automatically. By default they clear each frame; supported clear declarations can retain auxiliary history.
@@ -100,11 +101,40 @@ clamped to at least one. Allocation checks account for both complete chains, det
 and enforce the device's texture-size limit. Shader operations still add rendering work; mipmaps are a
 shader capability, not a general FPS optimization.
 
+Pack-local PNG inputs can be declared in `shaders/shaders.properties`:
+
+```properties
+customTexture.lookup = textures/lookup.png
+texture.composite.gaux4 = textures/pattern.png
+texture.noise = textures/noise.png
+```
+
+These create `lookup`, override color-buffer-7 aliases, and provide `noisetex`, respectively. Composite
+overrides also apply to `final`; writes still target the corresponding color buffers. PNGs use RGBA8,
+nearest filtering and wrapping by default. An adjacent `image.png.mcmeta` can select bilinear filtering
+and edge clamping with `{"texture":{"blur":true,"clamp":true}}`. Only these literal properties and
+metadata fields are accepted. Names must avoid native scalar/color bindings and reserved GLSL/Kernel
+prefixes. Conditional properties, conflicts, other stages, raw/resource-pack/atlas textures and animated
+metadata produce explicit errors. This subset follows the documented
+[custom texture conventions](https://shaders.properties/current/reference/buffers/custom_textures/).
+
+Preparation limits each PNG to 16 MiB encoded, 64 MiB RGBA and 16,384 pixels per axis, with at most 32
+bindings and 128 MiB total unique RGBA data. Canonical paths share one decoded image. PNG chunk checksums,
+dimensions and the bounded decompressed scanline stream are checked before native decoding, including
+[Adam7 interlacing](https://www.w3.org/TR/png-3/). Metadata is limited to 64 KiB. Decoding runs on Kernel's
+IO worker using Minecraft's existing STB runtime, preserves row order and alpha, and publishes immutable
+pixels only after cancellation checks. These are payload budgets; temporary decoding buffers also use memory.
+
+Only images used by compiled programs receive GPU storage. Sampler units are assigned per pass and
+shared by aliases of the same input. Custom images have no mip chain; an active color-mipmap request
+on an overridden image is rejected. Allocation and upload restore Minecraft's texture bindings and
+pixel-unpack state. Failed replacement, disabling and shutdown release owned textures and samplers.
+
 Minecraft shader macros, fragment depth writes and discard-based passes are rejected until their
 semantics are implemented.
 
 Terrain/geometry programs, shadow rendering, depth-based effects, integer/other unsupported formats, compute or
-geometry stages, shader properties/options, custom textures and broad
+geometry stages, other shader properties/options, non-PNG/resource-pack textures and broad
 legacy GLSL translation are **not implemented**. Packs requiring them are rejected with a visible reason.
 Popular full-world shader packs are not currently supported merely because they appear in Modrinth search.
 Kernel does not silently discard those stages or count a download as successful rendering.
@@ -127,7 +157,9 @@ Unit tests cover bounded archive access, conditional includes/comments/continuat
 entries, oversized sources, download hashes, collisions, source preservation, Modrinth version selection,
 configuration recovery, draw-buffer parsing, legacy output translation, immutable target mappings,
 unsupported output declarations, literal buffer settings/conflicts, immutable format settings, byte-based
-allocation accounting and rejection of unsupported pipeline stages.
+allocation accounting and rejection of unsupported pipeline stages. PNG checks cover format/interlace
+combinations, oversized decompressed streams, header/chunk corruption, metadata types, binding limits,
+malformed paths and bounded whitespace scanning.
 
 ```powershell
 .\gradlew.bat :mod:1.21.4:runShaderSmoke :mod:26.2:runShaderSmoke
@@ -141,8 +173,13 @@ allocated formats, channel precision, normalized clamping, values outside 0–1 
 conversion, custom clears, history across frames, explicit reset, resize, legacy `gdepth` precision and
 float-format allocation limits. Mipmap fixtures additionally check all twelve formats, checkerboard
 downsampling, regeneration after pass feedback, source texture ownership, per-pass configuration,
-odd/one-dimensional byte accounting, device-size rejection and sampler/state restoration. It then
-imports a ZIP through the native drop handler, persists activation, creates a separate flat test world,
+odd/one-dimensional byte accounting, device-size rejection and sampler/state restoration. PNG fixtures
+check every channel against a CPU filtering/wrapping reference, aliases and noise inputs, shared images,
+missing files, cancellation before/after decoding, per-pass unit reuse, GPU lifecycle and nondefault
+pixel-upload state. Repeated decode/free cycles compare all RGBA bytes, including hidden color under
+transparent pixels, and ensure native cleanup preserves later image allocations.
+The probe then imports an original PNG-sampling ZIP through the native drop handler,
+persists activation, creates a separate flat test world,
 checks the world-pass pixels, rejects an unsupported shader while retaining the working one, and disables
 shaders before saving/exiting. It never opens existing user worlds. Physical GPU/OS coverage remains
 limited to the available Windows/AMD system; broader pack and platform support is still required.
@@ -161,7 +198,7 @@ same-window startup with shader integration installed. The multi-target update p
 pixel and gameplay/GUI probes. The final parser checks additionally exercise conditional scope changes
 and a megabyte of malformed comment prefixes. Release artifacts are checked for exact game/Java
 metadata, matching bundled bootstrap bytes and absence of test or third-party implementation classes.
-The current adapter passed `buildAll`, 1,169 unit tests in 295 suites, 27 world
+The current adapter passed `buildAll`, 1,223 unit tests in 331 suites, 27 world
 activation/conflict probes, the renderer/bootstrap checks and all nine native shader/gameplay probes.
 The twelve-format pixel, precision, conversion, retained-history and mipmap checks run inside each
 supported Minecraft target. Release verification confirms nine mod JARs and one matching Knot Client JAR.

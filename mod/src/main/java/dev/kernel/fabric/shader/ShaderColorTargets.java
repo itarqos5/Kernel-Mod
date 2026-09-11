@@ -11,6 +11,7 @@ final class ShaderColorTargets implements AutoCloseable {
     private static final long MAX_BYTES = 512L * 1024 * 1024;
     private final int required;
     private final int mipmaps;
+    private final long availableBytes;
     private final ShaderBufferSettings settings;
     private final float[][] clearColors = new float[16][];
     private final int[] textures = new int[32], front = new int[16], current = new int[16];
@@ -22,6 +23,11 @@ final class ShaderColorTargets implements AutoCloseable {
         this(required, settings, 0);
     }
     ShaderColorTargets(int required, ShaderBufferSettings settings, int mipmaps) {
+        this(required, settings, mipmaps, 0);
+    }
+    ShaderColorTargets(int required, ShaderBufferSettings settings, int mipmaps, long reservedBytes) {
+        if (reservedBytes < 0 || reservedBytes > MAX_BYTES) throw new IllegalArgumentException("Invalid reserved shader memory");
+        availableBytes = MAX_BYTES - reservedBytes;
         this.required = required | 1; this.settings = settings;
         this.mipmaps = mipmaps & this.required;
         for (int buffer = 0; buffer < 16; buffer++) clearColors[buffer] = settings.buffers().get(buffer).color().array();
@@ -108,7 +114,7 @@ final class ShaderColorTargets implements AutoCloseable {
 
     private void resize(int width, int height) throws IOException {
         if (this.width == width && this.height == height) return;
-        if (width <= 0 || height <= 0 || settings.allocationBytes(required, mipmaps, width, height) > MAX_BYTES)
+        if (width <= 0 || height <= 0 || settings.allocationBytes(required, mipmaps, width, height) > availableBytes)
             throw new IOException("Shader color buffers exceed the 512 MiB allocation budget at this resolution");
         int limit = GL33C.glGetInteger(GL33C.GL_MAX_TEXTURE_SIZE);
         if (width > limit || height > limit) throw new IOException("Shader dimensions exceed the graphics device's texture limit");
