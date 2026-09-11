@@ -55,6 +55,10 @@ kernel-knot-client-0.1.0.jar
 
 Implemented:
 
+- Bounded preallocation for uncached local JAR class reads during bootstrap, avoiding intermediate read
+  buffers for entries up to 1 MiB while preserving complete-stream reads, I/O errors and cache isolation.
+  See [startup cache behavior and measurements](docs/STARTUP_CACHES.md).
+
 - Reusable block-shape overlap callbacks for startup and in-world queries, with bounded reentrant storage,
   unchanged native coordinate/occupancy semantics, a separate restart-only setting and Lithium ownership
   detection. See [shape traversal and validation](docs/SHAPE_QUERIES.md).

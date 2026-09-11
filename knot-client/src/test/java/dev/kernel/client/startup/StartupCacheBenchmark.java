@@ -37,6 +37,10 @@ public final class StartupCacheBenchmark {
         compare("jar-class-read", index -> {
             try (var input = urls[index & 3].openStream()) { sink = input.readAllBytes(); }
         }, index -> sink = raw.read(urls[index & 3]));
+        int[] sizes = Arrays.stream(bytes).mapToInt(value -> value.length).toArray();
+        compare("jar-entry-miss-read", index -> {
+            try (var input = urls[index & 3].openStream()) { sink = input.readAllBytes(); }
+        }, index -> sink = RawClassCache.readBytes(urls[index & 3].openConnection(), sizes[index & 3]));
         targets.close();
         raw.close();
     }

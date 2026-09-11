@@ -87,7 +87,8 @@ consumption, plus workload measurements and targeted mod compatibility checks.
 - Mixin target-reader reuse keyed by exact input bytes. Fabric's bytecode provider and pre-Mixin transforms
   still execute on every request. ASM constant-pool indexing and decoded strings are reused; mutable
   ClassNode trees are freshly parsed for every caller, respecting reader flags.
-- The raw-read adapter also uses `InputStream.readAllBytes()` instead of Fabric's intermediate copy loop.
+- The raw-read adapter uses bounded size hints for eligible local JAR entries, avoiding intermediate
+  buffers up to 1 MiB. Unknown/large hints retain `InputStream.readAllBytes()`; EOF determines actual length.
 - Byte/entry bounds, eviction, cache-hit diagnostics and release at initial game-load completion, with a
   three-minute fallback expiry for launches that never reach the callback.
 - Exact class-byte fingerprints for the audited Fabric 0.19.3 hooks. Different loader bytecode and earlier

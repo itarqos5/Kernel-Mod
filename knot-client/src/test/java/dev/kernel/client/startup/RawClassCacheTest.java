@@ -95,6 +95,63 @@ final class RawClassCacheTest {
         assertEquals(0, tooSmall.retainedBytes());
     }
 
+    @Test
+    void sizeHintsNeverTruncateStreamsAndPartialReadsStillClose() throws Exception {
+        for (int size : new int[]{0, 1, 7, 8191, 8192, 8193, 65536}) {
+            byte[] bytes = new byte[size]; new java.util.Random(size).nextBytes(bytes);
+            for (int hint : new int[]{-1, 0, 1, 7, 8192, 65536, 1048576, 1048577, Integer.MAX_VALUE}) {
+                boolean[] closed = {false};
+                var input = new java.io.FilterInputStream(new java.io.ByteArrayInputStream(bytes)) {
+                    @Override public int read(byte[] out, int offset, int length) throws IOException {
+                        return super.read(out, offset, Math.min(length, 3));
+                    }
+                    @Override public void close() throws IOException { closed[0] = true; super.close(); }
+                };
+                assertArrayEquals(bytes, RawClassCache.readBytes(connection(input), hint), "Size/hint " + size + "/" + hint);
+                assertTrue(closed[0]);
+            }
+        }
+    }
+
+    @Test
+    void errorsBeyondTheDeclaredLengthStillPropagateAndClose() throws Exception {
+        for (int hint : new int[]{-1, 0, 7, 16, 8192}) {
+            boolean[] closed = {false};
+            IOException failure = new IOException("I/O failure after declared bytes");
+            var input = new java.io.InputStream() {
+                int position;
+                @Override public int read() throws IOException { if (position++ >= 16) throw failure; return 23; }
+                @Override public void close() { closed[0] = true; }
+            };
+            assertSame(failure, assertThrows(IOException.class, () -> RawClassCache.readBytes(connection(input), hint)));
+            assertTrue(closed[0]);
+        }
+    }
+
+    @Test
+    void realJarReadsPreserveBytesAcrossBufferAndPreallocationBoundaries() throws Exception {
+        RawClassCache cache = new RawClassCache(2 * 1024 * 1024, 16);
+        int[] sizes = {0, 7, 8191, 8192, 8193, 1048576, 1048577};
+        for (int size : sizes) {
+            byte[] bytes = new byte[size]; new java.util.Random(size).nextBytes(bytes);
+            URL url = archive("entry-" + size + ".jar", bytes);
+            byte[] cold = cache.read(url);
+            assertArrayEquals(bytes, cold);
+            if (cold.length > 0) cold[0] ^= 27;
+            byte[] warm = cache.read(url);
+            assertArrayEquals(bytes, warm);
+            assertNotSame(cold, warm);
+        }
+        assertEquals(sizes.length, cache.hits());
+    }
+
+    private static java.net.URLConnection connection(java.io.InputStream input) throws Exception {
+        return new java.net.URLConnection(URI.create("file:/kernel-test-stream").toURL()) {
+            @Override public void connect() {}
+            @Override public java.io.InputStream getInputStream() { return input; }
+        };
+    }
+
     private URL archive(String name, byte[] bytes) throws Exception {
         Path path = this.directory.resolve(name);
         try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(path))) {

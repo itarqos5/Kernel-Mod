@@ -27,6 +27,13 @@ Changing the active archive, resource source or classpath cannot bypass those ch
 custom URL handlers, failures and missing resources are not cached. As with Java's own JAR loader, loaded
 archives are assumed immutable for that process; replacing installed mods requires a fresh launch.
 
+On a miss, eligible class entries up to 1 MiB are read into a buffer sized from the JAR entry metadata.
+This avoids `readAllBytes()`'s intermediate chunk buffers and final assembly copy. EOF still determines
+the returned data: short hints continue reading, long hints return only the actual bytes, and errors after
+the declared length still propagate. Unknown or larger sizes use the existing stream reader. The size
+hint never permits unbounded preallocation, and a mismatched length cannot enter the cache. Streams close
+on success and failure. This improvement also applies to first reads that receive no later cache hit.
+
 The Mixin target cache retains ASM ClassReaders, not mutable target ClassNodes. Keys compare the complete
 input byte array, including changes introduced by access wideners or other pre-Mixin transformers. Each
 request still obtains those bytes from Fabric, then parses a new ClassNode using its requested reader
@@ -102,3 +109,28 @@ The final visibility run produced these values, including both implementations' 
 Kernel allocated 64 bytes per visibility result in every fixture; vanilla also allocated 64 bytes for
 the empty/solid shortcuts, and 3,520–86,592 bytes for the tested nontrivial fixtures. The empty shortcut
 was slightly slower in this microbenchmark; no blanket improvement across every input is claimed.
+
+### Cache-miss stream reader, 2026-09-11
+
+The `jar-entry-miss-read` case in `startupCacheBenchmark21` / `startupCacheBenchmark25` compares the
+previous `readAllBytes()` stream operation with the bounded known-size reader. Both repeatedly open and
+decompress the same four dependency classes. It excludes cache lookup/insertion, retained-byte cloning,
+resource discovery, Mixin work and whole-game startup. Seven warmed samples alternate execution order.
+
+| Runtime | Previous ns/read | Sized ns/read | Previous bytes/read | Sized bytes/read |
+|---|---:|---:|---:|---:|
+| Java 21.0.12 | 114,520 | 105,959 | 119,654 | 70,126 |
+| Java 25.0.1 | 112,703 | 104,724 | 100,230 | 50,702 |
+
+These results establish reduced temporary allocation for the tested misses; they do not establish a
+modpack-wide launch-time improvement. Real startup on the bare development profile has only about
+19 raw-class hits in more than 9,000 reads, so warmed all-hit benchmarks do not represent that launch.
+
+Four 26.2/JFR launches with the complete cache hooks off/on/on/off reached the game-load callback at
+9,958 / 9,956 / 9,795 / 9,775 ms of JVM uptime. Their overlapping results do not show a consistent
+end-to-end advantage. JFR profiles are retained locally for diagnosis; their allocation weights are
+samples, not exact memory totals or controlled performance proof.
+
+The combined nine-target bootstrap/GUI and `buildAll` run passed 950 unit tests, Java 21/25 packaged-agent
+checks and all nine real window-adoption/settings probes. The ten collected artifacts have matching
+bundled Knot Client bytes, correct namespaces and no test classes. Both component versions remain 0.1.0.
