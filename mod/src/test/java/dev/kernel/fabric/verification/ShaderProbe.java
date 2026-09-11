@@ -20,6 +20,8 @@ public final class ShaderProbe {
     private static boolean advancing;
     private static volatile boolean captured;
     private static int verifiedWorldFrames;
+    private static Path probeSource;
+    private static String fixtureName;
     static void frame(Minecraft minecraft, long ready) {
         if (stage == 20 || advancing) return;
         advancing = true;
@@ -48,16 +50,19 @@ public final class ShaderProbe {
             next(1); return;
         }
         if (stage == 1 && !KernelShaders.busy()) {
-            Path source = minecraft.gameDirectory.toPath().resolve("original-probe.zip");
+            Path source = Files.createTempFile(minecraft.gameDirectory.toPath(), "kernel-shader-probe-", ".zip");
+            probeSource = source; fixtureName = source.getFileName().toString();
             dev.kernel.fabric.shader.ShaderTextureGlChecks.writeImportFixture(source);
             GuiProbe.screen(minecraft).onFilesDrop(List.of(source)); next(2); return;
         }
         if (stage == 2 && !KernelShaders.busy()) {
-            if (KernelShaders.failed() || !KernelShaders.installed().contains("original-probe.zip")) throw new AssertionError("Drag/drop import failed: " + KernelShaders.message());
-            KernelShaders.select("original-probe.zip"); next(3); return;
+            if (KernelShaders.failed() || !KernelShaders.installed().contains(fixtureName)) throw new AssertionError("Drag/drop import failed: " + KernelShaders.message());
+            if (Files.mismatch(probeSource, KernelShaders.directory().resolve(fixtureName)) != -1)
+                throw new AssertionError("Imported shader differs from the current probe fixture");
+            KernelShaders.select(fixtureName); next(3); return;
         }
         if (stage == 3 && !KernelShaders.busy()) {
-            if (!KernelShaders.active().equals("original-probe.zip")) throw new AssertionError("Shader activation failed: " + KernelShaders.message());
+            if (!KernelShaders.active().equals(fixtureName)) throw new AssertionError("Shader activation failed: " + KernelShaders.message());
             if (!ShaderConfig.load(minecraft.gameDirectory.toPath().resolve("config/kernel-shaders.properties")).selected().equals(KernelShaders.active())) throw new AssertionError("Shader selection did not persist");
             if (elapsed < 600_000_000L) return;
             GuiProbe.capture(minecraft, "kernel-shaders.png", ignored -> captured = true); next(4); return;
@@ -95,7 +100,7 @@ public final class ShaderProbe {
             KernelShaders.select("unsupported-probe.zip"); next(7); return;
         }
         if (stage == 7 && !KernelShaders.busy()) {
-            if (!KernelShaders.failed() || !KernelShaders.active().equals("original-probe.zip")) throw new AssertionError("Failed compilation replaced the working shader");
+            if (!KernelShaders.failed() || !KernelShaders.active().equals(fixtureName)) throw new AssertionError("Failed compilation replaced the working shader");
             if (verifiedWorldFrames == 0) return;
             captured = false;
             GuiProbe.capture(minecraft, "kernel-shader-world.png", ignored -> captured = true); next(8); return;
@@ -106,6 +111,8 @@ public final class ShaderProbe {
             if (!KernelShaders.active().isEmpty() || !ShaderConfig.load(minecraft.gameDirectory.toPath().resolve("config/kernel-shaders.properties")).selected().isEmpty()) throw new AssertionError("Shaders off did not apply/save");
             Files.writeString(minecraft.gameDirectory.toPath().resolve("shader-probe-complete.json"), "{\"pixels\":true,\"resize\":true,\"glState\":true,\"dragDrop\":true,\"settings\":true,\"worldPass\":true,\"failureRecovery\":true}\n");
             System.out.println("Kernel shader probe passed: native GUI, import, selection, real world rendering, failed-pack recovery and disable.");
+            Files.deleteIfExists(probeSource);
+            Files.deleteIfExists(KernelShaders.directory().resolve(fixtureName));
             stage = 20; minecraft.execute(minecraft::stop);
         }
     }
