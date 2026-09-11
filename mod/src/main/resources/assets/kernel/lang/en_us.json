@@ -108,5 +108,7 @@
   "kernel.world.end_island_heights": "End island height reuse",
   "kernel.world.end_island_heights.description": "Reuse identical native End island heights across repeated terrain samples. Bounded per-thread storage preserves exact terrain values. Requires a restart.",
   "kernel.world.shape_traversal": "Shape queries",
-  "kernel.world.shape_traversal.description": "Accelerate native voxel overlap tests with bitsets and bounded coordinate mappings. Custom shape and operation behavior stays in control. Requires a restart."
+  "kernel.world.shape_traversal.description": "Accelerate native voxel overlap tests with bitsets and bounded coordinate mappings. Custom shape and operation behavior stays in control. Requires a restart.",
+  "kernel.world.packed_storage": "Packed block decoding",
+  "kernel.world.packed_storage.description": "Decode common packed block arrays with fewer variable shifts. Storage formats and palette values stay unchanged. Requires a restart."
 }

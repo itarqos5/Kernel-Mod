@@ -64,6 +64,11 @@ Never bump either version automatically. Only change `mod_version` or `knot_clie
 
 Implemented:
 
+- Constant-shift decoding for native packed block arrays of at least 256 values and 4–16 bits/value
+  on all nine targets. Source words, output ownership and palette formats remain unchanged; small,
+  custom and unsuitable requests preserve native fallback behavior. A separate restart-only
+  `packed_storage` GUI/config switch yields to Lithium. See `docs/PACKED_STORAGE.md` for scope and measurement.
+
 - Invocation-local chunk camera snapshots on 1.21.11, 26.1.2 and 26.2: unchanged native matrix copies
   are shared within one draw-preparation batch, with raw-value/property comparison and fresh copies for
   changed input. Previously uploaded snapshots are never mutated. The restart-only `chunk_uniforms`

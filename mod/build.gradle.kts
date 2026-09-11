@@ -254,6 +254,16 @@ tasks {
         jvmArgs("-Xms256m", "-Xmx256m")
     }
 
+    register<JavaExec>("packedStorageBenchmark") {
+        group = "verification"
+        description = "Measures native and Kernel packed-array decoding without starting Minecraft."
+        dependsOn(testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath
+        mainClass = "dev.kernel.fabric.world.PackedStorageBenchmark"
+        javaLauncher = kernelJavaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion) }
+        jvmArgs("-Xms256m", "-Xmx256m")
+    }
+
     for (mode in listOf("Enabled", "Disabled", "Conflict")) {
         val worldSmoke = register<JavaExec>("worldOptimization${mode}Smoke") {
             group = "verification"
@@ -274,7 +284,7 @@ tasks {
             doFirst {
                 val config = workingDir.resolve("config/kernel-world.properties")
                 config.parentFile.mkdirs()
-                config.writeText("biome_offsets=${mode != "Disabled"}\nnoise_slices=${mode != "Disabled"}\nend_island_heights=${mode != "Disabled"}\nshape_traversal=${mode != "Disabled"}\n")
+                config.writeText("biome_offsets=${mode != "Disabled"}\nnoise_slices=${mode != "Disabled"}\nend_island_heights=${mode != "Disabled"}\nshape_traversal=${mode != "Disabled"}\npacked_storage=${mode != "Disabled"}\n")
                 if (mode == "Conflict") {
                     conflict.mkdirs()
                     conflict.resolve("fabric.mod.json").writeText("""{"schemaVersion":1,"id":"lithium","version":"0.0.0","name":"Kernel ownership test marker"}""")
@@ -423,7 +433,7 @@ tasks {
                     directory.mkdirs()
                     directory.resolve("options.txt").writeText("onboardAccessibility:false\nguiScale:2\nrenderDistance:4\nsimulationDistance:5\nsoundCategory_master:0.0\n")
                     directory.resolve("config").mkdirs()
-                    directory.resolve("config/kernel-world.properties").writeText("biome_offsets=${mode == "Optimized"}\nnoise_slices=${mode == "Optimized"}\nend_island_heights=${mode == "Optimized"}\nshape_traversal=${mode == "Optimized"}\n")
+                    directory.resolve("config/kernel-world.properties").writeText("biome_offsets=${mode == "Optimized"}\nnoise_slices=${mode == "Optimized"}\nend_island_heights=${mode == "Optimized"}\nshape_traversal=${mode == "Optimized"}\npacked_storage=${mode == "Optimized"}\n")
                     val marker = directory.resolve("world-generation-sha256.txt")
                     check(!marker.exists() || marker.delete())
                 }

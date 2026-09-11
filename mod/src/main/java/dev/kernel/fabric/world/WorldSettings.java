@@ -14,7 +14,7 @@ public final class WorldSettings {
         try { return WorldConfig.load(PATH); }
         catch (IOException | RuntimeException exception) {
             org.slf4j.LoggerFactory.getLogger("Kernel").warn("Cannot read world settings; leaving world optimizations disabled", exception);
-            return new WorldConfig(false, false, false, false);
+            return new WorldConfig(false, false, false, false, false);
         }
     }
     public static boolean biomeOffsetsActive() { return ACTIVE.biomeOffsets() && !LITHIUM; }

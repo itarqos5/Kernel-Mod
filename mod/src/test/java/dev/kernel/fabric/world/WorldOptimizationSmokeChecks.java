@@ -13,6 +13,7 @@ public final class WorldOptimizationSmokeChecks {
         boolean expected = Boolean.getBoolean("kernel.worldProbe.expectedEnabled");
         if (WorldSettings.noiseSlicesActive() != expected) throw new AssertionError("Noise slice activation mismatch");
         NoiseSliceSmokeChecks.run(expected);
+        PackedStorageSmokeChecks.run(expected);
         EndIslandSmokeChecks.run(expected);
         ShapeJoinSmokeChecks.run(expected);
         boolean applied = Arrays.stream(BiomeManager.class.getDeclaredFields()).anyMatch(field -> field.getName().equals("kernel$offsets"));

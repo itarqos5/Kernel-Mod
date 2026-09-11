@@ -9,12 +9,12 @@ import net.minecraft.client.gui.screens.Screen;
 
 final class WorldSettingsProbe {
     static void verify(Minecraft minecraft, Screen parent) throws java.io.IOException {
-        for (String key : new String[]{"biome_offsets", "noise_slices", "end_island_heights", "shape_traversal"}) verifySetting(minecraft, parent, key);
+        for (var feature : dev.kernel.fabric.world.WorldFeature.values()) verifySetting(minecraft, parent, feature.key());
     }
     private static void verifySetting(Minecraft minecraft, Screen parent, String key) throws java.io.IOException {
         var saved = WorldSettings.saved();
-        boolean active = WorldSettings.biomeOffsetsActive(), activeNoise = WorldSettings.noiseSlicesActive(), activeEnd = WorldSettings.endIslandHeightsActive();
-        boolean activeShape = WorldSettings.active(dev.kernel.fabric.world.WorldFeature.SHAPE_TRAVERSAL);
+        var active = new java.util.EnumMap<dev.kernel.fabric.world.WorldFeature, Boolean>(dev.kernel.fabric.world.WorldFeature.class);
+        for (var feature : dev.kernel.fabric.world.WorldFeature.values()) active.put(feature, WorldSettings.active(feature));
         open(minecraft, parent);
         GuiProbe.click(toggle(minecraft, key));
         GuiProbe.click(GuiProbe.find(GuiProbe.screen(minecraft), "gui.cancel"));
@@ -23,7 +23,8 @@ final class WorldSettingsProbe {
         GuiProbe.click(toggle(minecraft, key));
         GuiProbe.click(GuiProbe.find(GuiProbe.screen(minecraft), "kernel.settings.apply"));
         if (WorldSettings.saved().equals(saved)) throw new AssertionError("World-settings Apply did not save");
-        if (WorldSettings.biomeOffsetsActive() != active || WorldSettings.noiseSlicesActive() != activeNoise || WorldSettings.endIslandHeightsActive() != activeEnd || WorldSettings.active(dev.kernel.fabric.world.WorldFeature.SHAPE_TRAVERSAL) != activeShape) throw new AssertionError("World setting changed active Mixins without restart");
+        for (var feature : active.keySet()) if (WorldSettings.active(feature) != active.get(feature))
+            throw new AssertionError("World setting changed active Mixins without restart");
         GuiProbe.click(toggle(minecraft, key));
         GuiProbe.click(GuiProbe.find(GuiProbe.screen(minecraft), "gui.done"));
         if (GuiProbe.screen(minecraft) != parent || !WorldConfig.load(minecraft.gameDirectory.toPath().resolve("config/kernel-world.properties")).equals(saved)) {

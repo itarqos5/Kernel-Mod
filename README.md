@@ -115,6 +115,10 @@ Implemented:
 - Shader world-time/day, native moon phase and interpolated rain/thunder uniforms share one snapshot
   across a frame's passes, captured only for packs that request those inputs. See [shader inputs](docs/SHADERS.md).
 
+- Constant-shift decoding for common packed block arrays, with preserved native values and storage
+  formats. The restart-only Packed block decoding option yields to Lithium and keeps native handling
+  for small/custom requests. See [scope and decoder measurements](docs/PACKED_STORAGE.md).
+
 - Native `depthtex0`/`gdepthtex` shader inputs capture depth-writing world and transparent geometry
   before late debug clears, then overlay native first-person depth while preserving the world elsewhere.
   Frame-graph dependencies retain temporary targets until capture; disabled clouds are excluded.

@@ -68,7 +68,8 @@ and documented exceptions. The families below remain incomplete in Kernel:
 - Entity lifecycle and ticking: tracking, equipment changes, passenger traversal and client-only work avoidance.
 - AI and navigation: task scheduling, sensors, path searches, points of interest and invalidation.
 - Inventories and block entities: hopper transfer/lookup, change notification, sleeping and wake-up rules.
-- Chunk data: palettes, block access, serialization, tickets and entity collections.
+- Chunk data: [constant-shift native packed-array decoding](PACKED_STORAGE.md) is implemented;
+  broader palette, block access, serialization, ticket and entity-collection work remains incomplete.
 - Block and fluid work: neighbor updates, redstone, fluid flow, moving block shapes and scheduled/random ticks.
 - World and generation work: [biome-offset reuse, noise-slice allocation reduction and End island height reuse](WORLD_OPTIMIZATIONS.md) are implemented; broader allocation reductions,
   caches, random-number sequencing and deterministic-output validation remain incomplete.

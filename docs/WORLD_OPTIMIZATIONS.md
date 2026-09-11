@@ -1,7 +1,8 @@
 # World and biome work
 
-Block-shape overlap checks also use [reusable traversal callbacks](SHAPE_QUERIES.md) during startup and
-world queries. This is independently controlled by **Shape query allocation** in the Optimizations tab.
+Block-shape overlap checks also use [bitset intersections and reusable traversal callbacks](SHAPE_QUERIES.md)
+during startup and world queries, controlled by **Shape queries** in the Optimizations tab.
+[Packed block decoding](PACKED_STORAGE.md) separately reduces common palette-conversion decoding work.
 
 ## Biome selection
 
