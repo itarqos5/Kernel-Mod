@@ -116,6 +116,8 @@
   "kernel.world.packed_storage": "Packed block decoding",
   "kernel.world.packed_storage.description": "Decode common packed block arrays with fewer variable shifts. Storage formats and palette values stay unchanged. Requires a restart.",
   "kernel.world.shape_construction": "Shape construction",
+  "kernel.world.shape_coordinates": "Shape coordinates",
+  "kernel.world.shape_coordinates.description": "Share immutable coordinate lists for common cube grids during shape queries and construction. Requires a restart.",
   "kernel.world.shape_construction.description": "Reduce temporary memory use when building block shapes during startup and world updates. Requires a restart.",
   "kernel.resource.readers": "Resource reader buffers",
   "kernel.resource.readers.description": "Use smaller text buffers while loading resources at startup and during reloads. Large files remain supported. Requires a restart."

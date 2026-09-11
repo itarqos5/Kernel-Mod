@@ -8,7 +8,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.Properties;
 
 /** Restart-only world optimization preferences; unknown keys survive saves. */
-public record WorldConfig(boolean biomeOffsets, boolean noiseSlices, boolean endIslandHeights, boolean shapeTraversal, boolean packedStorage, boolean shapeConstruction) {
+public record WorldConfig(boolean biomeOffsets, boolean noiseSlices, boolean endIslandHeights, boolean shapeTraversal, boolean packedStorage, boolean shapeConstruction, boolean shapeCoordinates) {
     public static WorldConfig load(Path path) throws IOException {
         Properties properties = read(path);
         return new WorldConfig(Boolean.parseBoolean(properties.getProperty("biome_offsets", "true")),
@@ -16,7 +16,8 @@ public record WorldConfig(boolean biomeOffsets, boolean noiseSlices, boolean end
             Boolean.parseBoolean(properties.getProperty("end_island_heights", "true")),
             Boolean.parseBoolean(properties.getProperty("shape_traversal", "true")),
             Boolean.parseBoolean(properties.getProperty("packed_storage", "true")),
-            Boolean.parseBoolean(properties.getProperty("shape_construction", "true")));
+            Boolean.parseBoolean(properties.getProperty("shape_construction", "true")),
+            Boolean.parseBoolean(properties.getProperty("shape_coordinates", "true")));
     }
     public boolean enabled(WorldFeature feature) {
         return switch (feature) {
@@ -26,16 +27,18 @@ public record WorldConfig(boolean biomeOffsets, boolean noiseSlices, boolean end
             case SHAPE_TRAVERSAL -> shapeTraversal;
             case PACKED_STORAGE -> packedStorage;
             case SHAPE_CONSTRUCTION -> shapeConstruction;
+            case SHAPE_COORDINATES -> shapeCoordinates;
         };
     }
     public WorldConfig with(WorldFeature feature, boolean enabled) {
         return switch (feature) {
-            case BIOME_OFFSETS -> new WorldConfig(enabled, noiseSlices, endIslandHeights, shapeTraversal, packedStorage, shapeConstruction);
-            case NOISE_SLICES -> new WorldConfig(biomeOffsets, enabled, endIslandHeights, shapeTraversal, packedStorage, shapeConstruction);
-            case END_ISLAND_HEIGHTS -> new WorldConfig(biomeOffsets, noiseSlices, enabled, shapeTraversal, packedStorage, shapeConstruction);
-            case SHAPE_TRAVERSAL -> new WorldConfig(biomeOffsets, noiseSlices, endIslandHeights, enabled, packedStorage, shapeConstruction);
-            case PACKED_STORAGE -> new WorldConfig(biomeOffsets, noiseSlices, endIslandHeights, shapeTraversal, enabled, shapeConstruction);
-            case SHAPE_CONSTRUCTION -> new WorldConfig(biomeOffsets, noiseSlices, endIslandHeights, shapeTraversal, packedStorage, enabled);
+            case BIOME_OFFSETS -> new WorldConfig(enabled, noiseSlices, endIslandHeights, shapeTraversal, packedStorage, shapeConstruction, shapeCoordinates);
+            case NOISE_SLICES -> new WorldConfig(biomeOffsets, enabled, endIslandHeights, shapeTraversal, packedStorage, shapeConstruction, shapeCoordinates);
+            case END_ISLAND_HEIGHTS -> new WorldConfig(biomeOffsets, noiseSlices, enabled, shapeTraversal, packedStorage, shapeConstruction, shapeCoordinates);
+            case SHAPE_TRAVERSAL -> new WorldConfig(biomeOffsets, noiseSlices, endIslandHeights, enabled, packedStorage, shapeConstruction, shapeCoordinates);
+            case PACKED_STORAGE -> new WorldConfig(biomeOffsets, noiseSlices, endIslandHeights, shapeTraversal, enabled, shapeConstruction, shapeCoordinates);
+            case SHAPE_CONSTRUCTION -> new WorldConfig(biomeOffsets, noiseSlices, endIslandHeights, shapeTraversal, packedStorage, enabled, shapeCoordinates);
+            case SHAPE_COORDINATES -> new WorldConfig(biomeOffsets, noiseSlices, endIslandHeights, shapeTraversal, packedStorage, shapeConstruction, enabled);
         };
     }
     public void save(Path path) throws IOException {

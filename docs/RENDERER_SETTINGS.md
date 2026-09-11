@@ -25,6 +25,9 @@ The Optimizations tab also contains [biome, noise and End island controls](WORLD
 [Packed block decoding](PACKED_STORAGE.md). Their independent
 restart-only switches use the world configuration and yield to Lithium.
 
+[Shape coordinates](SHAPE_COORDINATES.md) independently shares immutable native cube-coordinate
+lists; it also uses the world configuration and yields to Lithium.
+
 [Resource reader buffers](RESOURCE_READERS.md) is a separate restart-only control in the same tab.
 It saves `compact_readers=true|false` in `config/kernel-resources.properties` and applies to resource
 loading at startup and during reloads. It does not alter the Knot Client's class caches.

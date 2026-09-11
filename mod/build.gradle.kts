@@ -287,6 +287,7 @@ tasks {
             systemProperty("kernel.worldProbe.expectedEnabled", mode == "Enabled")
             systemProperty("kernel.shapeGridBenchmark", providers.gradleProperty("kernelShapeGridBenchmark").getOrElse("false"))
             systemProperty("kernel.shapeConstructionBenchmark", providers.gradleProperty("kernelShapeConstructionBenchmark").getOrElse("false"))
+            systemProperty("kernel.shapeCoordinatesBenchmark", providers.gradleProperty("kernelShapeCoordinatesBenchmark").getOrElse("false"))
             workingDir(layout.buildDirectory.dir("world-${mode.lowercase()}-smoke-game").get().asFile)
             args("--gameDir", workingDir.absolutePath)
             val conflict = layout.buildDirectory.dir("world-conflict-test-mod").get().asFile
@@ -294,7 +295,7 @@ tasks {
             doFirst {
                 val config = workingDir.resolve("config/kernel-world.properties")
                 config.parentFile.mkdirs()
-                config.writeText("biome_offsets=${mode != "Disabled"}\nnoise_slices=${mode != "Disabled"}\nend_island_heights=${mode != "Disabled"}\nshape_traversal=${mode != "Disabled"}\npacked_storage=${mode != "Disabled"}\nshape_construction=${mode != "Disabled"}\n")
+                config.writeText("biome_offsets=${mode != "Disabled"}\nnoise_slices=${mode != "Disabled"}\nend_island_heights=${mode != "Disabled"}\nshape_traversal=${mode != "Disabled"}\npacked_storage=${mode != "Disabled"}\nshape_construction=${mode != "Disabled"}\nshape_coordinates=${mode != "Disabled"}\n")
                 if (mode == "Conflict") {
                     conflict.mkdirs()
                     conflict.resolve("fabric.mod.json").writeText("""{"schemaVersion":1,"id":"lithium","version":"0.0.0","name":"Kernel ownership test marker"}""")
@@ -302,6 +303,31 @@ tasks {
             }
         }
         check { dependsOn(worldSmoke) }
+    }
+
+    register<JavaExec>("shapeCoordinatesOwnershipSmoke") {
+        group = "verification"
+        description = "Checks that compact cube coordinates yield to a standard constructor redirect."
+        dependsOn(testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath.filter { it.exists() }
+        mainClass = "dev.kernel.fabric.world.ShapeCoordinatesOwnershipSmoke"
+        javaLauncher = kernelJavaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion) }
+        systemProperty("fabric.development", "true")
+        systemProperty("fabric.gameVersion", sc.current.version)
+        systemProperty("fabric.gameMappingNamespace", if (sc.current.parsed >= "26.1") "official" else "named")
+        systemProperty("mixin.debug.countInjections", "true")
+        workingDir(layout.buildDirectory.dir("coordinates-ownership-smoke-game").get().asFile)
+        args("--gameDir", workingDir.absolutePath)
+        val competitor = layout.buildDirectory.dir("coordinates-ownership-test-mod").get().asFile
+        classpath += files(competitor)
+        doFirst {
+            val config = workingDir.resolve("config/kernel-world.properties")
+            config.parentFile.mkdirs()
+            config.writeText("shape_coordinates=true\n")
+            competitor.mkdirs()
+            competitor.resolve("fabric.mod.json").writeText("""{"schemaVersion":1,"id":"kernel_coordinates_owner_test","version":"0.0.0","mixins":["kernel-coordinates-owner.mixins.json"]}""")
+            competitor.resolve("kernel-coordinates-owner.mixins.json").writeText("""{"required":true,"package":"dev.kernel.fabric.world.verification.mixin","compatibilityLevel":"JAVA_21","client":["CubeCoordinatesOwnerMixin"]}""")
+        }
     }
 
     for (mode in listOf("Enabled", "Disabled", "Competing")) {
@@ -488,7 +514,7 @@ tasks {
                     directory.mkdirs()
                     directory.resolve("options.txt").writeText("onboardAccessibility:false\nguiScale:2\nrenderDistance:4\nsimulationDistance:5\nsoundCategory_master:0.0\n")
                     directory.resolve("config").mkdirs()
-                    directory.resolve("config/kernel-world.properties").writeText("biome_offsets=${mode == "Optimized"}\nnoise_slices=${mode == "Optimized"}\nend_island_heights=${mode == "Optimized"}\nshape_traversal=${mode == "Optimized"}\npacked_storage=${mode == "Optimized"}\nshape_construction=${mode == "Optimized"}\n")
+                    directory.resolve("config/kernel-world.properties").writeText("biome_offsets=${mode == "Optimized"}\nnoise_slices=${mode == "Optimized"}\nend_island_heights=${mode == "Optimized"}\nshape_traversal=${mode == "Optimized"}\npacked_storage=${mode == "Optimized"}\nshape_construction=${mode == "Optimized"}\nshape_coordinates=${mode == "Optimized"}\n")
                     val marker = directory.resolve("world-generation-sha256.txt")
                     check(!marker.exists() || marker.delete())
                 }

@@ -18,7 +18,8 @@ final class WorldConfigTest {
         assertTrue(WorldConfig.load(path).shapeTraversal());
         assertTrue(WorldConfig.load(path).packedStorage());
         assertTrue(WorldConfig.load(path).shapeConstruction());
-        new WorldConfig(true, true, true, true, true, true).save(path);
+        assertTrue(WorldConfig.load(path).shapeCoordinates());
+        new WorldConfig(true, true, true, true, true, true, true).save(path);
         assertTrue(WorldConfig.load(path).biomeOffsets());
         assertTrue(Files.readString(path).contains("future_key=value"));
         try (var files = Files.list(directory)) { assertEquals(1, files.count()); }
@@ -28,27 +29,29 @@ final class WorldConfigTest {
         String invalid = "future_key=\\uBAD!\n";
         Files.writeString(path, invalid);
         assertThrows(java.io.IOException.class, () -> WorldConfig.load(path));
-        assertThrows(java.io.IOException.class, () -> new WorldConfig(false, false, true, true, true, true).save(path));
+        assertThrows(java.io.IOException.class, () -> new WorldConfig(false, false, true, true, true, true, true).save(path));
         assertEquals(invalid, Files.readString(path));
     }
     @Test void worldFeaturesPersistIndependently() throws Exception {
         Path path = directory.resolve("world.properties");
-        new WorldConfig(true, false, true, true, true, true).save(path);
+        new WorldConfig(true, false, true, true, true, true, true).save(path);
         var loaded = WorldConfig.load(path);
         assertTrue(loaded.biomeOffsets()); assertFalse(loaded.noiseSlices());
         loaded.with(WorldFeature.BIOME_OFFSETS, false).save(path);
-        assertEquals(new WorldConfig(false, false, true, true, true, true), WorldConfig.load(path));
+        assertEquals(new WorldConfig(false, false, true, true, true, true, true), WorldConfig.load(path));
         WorldConfig.load(path).with(WorldFeature.NOISE_SLICES, true).save(path);
-        assertEquals(new WorldConfig(false, true, true, true, true, true), WorldConfig.load(path));
+        assertEquals(new WorldConfig(false, true, true, true, true, true, true), WorldConfig.load(path));
         WorldConfig.load(path).with(WorldFeature.END_ISLAND_HEIGHTS, false).save(path);
-        assertEquals(new WorldConfig(false, true, false, true, true, true), WorldConfig.load(path));
+        assertEquals(new WorldConfig(false, true, false, true, true, true, true), WorldConfig.load(path));
         WorldConfig.load(path).with(WorldFeature.BIOME_OFFSETS, true).save(path);
-        assertEquals(new WorldConfig(true, true, false, true, true, true), WorldConfig.load(path));
+        assertEquals(new WorldConfig(true, true, false, true, true, true, true), WorldConfig.load(path));
         WorldConfig.load(path).with(WorldFeature.SHAPE_TRAVERSAL, false).save(path);
-        assertEquals(new WorldConfig(true, true, false, false, true, true), WorldConfig.load(path));
+        assertEquals(new WorldConfig(true, true, false, false, true, true, true), WorldConfig.load(path));
         WorldConfig.load(path).with(WorldFeature.PACKED_STORAGE, false).save(path);
-        assertEquals(new WorldConfig(true, true, false, false, false, true), WorldConfig.load(path));
+        assertEquals(new WorldConfig(true, true, false, false, false, true, true), WorldConfig.load(path));
         WorldConfig.load(path).with(WorldFeature.SHAPE_CONSTRUCTION, false).save(path);
-        assertEquals(new WorldConfig(true, true, false, false, false, false), WorldConfig.load(path));
+        assertEquals(new WorldConfig(true, true, false, false, false, false, true), WorldConfig.load(path));
+        WorldConfig.load(path).with(WorldFeature.SHAPE_COORDINATES, false).save(path);
+        assertEquals(new WorldConfig(true, true, false, false, false, false, false), WorldConfig.load(path));
     }
 }

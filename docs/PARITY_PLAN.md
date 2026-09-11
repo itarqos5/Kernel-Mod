@@ -65,6 +65,7 @@ and documented exceptions. The families below remain incomplete in Kernel:
 
 - Collision queries and movement: [matching/mapped-grid bitset intersections and reusable shape-overlap callbacks](SHAPE_QUERIES.md) are implemented;
   [materialized shape joins](SHAPE_CONSTRUCTION.md) also reuse their temporary traversal state.
+  [Cube-shape coordinates](SHAPE_COORDINATES.md) share bounded native immutable lists.
   Broader voxel-shape algorithms, entity lookup, supporting blocks and movement work remain incomplete.
 - Entity lifecycle and ticking: tracking, equipment changes, passenger traversal and client-only work avoidance.
 - AI and navigation: task scheduling, sensors, path searches, points of interest and invalidation.

@@ -13,11 +13,12 @@ gradle.projectsEvaluated {
     def shapes = readFlag('kernelProfileShapes')
     def construction = readFlag('kernelProfileConstruction')
     def readers = readFlag('kernelProfileReaders')
+    def coordinates = readFlag('kernelProfileCoordinates')
     def target = gradle.rootProject.findProject(':mod:' + version)
     if (target == null) throw new GradleException('Unknown profiling target: ' + version)
     def directory = new File(gradle.rootProject.projectDir, 'build/startup-profiles')
     directory.mkdirs()
-    def name = "startup-${version}-caches-${caches}-queries-${shapes}-construction-${construction}-readers-${readers}-${System.currentTimeMillis()}"
+    def name = "startup-${version}-caches-${caches}-queries-${shapes}-construction-${construction}-readers-${readers}-coordinates-${coordinates}-${System.currentTimeMillis()}"
     def recording = new File(directory, name + '.jfr')
     target.tasks.named('runBootstrapSmoke', JavaExec).configure {
         jvmArgs("-XX:StartFlightRecording=filename=${recording.absolutePath},settings=profile,dumponexit=true,maxsize=128m")
@@ -29,6 +30,7 @@ gradle.projectsEvaluated {
             for (key in ['biome_offsets', 'noise_slices', 'end_island_heights', 'packed_storage']) settings.setProperty(key, 'true')
             settings.setProperty('shape_traversal', Boolean.toString(shapes))
             settings.setProperty('shape_construction', Boolean.toString(construction))
+            settings.setProperty('shape_coordinates', Boolean.toString(coordinates))
             config.withWriter('UTF-8') { settings.store(it, 'Isolated startup profiling controls') }
             new File(config.parentFile, 'kernel-resources.properties').text = "compact_readers=${readers}\n"
         }
