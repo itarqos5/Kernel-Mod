@@ -88,7 +88,7 @@
   "kernel.shaders.off": "Off",
   "kernel.shaders.active": "Active: %s",
   "kernel.shaders.searching": "Searching Modrinth…",
-  "kernel.shaders.scope": "Color effects only · full-world shader packs are not supported yet",
+  "kernel.shaders.scope": "Post-processing · full-world shader packs are not supported yet",
   "kernel.shaders.no_results": "No shader packs found",
   "kernel.shaders.empty": "Drop a shader ZIP to install it",
   "kernel.shaders.query": "Search shader packs",

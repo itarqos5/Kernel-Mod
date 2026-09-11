@@ -133,12 +133,19 @@ Implemented:
 
 - Bounded per-thread reuse of eight seed-dependent biome-corner offsets, preserving exact native selection and one current biome-source call per query. The cache stores only primitive values, uses full seed/coordinate keys, applies to client and integrated-server queries, has a restart-only GUI/config switch and yields to Lithium. Differential tests, enabled/disabled/conflict Mixin probes and generated-chunk comparisons are described in `docs/WORLD_OPTIMIZATIONS.md`.
 
-- An original OpenGL color post-processing shader pipeline with ordered composite/final passes, native Shaders GUI, Modrinth discovery/install, ZIP drag/drop, verified downloads, persistent selection and failed-pack recovery. Conditional and guarded literal includes use the native GLSL preprocessor, with bounded expansion and source diagnostics. Up to sixteen color buffers and eight simultaneous outputs support explicit target routing and indexed graphics-state restoration. Twelve normalized/floating-point formats, per-pass color mipmaps, literal clear settings and retained auxiliary history support feedback across passes and frames, with reset on resizing or world changes. Pack-local PNG inputs support named samplers, composite/final color overrides, noise textures and literal filtering/wrapping metadata, with bounded worker decoding, shared-image memory accounting and per-pass sampler units. Unsupported terrain/shadow/depth stages and integer formats remain explicitly rejected. See `docs/SHADERS.md`.
+- An original OpenGL post-processing shader pipeline with ordered composite/final passes, native Shaders GUI, Modrinth discovery/install, ZIP drag/drop, verified downloads, persistent selection and failed-pack recovery. Conditional and guarded literal includes use the native GLSL preprocessor, with bounded expansion and source diagnostics. Up to sixteen color buffers and eight simultaneous outputs support explicit target routing and indexed graphics-state restoration. Twelve normalized/floating-point formats, per-pass color mipmaps, literal clear settings and retained auxiliary history support feedback across passes and frames, with reset on resizing or world changes. Pack-local PNG inputs support named samplers, composite/final color overrides, noise textures and literal filtering/wrapping metadata, with bounded worker decoding, shared-image memory accounting and per-pass sampler units. Unsupported terrain/shadow stages, separate opaque-depth captures and integer formats remain explicitly rejected. See `docs/SHADERS.md`.
 
 - Shader world-time/day, native moon phase and interpolated rain/thunder uniforms use one immutable
   snapshot per world render, captured only for programs that request them. Legacy clock arithmetic is
   retained across 26.x's clock API; camera environment attributes supply moon phases on newer targets.
   Missing world inputs fail explicitly, and custom PNG names cannot override the built-in uniforms.
+
+- Native `depthtex0`/`gdepthtex` shader inputs capture depth-writing world and transparent geometry
+  before late debug clears, then overlay native first-person depth while preserving the world elsewhere.
+  Frame-graph dependencies retain temporary targets until capture; disabled clouds are excluded.
+  Only 26.2 requires reverse-Z conversion. The owned R32F image shares the shader memory budget,
+  and fresh-frame checks prevent stale sampling. `MC_HAND_DEPTH` is 1.0 for the unchanged native
+  hand projection; separate opaque-depth and conventional projection-matrix inputs remain incomplete.
 
 - Single-allocation noise interpolation slices on all nine targets: each zero-filled row is allocated once instead of creating and immediately discarding an identical row. Independent restart-only GUI/config control, Lithium ownership guard, native-method allocation checks and world-output verification preserve generation semantics.
 
@@ -160,7 +167,7 @@ Not implemented:
 - Physical AMD, Intel, NVIDIA, Apple, and software-driver compatibility/performance validation. The current scheduler is vendor-neutral by construction, not a hardware-tested compatibility claim.
 - Frame-time governor, integrated-server coordination, input changes, server chunk scheduling, broader memory optimization, or broader world-generation optimization.
 - Mod Menu integration, speech-engine/controller validation and complete renderer-option parity.
-- Full-world shader-pack compatibility: terrain/geometry replacement, shadows, depth effects, integer/other unsupported color formats, non-PNG/resource-pack textures, other shader properties/options and macro-generated include filenames. The limited color post-processing pipeline does not imply support for popular full-world shader packs.
+- Full-world shader-pack compatibility: terrain/geometry replacement, shadows, separate opaque-depth stages and projection matrices, integer/other unsupported color formats, non-PNG/resource-pack textures, other shader properties/options and macro-generated include filenames. The limited color post-processing pipeline does not imply support for popular full-world shader packs.
 - Sodium, FerriteCore, ModernFix, Lithium, C2ME, Entity Culling, or any other third-party source or bundled code.
 
 The user approved the supplied black-and-white lightning-bolt icon. The mod includes a cleaned, high-resolution rendition with a transparent background at `assets/kernel/icon.png`; the original bolt shape is preserved.

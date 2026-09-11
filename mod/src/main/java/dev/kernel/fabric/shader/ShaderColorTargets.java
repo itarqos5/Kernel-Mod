@@ -12,6 +12,7 @@ final class ShaderColorTargets implements AutoCloseable {
     private final int required;
     private final int mipmaps;
     private final long availableBytes;
+    private final int reservedBytesPerPixel;
     private final ShaderBufferSettings settings;
     private final float[][] clearColors = new float[16][];
     private final int[] textures = new int[32], front = new int[16], current = new int[16];
@@ -26,8 +27,13 @@ final class ShaderColorTargets implements AutoCloseable {
         this(required, settings, mipmaps, 0);
     }
     ShaderColorTargets(int required, ShaderBufferSettings settings, int mipmaps, long reservedBytes) {
+        this(required, settings, mipmaps, reservedBytes, 0);
+    }
+    ShaderColorTargets(int required, ShaderBufferSettings settings, int mipmaps, long reservedBytes, int reservedBytesPerPixel) {
         if (reservedBytes < 0 || reservedBytes > MAX_BYTES) throw new IllegalArgumentException("Invalid reserved shader memory");
+        if (reservedBytesPerPixel < 0 || reservedBytesPerPixel > 64) throw new IllegalArgumentException("Invalid shader pixel reservation");
         availableBytes = MAX_BYTES - reservedBytes;
+        this.reservedBytesPerPixel = reservedBytesPerPixel;
         this.required = required | 1; this.settings = settings;
         this.mipmaps = mipmaps & this.required;
         for (int buffer = 0; buffer < 16; buffer++) clearColors[buffer] = settings.buffers().get(buffer).color().array();
@@ -112,12 +118,16 @@ final class ShaderColorTargets implements AutoCloseable {
         }
     }
 
-    private void resize(int width, int height) throws IOException {
-        if (this.width == width && this.height == height) return;
-        if (width <= 0 || height <= 0 || settings.allocationBytes(required, mipmaps, width, height) > availableBytes)
-            throw new IOException("Shader color buffers exceed the 512 MiB allocation budget at this resolution");
+    void validateDimensions(int width, int height) throws IOException {
+        if (width <= 0 || height <= 0 || (long) width * height > availableBytes / Math.max(1, reservedBytesPerPixel)
+            || settings.allocationBytes(required, mipmaps, width, height) > availableBytes - (long) width * height * reservedBytesPerPixel)
+            throw new IOException("Shader images exceed the 512 MiB allocation budget at this resolution");
         int limit = GL33C.glGetInteger(GL33C.GL_MAX_TEXTURE_SIZE);
         if (width > limit || height > limit) throw new IOException("Shader dimensions exceed the graphics device's texture limit");
+    }
+    private void resize(int width, int height) throws IOException {
+        if (this.width == width && this.height == height) return;
+        validateDimensions(width, height);
         close();
         try {
             drawFramebuffer = GL33C.glGenFramebuffers(); readFramebuffer = GL33C.glGenFramebuffers();

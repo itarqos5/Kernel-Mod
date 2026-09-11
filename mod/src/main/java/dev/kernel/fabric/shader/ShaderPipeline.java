@@ -17,13 +17,15 @@ import org.lwjgl.opengl.GL33C;
 import org.lwjgl.opengl.GL43C;
 import org.lwjgl.system.MemoryStack;
 
-/** Render-thread-owned fullscreen color pipeline. New packs compile completely before replacing a live one. */
+/** Render-thread-owned post-processing. New packs compile completely before replacing a live one. */
 public final class ShaderPipeline implements AutoCloseable {
     private record Uniform(String name, int location, int type, int buffer, int unit) {}
     private record Program(int handle, List<Uniform> uniforms, int[] targets, int written, int mipmaps, int[] inputs) {}
     private final List<Program> programs = new ArrayList<>();
     private ShaderColorTargets targets;
     private ShaderCustomTextures images;
+    private ShaderDepthTarget depth;
+    private static final int DEPTH_INPUT = 48;
     private int vao, sampler, mipmapSampler, frame, textureUnits, outputSlots;
     private final long started = System.nanoTime();
     private long lastFrame = started;
@@ -63,7 +65,9 @@ public final class ShaderPipeline implements AutoCloseable {
                     || outputSlots > GL33C.glGetInteger(GL33C.GL_MAX_DRAW_BUFFERS))
                     throw new IOException("This shader exceeds the graphics device's texture/output limits");
                 images = new ShaderCustomTextures(uniqueImages, sampled);
-                targets = new ShaderColorTargets(required, legacyDepth ? pack.buffers().withLegacyDepth() : pack.buffers(), mipmaps, images.bytes());
+                if ((sampled & (1L << DEPTH_INPUT)) != 0) depth = new ShaderDepthTarget();
+                targets = new ShaderColorTargets(required, legacyDepth ? pack.buffers().withLegacyDepth() : pack.buffers(),
+                    mipmaps, images.bytes(), depth == null ? 0 : 4);
                 vao = GL33C.glGenVertexArrays();
                 sampler = sampler(false);
                 if (mipmaps != 0) mipmapSampler = sampler(true);
@@ -71,6 +75,14 @@ public final class ShaderPipeline implements AutoCloseable {
         }
     }
     public boolean needsWorldData() { return usesWorldData; }
+    public boolean needsDepth() { return depth != null; }
+    public void beginWorld() { if (depth != null) depth.invalidate(); }
+    public void captureDepth(int[] textures, int width, int height, boolean reverse, boolean hand) throws IOException {
+        if (closed) throw new IOException("Shader pipeline is closed");
+        if (depth == null) return;
+        targets.validateDimensions(width, height);
+        depth.capture(textures, width, height, reverse, hand);
+    }
     public void render(int sourceTexture, int width, int height) throws IOException {
         render(sourceTexture, width, height, null);
     }
@@ -78,6 +90,7 @@ public final class ShaderPipeline implements AutoCloseable {
         if (closed) throw new IOException("Shader pipeline is closed");
         if (sourceTexture <= 0 || width <= 0 || height <= 0) return;
         if (usesWorldData && world == null) throw new IOException("This shader requires current world inputs");
+        int depthTexture = depth == null ? 0 : depth.texture(width, height);
         try (var state = new ShaderGlState(Math.max(1, textureUnits), outputSlots)) {
             state.prepare(); targets.begin(sourceTexture, width, height);
             long now = System.nanoTime(); float delta = (now - lastFrame) * 1.0e-9f;
@@ -91,8 +104,9 @@ public final class ShaderPipeline implements AutoCloseable {
                 for (int unit = 0; unit < program.inputs.length; unit++) {
                     int input = program.inputs[unit];
                     GL33C.glActiveTexture(GL33C.GL_TEXTURE0 + unit);
-                    GL33C.glBindTexture(GL33C.GL_TEXTURE_2D, input < 16 ? targets.texture(input) : images.texture(input - 16));
-                    GL33C.glBindSampler(unit, input >= 16 ? images.sampler(input - 16)
+                    GL33C.glBindTexture(GL33C.GL_TEXTURE_2D, input == DEPTH_INPUT ? depthTexture
+                        : input < 16 ? targets.texture(input) : images.texture(input - 16));
+                    GL33C.glBindSampler(unit, input == DEPTH_INPUT ? depth.sampler() : input >= 16 ? images.sampler(input - 16)
                         : (program.mipmaps & (1 << input)) == 0 ? sampler : mipmapSampler);
                 }
                 for (var uniform : program.uniforms) {
@@ -113,10 +127,11 @@ public final class ShaderPipeline implements AutoCloseable {
             }
             targets.finish(sourceTexture);
             frame = (frame + 1) % 720720;
+            if (depth != null) depth.invalidate();
         }
     }
     /** Invalidates retained auxiliary images without changing the selected programs. */
-    public void resetHistory() { if (targets != null) targets.resetHistory(); }
+    public void resetHistory() { if (targets != null) targets.resetHistory(); beginWorld(); }
     private static Program compile(PreparedShaderPack.Pass pass, Map<String, Integer> imageBindings) throws IOException {
         var names = ShaderFragmentOutputs.read(pass.fragment());
         int vertex = 0, fragment = 0, program = 0;
@@ -157,6 +172,7 @@ public final class ShaderPipeline implements AutoCloseable {
                     String name = GL33C.glGetActiveUniform(program, i, size, type);
                     int color = ShaderUniforms.colorBuffer(name);
                     int buffer = imageBindings.getOrDefault(color >= 0 ? "colortex" + color : name, color);
+                    if (ShaderUniforms.isDepthInput(name)) buffer = DEPTH_INPUT;
                     if (buffer >= 16 && color >= 0 && (pass.mipmaps() & (1 << color)) != 0)
                         throw new IOException(pass.name() + " requests color mipmaps for an overridden image: " + name);
                     int expectedType = buffer >= 0 ? GL33C.GL_SAMPLER_2D : ShaderUniforms.scalarType(name);
@@ -176,7 +192,7 @@ public final class ShaderPipeline implements AutoCloseable {
             if (vertex != 0) GL33C.glDeleteShader(vertex); if (fragment != 0) GL33C.glDeleteShader(fragment);
         }
     }
-    private static int shader(int type, String source, String name) throws IOException {
+    static int shader(int type, String source, String name) throws IOException {
         int shader = GL33C.glCreateShader(type);
         try {
             GL33C.glShaderSource(shader, source); GL33C.glCompileShader(shader);
@@ -196,6 +212,7 @@ public final class ShaderPipeline implements AutoCloseable {
         if (closed) return; closed = true;
         if (targets != null) targets.close();
         if (images != null) images.close();
+        if (depth != null) depth.close();
         for (var program : programs) GL33C.glDeleteProgram(program.handle);
         programs.clear();
         if (vao != 0) GL33C.glDeleteVertexArrays(vao);

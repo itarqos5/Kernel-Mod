@@ -21,7 +21,7 @@ Downloads stop after five minutes of transfer, and archive/source/entry limits b
 
 ## Current rendering contract
 
-This is an original, limited **color post-processing** renderer, not Iris/OptiFine shader compatibility.
+This is an original, limited **post-processing** renderer, not Iris/OptiFine shader compatibility.
 Kernel currently supports up to 16 ordered `composite`, `composite1` through `composite99`, and `final`
 passes, with up to eight simultaneous outputs mapped to sixteen logical color buffers. The world image,
 including the hand, starts in `colortex0` and is processed before the HUD. Each pass samples the current
@@ -30,7 +30,7 @@ auxiliary buffers preserve the displayed color. `final` always writes the displa
 Linear filtering and edge clamping are supplied by an owned sampler. Intermediates default to RGBA8 at
 the native window resolution; required buffer pairs are allocated lazily within a 512 MiB combined budget.
 The budget counts both images, any complete mip chains using each selected format's declared bytes
-per pixel, and active custom PNG textures; driver overhead and internal padding can add physical GPU
+per pixel, active custom PNG textures, and the optional four-byte-per-pixel depth snapshot; driver overhead and internal padding can add physical GPU
 memory beyond that accounting.
 Imports and downloads require selection before first activation. A saved selection is restored on later
 launches; Kernel does not download packs automatically.
@@ -56,7 +56,47 @@ All passes share one immutable world-input snapshot captured on the render threa
 world uniforms incur no world snapshot or environment lookup. A world-dependent program requires actual
 world inputs, and an unavailable world produces an explicit error instead of default zero values. These
 names are reserved against custom PNG sampler bindings. Sun/shadow transforms, wetness smoothing and
-the remaining world uniforms are still unsupported; these inputs do not provide terrain or depth stages.
+the remaining world uniforms are still unsupported; these inputs do not provide terrain stages.
+
+### Native depth input
+
+`uniform sampler2D depthtex0;` and its alias `gdepthtex` sample an owned R32F snapshot at native window
+resolution. Only its red channel carries depth. It uses nearest filtering, edge clamping, no mipmaps
+and no flipping. The image represents native depth-writing world geometry, including transparent
+targets, followed by the native first-person pass. The background has forward depth 1.0. Both names
+are reserved against custom PNG bindings; `gdepth` remains the separate color-buffer-1 alias.
+
+Kernel inserts a capture pass before Minecraft's late debug/always-on-top pass, keeping the main,
+translucent, item/entity, particle, weather and rendered-cloud targets alive until they have been read.
+It merges their nearest depths without modifying native textures or their samplers. Disabled cloud
+passes are excluded. The capture retains no native render targets between frames. Late debug and
+always-on-top gizmos are intentionally absent from this scene-depth snapshot.
+
+Minecraft clears depth before its first-person pass. Kernel overlays only pixels whose depth differs
+from that clear value, preserving world depth elsewhere; the first-person image takes precedence even over closer
+world pixels. Its native FOV, clip planes and projection remain unchanged. `MC_HAND_DEPTH` is therefore
+defined as **1.0**: Kernel applies no extra clip-space hand-depth scaling. This follows the meaning of
+the [hand-depth multiplier](https://shaders.properties/current/reference/macros/mc_hand_depth/), rather
+than assuming another renderer's multiplier. Screen effects that write native first-person depth are
+also included. There are no conventional world/hand projection-matrix uniforms yet.
+
+All supported versions through 26.1.2 use forward depth. The 26.2 adapter converts native reverse-Z
+with `1 - depth`, including its zero clear value, into the forward convention. R32F storage limits the
+precision of this conversion; it does not preserve reverse-Z's extra far-distance precision. The
+three [standard depth-buffer names](https://shaders.properties/current/reference/buffers/depthtex/)
+describe different geometry subsets: `depthtex1` and `depthtex2` remain unsupported until native opaque
+and hand stages can be separated correctly. They are not aliases of this combined snapshot.
+
+The built-in capture program compiles during pack activation, before replacing the previous pipeline,
+so it does not add shader compilation to the first world frame. Depth storage remains lazy until the
+world resolution is known. Packs without an active depth sampler allocate no depth image and schedule no capture pass. Active
+depth adds one world capture and, when Minecraft executes its first-person pass, one overlay draw.
+Both use the GPU; production code does not read depth back to the CPU. Its R32F image shares the
+512 MiB allocation budget with the color buffers and PNG inputs. Holding native temporary targets
+until capture can also extend their frame-graph lifetimes. Missing, stale or differently sized captures
+fail explicitly and restore native rendering; world changes invalidate depth along with color history.
+
+### Color formats and history
 
 Supported formats are `R8`, `RG8`, `RGBA8`, `R16`, `RG16`, `RGBA16`, `R16F`, `RG16F`, `RGBA16F`,
 `R32F`, `RG32F` and `RGBA32F` (`RGBA` aliases RGBA8). For example,
@@ -146,11 +186,11 @@ shared by aliases of the same input. Custom images have no mip chain; an active 
 on an overridden image is rejected. Allocation and upload restore Minecraft's texture bindings and
 pixel-unpack state. Failed replacement, disabling and shutdown release owned textures and samplers.
 
-Minecraft shader macros, fragment depth writes and discard-based passes are rejected until their
-semantics are implemented.
+Minecraft shader macros other than `MC_HAND_DEPTH`, fragment depth writes and discard-based passes
+are rejected until their semantics are implemented.
 
-Terrain/geometry programs, shadow rendering, depth-based effects, integer/other unsupported formats, compute or
-geometry stages, other shader properties/options, non-PNG/resource-pack textures and broad
+Terrain/geometry programs, shadow rendering, opaque-only depth and projection-matrix inputs,
+integer/other unsupported formats, compute or geometry stages, other shader properties/options, non-PNG/resource-pack textures and broad
 legacy GLSL translation are **not implemented**. Packs requiring them are rejected with a visible reason.
 Popular full-world shader packs are not currently supported merely because they appear in Modrinth search.
 Kernel does not silently discard those stages or count a download as successful rendering.
@@ -198,6 +238,13 @@ World-input pixel fixtures distinguish frame count from world time/day and moon 
 inputs across frames, reject incorrect types/arrays, and recover from missing world data. Pure tests
 cover midnight, time resets, signed custom clocks and the legacy day-counter wrap. In the real world,
 the probe changes the isolated client's weather and verifies nonzero rain/thunder in the shader output.
+Depth fixtures compare actual D32F input and R32F output pixels for one, three and six sources, both depth
+conventions, odd/single-pixel dimensions, first-person overwrite and clear-only preservation. They verify
+aliases, the native hand macro, stale/missing-frame rejection, resize, invalid types, combined memory
+bounds, native texture/sampler ownership and nondefault GL state. Native frame-graph tests prove capture
+ordering before late clears and transient resource release after the capture. Real-world probes read
+the actual world/first-person targets and compare them with the owned snapshot and final shader pixels,
+with improved transparency off/on, clouds on/off, and a third-person view that preserves world depth.
 The probe then imports a uniquely named original PNG-sampling ZIP through the native drop handler,
 verifies the installed bytes against that exact source,
 persists activation, creates a separate flat test world,
@@ -219,10 +266,14 @@ same-window startup with shader integration installed. The multi-target update p
 pixel and gameplay/GUI probes. The final parser checks additionally exercise conditional scope changes
 and a megabyte of malformed comment prefixes. Release artifacts are checked for exact game/Java
 metadata, matching bundled bootstrap bytes and absence of test or third-party implementation classes.
-The current adapter passed `buildAll`, 1,241 unit tests in 340 suites, 27 world
+The current adapter passed `buildAll`, 1,259 unit tests in 349 suites, 27 world
 activation/conflict probes, the renderer/bootstrap checks and all nine native shader/gameplay probes.
 The twelve-format pixel, precision, conversion, retained-history and mipmap checks run inside each
 supported Minecraft target. Release verification confirms nine mod JARs and one matching Knot Client JAR.
+The depth update passed all nine expanded GPU/gameplay probes and both endpoint window-adoption probes.
+After moving capture-program compilation into pack activation and updating the scope label, the final
+Java 21/25 endpoint gameplay probes and complete `buildAll` passed again. No end-to-end performance gain
+is claimed for this optional rendering feature.
 Legacy `texture2D` calls retain support for a sampler named `texture`, including fragment bias and
 vertex sampling; native pixel checks exercise those cases on every supported target.
 

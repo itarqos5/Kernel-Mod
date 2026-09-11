@@ -18,7 +18,7 @@ public final class ShaderSource {
     private ShaderSource() {}
 
     public static String translate(String source, boolean vertex) throws IOException {
-        if (Pattern.compile("\\b(?:gl_FragDepth|discard|MC_[A-Z0-9_]+)\\b").matcher(source).find())
+        if (Pattern.compile("\\b(?:gl_FragDepth|discard|MC_(?!HAND_DEPTH\\b)[A-Z0-9_]+)\\b").matcher(source).find())
             throw new IOException("This shader requires unsupported depth/discard behavior or Minecraft shader macros");
         var matcher = VERSION.matcher(source);
         int version = 120;
@@ -26,7 +26,7 @@ public final class ShaderSource {
         if (Pattern.compile("(?m)^\\s*#\\s*extension\\b").matcher(source).find()) {
             throw new IOException("Shader extensions are not supported by the current fullscreen adapter");
         }
-        String header = "#version " + Math.max(330, version) + " core\n#define KERNEL 1\n";
+        String header = "#version " + Math.max(330, version) + " core\n#define KERNEL 1\n#define MC_HAND_DEPTH 1.0\n";
         boolean legacyTexture = hasTextureSampler(source);
         if (legacyTexture) {
             if (Pattern.compile("\\bkernel_texture2D\\b").matcher(ShaderLexical.maskComments(source, null)).find())

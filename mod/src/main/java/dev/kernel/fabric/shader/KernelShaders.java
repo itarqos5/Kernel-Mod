@@ -38,6 +38,7 @@ public final class KernelShaders {
     private static volatile Future<?> operation;
     private static ShaderPipeline pipeline;
     private static Object historyWorld;
+    private static boolean handDepth;
     private KernelShaders() {}
 
     public static Path directory() { return DIRECTORY; }
@@ -147,6 +148,45 @@ public final class KernelShaders {
             }
         } catch (IOException | RuntimeException failure) { fail(failure.getMessage()); LoggerFactory.getLogger("Kernel").warn("Shader compilation failed; retaining the previous pipeline", failure); }
     }
+    public static void beginWorld() {
+        handDepth = false;
+        if (pipeline != null) pipeline.beginWorld();
+    }
+    public static void handPass() { handDepth = true; }
+    public static void scheduleDepth(com.mojang.blaze3d.framegraph.FrameGraphBuilder graph,
+        net.minecraft.client.renderer.LevelTargetBundle targets, boolean clouds) {
+        ShaderPipeline selected = pipeline;
+        if (selected == null || closed || !selected.needsDepth()) return;
+        ShaderDepthPass.add(graph, targets, clouds, inputs -> {
+            if (pipeline != selected || closed) return;
+            try {
+                var first = inputs.getFirst();
+                int[] textures = new int[inputs.size()];
+                for (int index = 0; index < inputs.size(); index++) {
+                    var target = inputs.get(index);
+                    if (target.width != first.width || target.height != first.height)
+                        throw new IOException("Native world depth targets have different dimensions");
+                    textures[index] = depthTexture(target);
+                }
+                selected.captureDepth(textures, first.width, first.height, reverseDepth(), false);
+            } catch (IOException | RuntimeException failure) { renderingFailed(failure); }
+        });
+    }
+    private static boolean reverseDepth() {
+        //? if >=26.2 {
+        return true;
+        //? } else {
+        /*return false;
+        *///? }
+    }
+    private static int depthTexture(com.mojang.blaze3d.pipeline.RenderTarget target) throws IOException {
+        //? if >=1.21.5 {
+        if (target.getDepthTexture() instanceof GlTexture texture) return texture.glId();
+        throw new IOException("Kernel shader depth requires a native OpenGL depth texture");
+        //? } else {
+        /*return target.getDepthTextureId();
+        *///? }
+    }
     public static void renderWorld(net.minecraft.client.DeltaTracker deltaTracker) {
         if (pipeline == null || closed) return;
         try {
@@ -157,12 +197,15 @@ public final class KernelShaders {
             /*var target = minecraft.getMainRenderTarget();
             *///? }
             ShaderWorldData world = pipeline.needsWorldData() ? ShaderWorldCapture.capture(minecraft, deltaTracker) : null;
+            if (pipeline.needsDepth() && handDepth)
+                pipeline.captureDepth(new int[]{depthTexture(target)}, target.width, target.height, reverseDepth(), true);
             pipeline.render(colorTexture(minecraft), target.width, target.height, world);
-        } catch (IOException | RuntimeException failure) {
-            pipeline.close(); pipeline = null; active = "";
-            fail("Shaders disabled after a rendering error: " + failure.getMessage());
-            LoggerFactory.getLogger("Kernel").warn("Shader rendering failed; native rendering continues", failure);
-        }
+        } catch (IOException | RuntimeException failure) { renderingFailed(failure); }
+    }
+    private static void renderingFailed(Exception failure) {
+        if (pipeline != null) pipeline.close(); pipeline = null; active = "";
+        fail("Shaders disabled after a rendering error: " + failure.getMessage());
+        LoggerFactory.getLogger("Kernel").warn("Shader rendering failed; native rendering continues", failure);
     }
     private static int colorTexture(Minecraft minecraft) throws IOException {
         //? if >=26.2 {

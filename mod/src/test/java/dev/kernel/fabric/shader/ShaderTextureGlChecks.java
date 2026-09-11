@@ -185,12 +185,13 @@ public final class ShaderTextureGlChecks {
         var files=Map.of(
             "shaders/final.fsh", """
                 #version 120
-                uniform sampler2D probeImage;
+                uniform sampler2D probeImage, depthtex0;
                 uniform int worldTime, worldDay, moonPhase;
                 uniform float rainStrength, thunderStrength;
                 void main() {
                     if (gl_FragCoord.x < 2.0) gl_FragColor = vec4(rainStrength, thunderStrength, float(moonPhase)/7.0, 1.0);
                     else if (gl_FragCoord.x < 4.0) gl_FragColor = vec4(float(worldTime)/24000.0, float(worldDay%256)/255.0, 0.0, 1.0);
+                    else if (gl_FragCoord.x < 6.0) gl_FragColor = vec4(vec3(texture2D(depthtex0,vec2(.5)).r),1.0);
                     else gl_FragColor = texture2D(probeImage,vec2(.5));
                 }
                 """.getBytes(StandardCharsets.UTF_8),

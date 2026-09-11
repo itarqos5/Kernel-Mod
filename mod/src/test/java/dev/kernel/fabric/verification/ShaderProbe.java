@@ -40,6 +40,7 @@ public final class ShaderProbe {
         *///? }
         long elapsed = System.nanoTime() - changedAt;
         if (stage == 0 && !KernelShaders.busy()) {
+            ShaderDepthGlChecks.run();
             dev.kernel.fabric.shader.ShaderWorldGlChecks.run();
             dev.kernel.fabric.shader.ShaderTextureGlChecks.run();
             ShaderGlChecks.run();
@@ -96,6 +97,7 @@ public final class ShaderProbe {
         }
         if (stage == 6 && minecraft.level != null && minecraft.player != null && GuiProbe.screen(minecraft) == null && elapsed > 3_000_000_000L) {
             if (verifiedWorldFrames == 0 || !ShaderWorldGlChecks.weatherObserved()) return;
+            if (!ShaderDepthWorldChecks.advance(minecraft)) return;
             Path bad = KernelShaders.directory().resolve("unsupported-probe.zip");
             zip(bad, "#version 120\nuniform sampler2D shadowtex0; void main() { gl_FragColor = texture2D(shadowtex0,vec2(0.5)); }");
             KernelShaders.select("unsupported-probe.zip"); next(7); return;
@@ -123,6 +125,7 @@ public final class ShaderProbe {
         }
     }
     private static void beginWorld(Minecraft minecraft) {
+        ShaderDepthWorldChecks.prepare(minecraft);
         GuiProbe.screen(minecraft).onClose(); GuiProbe.screen(minecraft).onClose();
         GuiProbe.click(GuiProbe.find(GuiProbe.screen(minecraft), "menu.singleplayer")); next(5);
     }
@@ -151,6 +154,7 @@ public final class ShaderProbe {
             int[] expected = {64, 128, 191, 255};
             for (int i = 0; i < 4; i++) if (Math.abs((pixel.get(i) & 255) - expected[i]) > 1) throw new AssertionError("World shader pass did not produce expected pixel: channel " + i + "=" + (pixel.get(i) & 255));
             dev.kernel.fabric.shader.ShaderWorldGlChecks.verifyWorldPixels(minecraft, deltaTracker, target.height);
+            ShaderDepthWorldChecks.verifyOutput(target.width, target.height);
         } finally {
             GL33C.glBindFramebuffer(GL33C.GL_READ_FRAMEBUFFER, read); GL33C.glDeleteFramebuffers(fbo);
             GL33C.glBindBuffer(GL33C.GL_PIXEL_PACK_BUFFER, packBuffer);
@@ -164,5 +168,6 @@ public final class ShaderProbe {
         if (stage == 6 && verifiedWorldFrames == 0) ShaderWorldGlChecks.beginLiveWeatherSample(Minecraft.getInstance());
         verifiedWorldFrames++;
     }
+    public static boolean observingDepth() { return Boolean.getBoolean("kernel.guiProbe.shaders") && stage == 6; }
     private static void next(int value) { stage = value; changedAt = System.nanoTime(); verifiedWorldFrames = 0; }
 }
