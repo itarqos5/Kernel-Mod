@@ -64,6 +64,12 @@ Never bump either version automatically. Only change `mod_version` or `knot_clie
 
 Implemented:
 
+- Direct native weighted-model dispatch on 1.21.4 removes intermediate Optional/iterator wrappers
+  while preserving random consumption, entry order, delegate calls and returned-list ownership.
+  Custom model/list subclasses retain native dispatch; later targets retain their newer model APIs.
+  The existing `block_model` control owns both adapters. Endpoint tests passed; final nine-version and
+  world-render validation remain pending while work is paused. See `docs/WEIGHTED_MODELS.md` for resume details.
+
 - Bounded sharing of native immutable `CubePointRange` coordinate lists for cube grids with 1–64 subdivisions on all nine targets. The native getter still queries each shape's dimension on every call; larger/invalid dimensions keep normal constructor behavior. A separate restart-only `shape_coordinates` world setting yields to Lithium. The fixed table retains no shapes, worlds or mutable coordinate arrays. See `docs/SHAPE_COORDINATES.md` for identity, ownership, measurements and validation status.
 
 - Smaller native resource-reader character buffers on all nine targets: `Resource.openAsReader` retains its stream supplier, UTF-8 decoder and JDK BufferedReader, with a 2,048-character initial buffer instead of the JDK's 8,192-character default. No resource content is cached. A separate restart-only `compact_readers` setting in `config/kernel-resources.properties` is exposed in Optimizations. Unknown preferences survive saves; malformed/unreadable configuration disables the optional adapter. See `docs/RESOURCE_READERS.md` for contract differences, measurements and validation status.

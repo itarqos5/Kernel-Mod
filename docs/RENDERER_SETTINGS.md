@@ -20,6 +20,10 @@ fullscreen changes use the game's window/GUI lifecycle. Optimization switches ta
 next launch, because saving does not unapply Mixins during a frame. Each optimization's tooltip reports
 its current active state. Save errors keep the screen open and log the reason.
 
+Block model rendering includes [direct weighted-model dispatch](WEIGHTED_MODELS.md) on 1.21.4,
+alongside the existing version-appropriate random-source and quad-array reuse. It uses the same
+`block_model` preference; the total number of renderer controls is unchanged.
+
 The Optimizations tab also contains [biome, noise and End island controls](WORLD_OPTIMIZATIONS.md),
 [Shape queries](SHAPE_QUERIES.md), [Shape construction](SHAPE_CONSTRUCTION.md) and
 [Packed block decoding](PACKED_STORAGE.md). Their independent

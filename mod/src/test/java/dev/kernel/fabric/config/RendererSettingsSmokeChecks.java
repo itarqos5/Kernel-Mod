@@ -9,6 +9,7 @@ import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 public final class RendererSettingsSmokeChecks {
     public static void run() throws Exception {
         dev.kernel.fabric.render.FrustumSmokeChecks.run(false);
+        dev.kernel.fabric.render.WeightedModelSmokeChecks.run(false);
         for (RendererFeature feature : RendererFeature.values()) {
             if (KernelRendererSettings.active().enabled(feature)) throw new AssertionError("Setting not loaded: " + feature);
         }

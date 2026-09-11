@@ -35,6 +35,8 @@
     "render.ChunkUniformMixin",
     "render.FluidHeightMixin",
     "render.ModelBlockRendererMixin",
+    "render.WeightedModelMixin",
+    "render.WeightedListMixin",
     "render.ModelPartCubeMixin",
     "render.ModelPartMixin",
     "render.PoseStackMixin",

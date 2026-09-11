@@ -33,7 +33,7 @@ public enum RendererFeature {
             case "PoseStackMixin", "PoseStackPoseMixin", "PoseStackPoseAccessor" -> POSE;
             case "ModelPartMixin", "ModelPartCubeMixin" -> MODEL;
             case "BlockMixin" -> BLOCK_FACE;
-            case "ModelBlockRendererMixin" -> BLOCK_MODEL;
+            case "ModelBlockRendererMixin", "WeightedModelMixin", "WeightedListMixin" -> BLOCK_MODEL;
             case "FluidHeightMixin" -> FLUID;
             case "SectionRenderDispatcherMixin" -> CHUNK_UPLOAD;
             case "SectionBufferFactoryMixin", "DeferredVertexBufferMixin" -> SECTION_BUFFERS;

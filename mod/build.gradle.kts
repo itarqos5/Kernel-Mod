@@ -176,6 +176,7 @@ tasks {
         dependsOn(testClasses)
         classpath = sourceSets.test.get().runtimeClasspath.filter { it.exists() }
         mainClass = "dev.kernel.fabric.render.VertexSortingSmoke"
+        systemProperty("kernel.weightedModelBenchmark", providers.gradleProperty("kernelWeightedModelBenchmark").getOrElse("false"))
         systemProperty("kernel.frustumBenchmark", providers.gradleProperty("kernelFrustumBenchmark").getOrElse("false"))
         javaLauncher = kernelJavaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion) }
         systemProperty("fabric.development", "true")
@@ -369,6 +370,7 @@ tasks {
         dependsOn(testClasses)
         classpath = sourceSets.test.get().runtimeClasspath.filter { it.exists() }
         mainClass = "dev.kernel.fabric.config.RendererSettingsSmoke"
+        systemProperty("kernel.weightedModelBenchmark", providers.gradleProperty("kernelWeightedModelBenchmark").getOrElse("false"))
         systemProperty("kernel.frustumBenchmark", providers.gradleProperty("kernelFrustumBenchmark").getOrElse("false"))
         javaLauncher = kernelJavaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion) }
         systemProperty("fabric.development", "true")
