@@ -75,10 +75,10 @@ Implemented:
   Java 21/25 tests cover partial reads, errors after the declared length and allocation boundaries;
   isolated cache-miss reader measurements are documented in `docs/STARTUP_CACHES.md`.
 
-- Reusable native block-shape overlap callbacks across all nine targets, reducing per-row temporary
-  allocation during startup and world queries while preserving native mergers, occupancy calls and
-  traversal order. Four small cursors per thread support reentrancy, clear references on release and
-  leave custom merger callback ownership intact. The restart-only `shape_traversal` GUI/config option
+- Native AND queries on matching voxel grids use current BitSet occupancy directly, with a first-cell
+  shortcut and guarded native coordinate mappings. Other native shape queries reuse three callbacks,
+  preserving occupancy calls and traversal order. Four small cursors per thread support reentrancy,
+  clear references on release and leave custom merger callback ownership intact. The restart-only `shape_traversal` GUI/config option
   yields to Lithium. A single class-only access widener exposes legacy IndexMerger; artifacts select the
   matching named/intermediary or official namespace. See `docs/SHAPE_QUERIES.md` for verification and limits.
 

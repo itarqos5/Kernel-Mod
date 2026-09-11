@@ -1,10 +1,22 @@
-# Shape query traversal
+# Shape queries
 
-Kernel reuses the three nested callbacks used by `Shapes.joinIsNotEmpty` after Minecraft has merged the
-two shapes' coordinates. This removes temporary callback creation for each visited X/Y row. The public
-method's empty-shape checks, bounds comparisons, BooleanOp validation and coordinate mergers remain
-native. The traversal still visits X, then Y, then Z; evaluates the first occupancy before the second;
-calls the supplied operation once per visited cell; and stops at exactly the same result.
+Kernel preserves `Shapes.joinIsNotEmpty`'s public empty-shape checks, bounds comparisons, BooleanOp
+validation and coordinate mergers. After merging, native AND queries on identical voxel grids can use
+the two native BitSets directly. A first-cell intersection returns immediately; otherwise the JDK's word
+intersection checks the remaining occupancy. The query borrows current storage without retaining,
+copying or mutating it. Changes to a shape remain visible to the next query.
+
+This path requires exact native BitSet shapes with equal dimensions, native identity mappings on all
+three axes, and exact native BitSet storage within the grid bounds. Coordinate lists must be exact
+`DoubleArrayList` or `CubePointRange` instances; custom list methods are not called by the fast path.
+Cube mergers must map each index directly into both shapes. Overflow-sized grids, out-of-grid bits,
+custom storage/shapes, other operations and mismatched coordinates use the existing traversal.
+
+That traversal reuses its three nested callbacks, removing temporary callback creation for each visited
+X/Y row. It still visits X, then Y, then Z; evaluates the first occupancy before the second; calls the
+supplied operation once per visited cell; and stops at exactly the same result. A method wrapper avoids
+allocating a cancellation callback for each query. Custom mergers call the original method through the
+wrapper so their retained callbacks keep their original ownership.
 
 Each thread retains at most four small cursors, each with three callback objects. Deeper nesting receives
 temporary cursors. A `finally` block releases each cursor and clears every shape, merger and operation
@@ -18,10 +30,14 @@ to Lithium when it is installed.
 
 ## Controls and version adapter
 
-**Kernel → Optimizations → Shape query allocation** controls `shape_traversal=true` in
+**Kernel → Optimizations → Shape queries** controls `shape_traversal=true` in
 `config/kernel-world.properties`. The default is on. Changes require restarting Minecraft; unreadable
 settings disable the world optimization group. Apply/Done/Cancel and unknown property preservation follow
 the other world settings.
+
+Two configuration-gated Mixins expose read-only use of native occupancy and cube-coordinate divisors
+through ordinary Kernel interfaces. These contracts remain loadable with the feature disabled; disabling
+the setting or detecting Lithium disables both injected contracts and the query wrapper.
 
 The algorithm is shared across all nine supported targets. Older versions make `IndexMerger` package
 private. A single class-only Fabric access widener exposes that interface, without changing any fields,
@@ -37,18 +53,26 @@ classloader; no reference code or test classes ship in Kernel. Tests compare all
 tables, native discrete/identical/indirect/non-overlapping mergers, close coordinate boundaries, infinities,
 sparse occupancy, callback ordering, early exit, mutation, deep reentrancy, exceptions and concurrent use.
 
+Matching-grid checks additionally compare the actual transformed method against that reference for
+discrete/identical mergers, mixed native coordinate-list types, rectangular grids, sparse occupancy and
+mutation. They verify disabled/conflicting activation, nonidentity cube mappings, observable custom
+coordinate lists and operations, zero-sized grids, out-of-grid storage and overflowing dimensions.
+Four concurrent workers use independent shapes; the fast path retains no thread-local or global occupancy.
+
 `buildAll` includes real enabled/disabled/Lithium-marker processes for every target. The checks exercise
 the actual Mixin and verify custom mergers retain their original callback ownership. An allocation probe
 uses a 16×16×16 query that cannot exit early. These isolated operations do not establish faster complete
 launches, world loading or gameplay frame times. Startup recordings are diagnostic samples, not a claim of
 Sodium or Lithium parity.
 
-The full matrix passed 947 unit tests and all 27 shape-ownership processes. All nine release artifacts
-passed access-widener validation, including the remapped legacy namespace, and contained only production
-classes plus the matching bundled Knot Client. The two endpoint GUI launches verified persistence,
-Apply/Done/Cancel and unchanged active settings until restart.
+The matching-grid update passed `buildAll`, 1,223 unit tests in 331 suites and all 27 shape-ownership
+processes, each including native grid differential checks. All nine mod artifacts passed class and
+access-widener validation, including the remapped legacy namespace, and contained only production code
+plus the matching bundled Knot Client. Endpoint GUI launches verified original-window adoption,
+persistence, Apply/Done/Cancel and unchanged active settings until restart. Both endpoints also passed
+the shader import/render/disable gameplay probe with the shape optimization active.
 
-The isolated `shapeJoinBenchmark` warms both paths, alternates their order and reports the median of seven
+The callback-only `shapeJoinBenchmark` warms both paths, alternates their order and reports the median of seven
 8,192-query batches on the available Windows/Ryzen 5 5600G machine. The larger fixtures have opposing
 checkerboard occupancy so a full traversal is required; the one-cell fixture exits immediately.
 
@@ -68,6 +92,33 @@ regresses, showing that eliminating allocation does not guarantee lower latency 
 
 ```powershell
 .\gradlew.bat :mod:1.21.4:shapeJoinBenchmark :mod:26.2:shapeJoinBenchmark --no-parallel --max-workers=1
+```
+
+The matching-grid benchmark compares the original target-JAR method with the actual transformed method,
+including Kernel's ownership checks and wrapper. It rotates through 128 separate shape/merger pairs,
+warms each workload for at least 750 ms, alternates sample order and reports the median of seven
+4,096-query batches. This avoids measuring one invariant pair. Coordinate merger construction is outside
+the timed region. `first` and `last` intersect only at the corresponding corner; `disjoint` uses opposing
+occupancy. `unaligned` gives one shape half as many X cells and exercises the callback fallback.
+
+| Target / runtime | Grid / case | Native ns/query | Kernel ns/query | Native B/query | Kernel B/query |
+|---|---|---:|---:|---:|---:|
+| 1.21.4 / Java 21.0.12 | 8³ disjoint | 3,856.62 | 20.02 | 2,880 | 0 |
+| 1.21.4 / Java 21.0.12 | 16³ disjoint | 31,563.38 | 62.40 | 10,880 | 0 |
+| 1.21.4 / Java 21.0.12 | 16³ first | 24.39 | 12.50 | 80 | 0 |
+| 1.21.4 / Java 21.0.12 | 16³ unaligned | 31,668.63 | 38,935.28 | 10,880 | 0 |
+| 26.2 / Java 25.0.1 | 8³ disjoint | 4,303.44 | 20.80 | 2,880 | 0 |
+| 26.2 / Java 25.0.1 | 16³ disjoint | 32,079.47 | 49.78 | 10,880 | 0 |
+| 26.2 / Java 25.0.1 | 16³ first | 23.34 | 14.14 | 80 | 0 |
+| 26.2 / Java 25.0.1 | 16³ unaligned | 31,974.02 | 41,613.94 | 10,880 | 0 |
+
+Matching grids avoid cell-by-cell occupancy traversal in these fixtures. The unaligned fallback is slower
+than native despite reducing allocation, so the result does not establish a speedup for every query.
+The measurements are from the available Windows/Ryzen machine and are not total world-loading, startup
+or gameplay performance evidence. The benchmark is opt-in and does not run during ordinary `buildAll`:
+
+```powershell
+.\gradlew.bat :mod:1.21.4:worldOptimizationEnabledSmoke :mod:26.2:worldOptimizationEnabledSmoke -PkernelShapeGridBenchmark=true --no-parallel --max-workers=1
 ```
 
 Four 26.2 development launches with Java Flight Recorder enabled, in off/on/on/off order, reached the

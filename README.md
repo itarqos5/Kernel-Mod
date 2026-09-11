@@ -64,9 +64,9 @@ Implemented:
   buffers for entries up to 1 MiB while preserving complete-stream reads, I/O errors and cache isolation.
   See [startup cache behavior and measurements](docs/STARTUP_CACHES.md).
 
-- Reusable block-shape overlap callbacks for startup and in-world queries, with bounded reentrant storage,
-  unchanged native coordinate/occupancy semantics, a separate restart-only setting and Lithium ownership
-  detection. See [shape traversal and validation](docs/SHAPE_QUERIES.md).
+- Bitset intersections for native AND queries on matching voxel grids, plus reusable callbacks for other
+  block-shape queries. Native coordinate merging and custom behavior remain in control, with bounded
+  reentrant storage, a restart-only setting and Lithium ownership detection. See [shape queries and validation](docs/SHAPE_QUERIES.md).
 
 - A Kernel GLFW loading window before Fabric's Knot client initializes, followed by Minecraft adopting the same OpenGL window. Early class/mod/Mixin activity uses an indeterminate bar; native resource loading supplies actual resource progress and sampled asset lookups. Minecraft's completion and error lifecycle remains intact. See [loading window and recovery](docs/BOOTSTRAP_WINDOW.md).
 - Real startup, window-adoption, settings-interaction and clean-exit probes on every supported game target on the available Windows/AMD machine. Other operating systems, graphics backends, drivers and display configurations still require testing.

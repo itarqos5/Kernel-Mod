@@ -107,6 +107,6 @@
   "kernel.world.noise_slices.description": "Avoid allocating noise interpolation rows twice during world generation. Values, random streams and generation order are unchanged. Requires a restart.",
   "kernel.world.end_island_heights": "End island height reuse",
   "kernel.world.end_island_heights.description": "Reuse identical native End island heights across repeated terrain samples. Bounded per-thread storage preserves exact terrain values. Requires a restart.",
-  "kernel.world.shape_traversal": "Shape query allocation",
-  "kernel.world.shape_traversal.description": "Reuse callbacks during block-shape overlap checks at startup and in the world. Coordinate merging, occupancy and query order stay native. Requires a restart."
+  "kernel.world.shape_traversal": "Shape queries",
+  "kernel.world.shape_traversal.description": "Accelerate vanilla overlap tests on matching voxel grids and reuse callbacks for other shape queries. Custom shape and operation behavior stays in control. Requires a restart."
 }

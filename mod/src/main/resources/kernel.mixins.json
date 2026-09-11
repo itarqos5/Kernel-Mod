@@ -16,6 +16,8 @@
     "world.NoiseInterpolatorMixin",
     "world.EndIslandDensityMixin",
     "world.ShapeJoinMixin",
+    "world.BitSetShapeMixin",
+    "world.CubeMergerMixin",
     "shader.ShaderFrameMixin",
     "render.BlockMixin",
     "render.ChunkTaskMixin",

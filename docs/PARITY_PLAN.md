@@ -63,7 +63,7 @@ Lithium's [published configuration inventory](https://github.com/CaffeineMC/lith
 is a discovery aid; acceptance must use the pinned releases above, including their defaults, dependencies
 and documented exceptions. The families below remain incomplete in Kernel:
 
-- Collision queries and movement: [reusable shape-overlap callbacks](SHAPE_QUERIES.md) are implemented;
+- Collision queries and movement: [matching-grid bitset intersections and reusable shape-overlap callbacks](SHAPE_QUERIES.md) are implemented;
   broader voxel-shape algorithms, entity lookup, supporting blocks and movement work remain incomplete.
 - Entity lifecycle and ticking: tracking, equipment changes, passenger traversal and client-only work avoidance.
 - AI and navigation: task scheduling, sensors, path searches, points of interest and invalidation.

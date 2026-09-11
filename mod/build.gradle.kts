@@ -266,6 +266,7 @@ tasks {
             systemProperty("fabric.gameVersion", sc.current.version)
             systemProperty("fabric.gameMappingNamespace", if (sc.current.parsed >= "26.1") "official" else "named")
             systemProperty("kernel.worldProbe.expectedEnabled", mode == "Enabled")
+            systemProperty("kernel.shapeGridBenchmark", providers.gradleProperty("kernelShapeGridBenchmark").getOrElse("false"))
             workingDir(layout.buildDirectory.dir("world-${mode.lowercase()}-smoke-game").get().asFile)
             args("--gameDir", workingDir.absolutePath)
             val conflict = layout.buildDirectory.dir("world-conflict-test-mod").get().asFile
