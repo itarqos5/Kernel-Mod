@@ -121,10 +121,8 @@ public final class GuiProbe {
                 stage = 1; changedAt = System.nanoTime();
             } else if (stage == 1) {
                 click(find(screen(minecraft), "kernel.video.tab.optimizations"));
-                click(find(screen(minecraft), "kernel.settings.next"));
                 String sorting = KernelTranslations.text(RendererFeature.QUAD_SORTING.translationKey()).getString();
-                Button toggle = screen(minecraft).children().stream().filter(Button.class::isInstance).map(Button.class::cast)
-                    .filter(button -> button.getMessage().getString().startsWith(sorting)).findFirst().orElseThrow();
+                Button toggle = findSetting(minecraft, sorting);
                 screen(minecraft).setFocused(toggle);
                 click(toggle);
                 stage = 2; changedAt = System.nanoTime();
@@ -181,6 +179,19 @@ public final class GuiProbe {
             throw new AssertionError("Screenshot capture failed: " + file);
         }
         captured = true;
+    }
+
+    private static Button findSetting(Minecraft minecraft, String label) {
+        String nextLabel = KernelTranslations.text("kernel.settings.next").getString();
+        for (int page = 0; page < 32; page++) {
+            var buttons = screen(minecraft).children().stream().filter(Button.class::isInstance).map(Button.class::cast).toList();
+            var setting = buttons.stream().filter(button -> button.getMessage().getString().startsWith(label + ":")).findFirst();
+            if (setting.isPresent()) return setting.get();
+            var next = buttons.stream().filter(button -> button.getMessage().getString().equals(nextLabel)).findFirst();
+            if (next.isEmpty() || !next.get().active) break;
+            click(next.get());
+        }
+        throw new AssertionError("Missing settings control across pages: " + label);
     }
 
     static Button find(Screen screen, String key) {
