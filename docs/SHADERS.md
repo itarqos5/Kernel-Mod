@@ -263,7 +263,7 @@ pixel-unpack state. Failed replacement, disabling and shutdown release owned tex
 Minecraft shader macros other than `MC_HAND_DEPTH`, fragment depth writes and discard-based passes
 are rejected until their semantics are implemented.
 
-Terrain/geometry programs, shadow rendering, opaque-only depth, model-view/camera and hand projection inputs,
+Terrain/geometry programs, shadow rendering, opaque-only depth and hand projection inputs,
 integer/other unsupported formats, compute or geometry stages, other shader properties/options, non-PNG/resource-pack textures and broad
 legacy GLSL translation are **not implemented**. Packs requiring them are rejected with a visible reason.
 Popular full-world shader packs are not currently supported merely because they appear in Modrinth search.
