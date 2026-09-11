@@ -389,6 +389,7 @@ tasks {
         group = "verification"
         dependsOn(testClasses)
         from(sourceSets.test.get().output.classesDirs) {
+            exclude("**/*Test.class")
             include("dev/kernel/fabric/verification/**", "dev/kernel/fabric/shader/ShaderBufferGlChecks*.class",
                 "dev/kernel/fabric/shader/ShaderTextureGlChecks*.class", "dev/kernel/fabric/shader/ShaderWorldGlChecks*.class",
                 "dev/kernel/fabric/shader/ShaderDepthGlChecks*.class", "dev/kernel/fabric/shader/ShaderDepthWorldChecks*.class",
