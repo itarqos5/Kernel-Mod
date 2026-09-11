@@ -38,7 +38,7 @@ public final class KernelShaders {
     private static volatile Future<?> operation;
     private static ShaderPipeline pipeline;
     private static Object historyWorld;
-    private static boolean handDepth;
+    private static boolean handDepth, invalidProjection;
     private KernelShaders() {}
 
     public static Path directory() { return DIRECTORY; }
@@ -150,9 +150,24 @@ public final class KernelShaders {
     }
     public static void beginWorld() {
         handDepth = false;
+        invalidProjection = false;
         if (pipeline != null) pipeline.beginWorld();
     }
     public static void handPass() { handDepth = true; }
+    public static void captureProjection(org.joml.Matrix4fc matrix) {
+        if (pipeline == null || closed || !pipeline.needsProjection()) return;
+        try {
+            //? if >=26.2 {
+            boolean zeroToOne = com.mojang.blaze3d.systems.RenderSystem.getDevice().getDeviceInfo().isZZeroToOne();
+            //? } elif >=26.1 {
+            /*boolean zeroToOne = com.mojang.blaze3d.systems.RenderSystem.getDevice().isZZeroToOne();
+            *///? } else {
+            /*boolean zeroToOne = false;
+            *///? }
+            // Minecraft can briefly upload a nonfinite projection while entering a world.
+            invalidProjection = !pipeline.captureProjection(matrix, reverseDepth(), zeroToOne);
+        } catch (IOException | RuntimeException failure) { renderingFailed(failure); }
+    }
     public static void scheduleDepth(com.mojang.blaze3d.framegraph.FrameGraphBuilder graph,
         net.minecraft.client.renderer.LevelTargetBundle targets, boolean clouds) {
         ShaderPipeline selected = pipeline;
@@ -188,7 +203,7 @@ public final class KernelShaders {
         *///? }
     }
     public static void renderWorld(net.minecraft.client.DeltaTracker deltaTracker) {
-        if (pipeline == null || closed) return;
+        if (pipeline == null || closed || invalidProjection) return;
         try {
             var minecraft = Minecraft.getInstance();
             //? if >=26.2 {

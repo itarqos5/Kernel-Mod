@@ -14,6 +14,12 @@ public final class ShaderUniforms {
         Map.entry("rainStrength", GL33C.GL_FLOAT), Map.entry("thunderStrength", GL33C.GL_FLOAT));
     private ShaderUniforms() {}
     public static boolean isDepthInput(String name) { return name.equals("depthtex0") || name.equals("gdepthtex"); }
+    public static int projectionInput(String name) {
+        return switch (name) {
+            case "gbufferProjection" -> 1; case "gbufferProjectionInverse" -> 2; case "gbufferPreviousProjection" -> 4;
+            default -> 0;
+        };
+    }
     public static boolean isWorldInput(String name) {
         return switch (name) {
             case "worldTime", "worldDay", "moonPhase", "rainStrength", "thunderStrength" -> true;

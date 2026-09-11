@@ -47,7 +47,7 @@ public final class ShaderDepthWorldChecks {
         return mode == 4;
     }
     public static void observe(ShaderPipeline pipeline, int[] sources, int w, int h, boolean reverse, boolean hand) throws Exception {
-        if (mode == 4 || !ShaderProbe.observingDepth()) return;
+        if (mode == 4 || !ShaderProbe.observingShaderWorld()) return;
         if (!hand) {
             owner = pipeline; width = w; height = h; expected = new float[COLUMNS * ROWS]; Arrays.fill(expected, 1);
             worlds++; largest = Math.max(largest, sources.length);

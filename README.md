@@ -120,7 +120,12 @@ Implemented:
   Frame-graph dependencies retain temporary targets until capture; disabled clouds are excluded.
   Only 26.2 requires reverse-Z conversion. The owned R32F image shares the shader memory budget,
   and fresh-frame checks prevent stale sampling. `MC_HAND_DEPTH` is 1.0 for the unchanged native
-  hand projection; separate opaque-depth and conventional projection-matrix inputs remain incomplete.
+  hand projection; separate opaque-depth and hand projection-matrix inputs remain incomplete.
+
+- Current, inverse and previous world projection matrices for post-processing shaders, captured from
+  Minecraft's actual upload after view effects. Depth-range conversion follows the native backend;
+  fresh-frame checks and resize/world resets prevent stale matrix history. Native hand projection
+  remains separate. See [shader matrix inputs](docs/SHADERS.md#world-projection-inputs).
 
 - Single-allocation noise interpolation slices on all nine targets: each zero-filled row is allocated once instead of creating and immediately discarding an identical row. Independent restart-only GUI/config control, Lithium ownership guard, native-method allocation checks and world-output verification preserve generation semantics.
 
@@ -140,7 +145,7 @@ Not implemented:
 - Physical AMD, Intel, NVIDIA, Apple, and software-driver compatibility/performance testing; the current upload scheduler is vendor-neutral by construction but has not been validated on that hardware matrix.
 - Broader memory, server chunk-scheduling, world-generation, or adaptive frame-time scheduling optimizations.
 - Mod Menu integration, speech-engine/controller validation and complete renderer-option parity.
-- Full-world shader-pack support, including terrain/geometry replacement, shadows, separate opaque-depth stages and projection matrices, integer/other unsupported color formats, non-PNG/resource-pack textures and other shader properties/options. Popular full-world packs are not compatible with the limited color post-processing renderer yet.
+- Full-world shader-pack support, including terrain/geometry replacement, shadows, separate opaque-depth stages, model-view/camera and hand projection inputs, integer/other unsupported color formats, non-PNG/resource-pack textures and other shader properties/options. Popular full-world packs are not compatible with the limited color post-processing renderer yet.
 
 The approved black-and-white lightning icon has a transparent background and is included in the Fabric mod metadata. Its original bolt shape is preserved.
 

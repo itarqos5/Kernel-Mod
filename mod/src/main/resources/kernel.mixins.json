@@ -21,6 +21,7 @@
     "world.IndirectMergerMixin",
     "shader.ShaderFrameMixin",
     "shader.ShaderDepthMixin",
+    "shader.ShaderProjectionMixin",
     "render.BlockMixin",
     "render.ChunkTaskMixin",
     "render.ChunkRebuildTaskMixin",

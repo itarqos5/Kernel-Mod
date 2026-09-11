@@ -188,10 +188,18 @@ public final class ShaderTextureGlChecks {
                 uniform sampler2D probeImage, depthtex0;
                 uniform int worldTime, worldDay, moonPhase;
                 uniform float rainStrength, thunderStrength;
+                uniform mat4 gbufferProjection, gbufferProjectionInverse, gbufferPreviousProjection;
                 void main() {
                     if (gl_FragCoord.x < 2.0) gl_FragColor = vec4(rainStrength, thunderStrength, float(moonPhase)/7.0, 1.0);
                     else if (gl_FragCoord.x < 4.0) gl_FragColor = vec4(float(worldTime)/24000.0, float(worldDay%256)/255.0, 0.0, 1.0);
                     else if (gl_FragCoord.x < 6.0) gl_FragColor = vec4(vec3(texture2D(depthtex0,vec2(.5)).r),1.0);
+                    else if (gl_FragCoord.x < 22.0) {
+                        int index = int(gl_FragCoord.x) - 6, row = int(gl_FragCoord.y) % 3;
+                        float value = row == 0 ? gbufferProjection[index/4][index%4]
+                            : row == 1 ? gbufferProjectionInverse[index/4][index%4] : gbufferPreviousProjection[index/4][index%4];
+                        uint bits = floatBitsToUint(value);
+                        gl_FragColor = vec4(float(bits & 255u), float((bits >> 8) & 255u), float((bits >> 16) & 255u), float(bits >> 24)) / 255.0;
+                    }
                     else gl_FragColor = texture2D(probeImage,vec2(.5));
                 }
                 """.getBytes(StandardCharsets.UTF_8),

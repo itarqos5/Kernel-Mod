@@ -78,7 +78,7 @@ world pixels. Its native FOV, clip planes and projection remain unchanged. `MC_H
 defined as **1.0**: Kernel applies no extra clip-space hand-depth scaling. This follows the meaning of
 the [hand-depth multiplier](https://shaders.properties/current/reference/macros/mc_hand_depth/), rather
 than assuming another renderer's multiplier. Screen effects that write native first-person depth are
-also included. There are no conventional world/hand projection-matrix uniforms yet.
+also included. The world projection inputs below do not describe the separately projected hand.
 
 All supported versions through 26.1.2 use forward depth. The 26.2 adapter converts native reverse-Z
 with `1 - depth`, including its zero clear value, into the forward convention. R32F storage limits the
@@ -95,6 +95,40 @@ Both use the GPU; production code does not read depth back to the CPU. Its R32F 
 512 MiB allocation budget with the color buffers and PNG inputs. Holding native temporary targets
 until capture can also extend their frame-graph lifetimes. Missing, stale or differently sized captures
 fail explicitly and restore native rendering; world changes invalidate depth along with color history.
+
+### World projection inputs
+
+Post-processing programs can request `mat4 gbufferProjection`, `gbufferProjectionInverse` and
+`gbufferPreviousProjection`. The names follow the documented [matrix inputs](https://shaders.properties/current/reference/uniforms/matrices/).
+Kernel copies Minecraft's actual world projection upload after hurt/view bobbing and portal/nausea
+distortion. The inverse is computed once on the CPU only when requested. Matrix objects and uniform
+arrays belong to the render thread; the native upload argument is returned unchanged. Capture adds no
+GPU readback or synchronization, and packs without these active uniforms allocate no matrix state.
+
+The supplied matrix transforms native world view coordinates to forward clip depth in [-1, 1].
+Minecraft 26.x can use either clip-depth range depending on the graphics backend, independently of
+26.2's reverse-Z projection. Kernel preserves clip X/Y/W and converts clip Z as follows:
+
+| Native convention | Supplied clip Z |
+| --- | --- |
+| Forward [-1, 1] | Z |
+| Forward [0, 1] | 2Z - W |
+| Reverse [-1, 1] | -Z |
+| Reverse [0, 1] | W - 2Z |
+
+This matches the forward screen-depth convention of the owned world-depth snapshot. It does not
+recover precision lost in depth storage. Minecraft's hand uses different native FOV/clip planes;
+the world inverse must not be used to reconstruct hand geometry as though it shared this projection.
+Model-view/camera and hand projection inputs remain unsupported.
+
+Previous projection means the last successfully completed world shader frame at the same resolution.
+First use, a resize, a world change or pipeline replacement uses the current matrix as the previous
+value. Incomplete renders do not advance history. Each render requires a fresh capture. Minecraft can
+briefly supply a nonfinite projection, or one without a finite requested inverse, on world entry; Kernel leaves that frame native
+and resumes on the next valid capture without advancing history or disabling the selected pack.
+An absent capture still produces an explicit rendering error through normal recovery.
+These uniform names cannot be overridden by custom PNG bindings, and arrays or non-mat4 declarations
+are rejected when active.
 
 ### Color formats and history
 
@@ -189,7 +223,7 @@ pixel-unpack state. Failed replacement, disabling and shutdown release owned tex
 Minecraft shader macros other than `MC_HAND_DEPTH`, fragment depth writes and discard-based passes
 are rejected until their semantics are implemented.
 
-Terrain/geometry programs, shadow rendering, opaque-only depth and projection-matrix inputs,
+Terrain/geometry programs, shadow rendering, opaque-only depth, model-view/camera and hand projection inputs,
 integer/other unsupported formats, compute or geometry stages, other shader properties/options, non-PNG/resource-pack textures and broad
 legacy GLSL translation are **not implemented**. Packs requiring them are rejected with a visible reason.
 Popular full-world shader packs are not currently supported merely because they appear in Modrinth search.
@@ -245,6 +279,13 @@ bounds, native texture/sampler ownership and nondefault GL state. Native frame-g
 ordering before late clears and transient resource release after the capture. Real-world probes read
 the actual world/first-person targets and compare them with the owned snapshot and final shader pixels,
 with improved transparency off/on, clouds on/off, and a third-person view that preserves world depth.
+Projection tests check 65,536 transformed positions across both clip ranges and both Z directions,
+matrix ownership, inverse reconstruction, requested-input subsets and history invalidation. Native
+RGBA32F pixel fixtures distinguish current, inverse and previous matrices, including column order,
+wrong types and stale capture rejection. Gameplay probes independently read Minecraft's uploaded world
+projection and compare all 48 matrix components with encoded shader pixels, then repeat after live FOV
+and portal-distortion changes. A deliberately invalid Kernel capture also verifies next-frame recovery
+without changing Minecraft's native upload. GPU reads and private native-buffer access are confined to test code.
 The probe then imports a uniquely named original PNG-sampling ZIP through the native drop handler,
 verifies the installed bytes against that exact source,
 persists activation, creates a separate flat test world,
@@ -266,13 +307,15 @@ same-window startup with shader integration installed. The multi-target update p
 pixel and gameplay/GUI probes. The final parser checks additionally exercise conditional scope changes
 and a megabyte of malformed comment prefixes. Release artifacts are checked for exact game/Java
 metadata, matching bundled bootstrap bytes and absence of test or third-party implementation classes.
-The current adapter passed `buildAll`, 1,259 unit tests in 349 suites, 27 world
+The current adapter passed `buildAll`, 1,277 unit tests in 358 suites, 27 world
 activation/conflict probes, the renderer/bootstrap checks and all nine native shader/gameplay probes.
 The twelve-format pixel, precision, conversion, retained-history and mipmap checks run inside each
 supported Minecraft target. Release verification confirms nine mod JARs and one matching Knot Client JAR.
 The depth update passed all nine expanded GPU/gameplay probes and both endpoint window-adoption probes.
 After moving capture-program compilation into pack activation and updating the scope label, the final
-Java 21/25 endpoint gameplay probes and complete `buildAll` passed again. No end-to-end performance gain
+Java 21/25 endpoint gameplay probes and complete `buildAll` passed again. The projection update then
+passed all nine expanded native pixel/gameplay probes, including live FOV/distortion and transient
+invalid-frame recovery, and a complete `buildAll` with exact artifact verification. No end-to-end performance gain
 is claimed for this optional rendering feature.
 Legacy `texture2D` calls retain support for a sampler named `texture`, including fragment bias and
 vertex sampling; native pixel checks exercise those cases on every supported target.

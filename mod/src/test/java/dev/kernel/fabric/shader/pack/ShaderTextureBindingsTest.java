@@ -26,6 +26,7 @@ class ShaderTextureBindingsTest {
             "customTexture.worldTime=a.png", "customTexture.worldDay=a.png", "customTexture.moonPhase=a.png",
             "customTexture.rainStrength=a.png", "customTexture.thunderStrength=a.png",
             "customTexture.depthtex0=a.png", "customTexture.gdepthtex=a.png",
+            "customTexture.gbufferProjection=a.png", "customTexture.gbufferProjectionInverse=a.png", "customTexture.gbufferPreviousProjection=a.png",
             "customTexture.colortex0=a.png", "customTexture.noise=a.raw TEXTURE_3D R8 8 8 8 RED UNSIGNED_BYTE",
             "texture.deferred.colortex0=a.png", "texture.composite.colortex0=minecraft:textures/block/stone.png",
             "texture.composite.colortex0=C:/secret.png", "#if FLAG\ncustomTexture.name=a.png\n#endif", "texture.composite.colortex16=a.png"}) {
