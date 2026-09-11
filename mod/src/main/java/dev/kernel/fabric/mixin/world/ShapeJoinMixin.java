@@ -2,6 +2,7 @@ package dev.kernel.fabric.mixin.world;
 
 import dev.kernel.fabric.world.ShapeJoinTraversal;
 import dev.kernel.fabric.world.ShapeGridIntersection;
+import dev.kernel.fabric.world.ShapeMappedIntersection;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.world.phys.shapes.BooleanOp;
@@ -20,6 +21,7 @@ public abstract class ShapeJoinMixin {
         if (!ShapeJoinTraversal.ownsCallbacks(x) || !ShapeJoinTraversal.ownsCallbacks(y) || !ShapeJoinTraversal.ownsCallbacks(z))
             return original.call(x, y, z, first, second, operation);
         int intersection = ShapeGridIntersection.test(x, y, z, first, second, operation);
+        if (intersection < 0) intersection = ShapeMappedIntersection.test(x, y, z, first, second, operation);
         return intersection >= 0 ? intersection != 0 : ShapeJoinTraversal.test(x, y, z, first, second, operation);
     }
 }

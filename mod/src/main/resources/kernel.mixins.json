@@ -18,6 +18,7 @@
     "world.ShapeJoinMixin",
     "world.BitSetShapeMixin",
     "world.CubeMergerMixin",
+    "world.IndirectMergerMixin",
     "shader.ShaderFrameMixin",
     "render.BlockMixin",
     "render.ChunkTaskMixin",

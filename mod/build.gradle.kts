@@ -420,7 +420,7 @@ tasks {
                     directory.mkdirs()
                     directory.resolve("options.txt").writeText("onboardAccessibility:false\nguiScale:2\nrenderDistance:4\nsimulationDistance:5\nsoundCategory_master:0.0\n")
                     directory.resolve("config").mkdirs()
-                    directory.resolve("config/kernel-world.properties").writeText("biome_offsets=${mode == "Optimized"}\nnoise_slices=${mode == "Optimized"}\nend_island_heights=${mode == "Optimized"}\n")
+                    directory.resolve("config/kernel-world.properties").writeText("biome_offsets=${mode == "Optimized"}\nnoise_slices=${mode == "Optimized"}\nend_island_heights=${mode == "Optimized"}\nshape_traversal=${mode == "Optimized"}\n")
                     val marker = directory.resolve("world-generation-sha256.txt")
                     check(!marker.exists() || marker.delete())
                 }

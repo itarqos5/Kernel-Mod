@@ -76,7 +76,9 @@ Implemented:
   isolated cache-miss reader measurements are documented in `docs/STARTUP_CACHES.md`.
 
 - Native AND queries on matching voxel grids use current BitSet occupancy directly, with a first-cell
-  shortcut and guarded native coordinate mappings. Other native shape queries reuse three callbacks,
+  shortcut and guarded native coordinate mappings. Bounded mismatched-grid queries reuse each native
+  axis mapping once and test flattened occupancy directly, retaining only primitive scratch arrays.
+  Custom and larger mappings fall back. Other native shape queries reuse three callbacks,
   preserving occupancy calls and traversal order. Four small cursors per thread support reentrancy,
   clear references on release and leave custom merger callback ownership intact. The restart-only `shape_traversal` GUI/config option
   yields to Lithium. A single class-only access widener exposes legacy IndexMerger; artifacts select the

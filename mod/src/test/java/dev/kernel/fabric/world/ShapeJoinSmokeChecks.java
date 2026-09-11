@@ -14,7 +14,8 @@ public final class ShapeJoinSmokeChecks {
             throw new AssertionError("Shape traversal activation mismatch");
         ShapeJoinTestSupport.differential(648772, 3000, true);
         ShapeGridSmokeChecks.run(expected);
-        if (Boolean.getBoolean("kernel.shapeGridBenchmark")) ShapeGridBenchmark.run();
+        ShapeMappedSmokeChecks.run(expected);
+        if (expected && Boolean.getBoolean("kernel.shapeGridBenchmark")) ShapeGridBenchmark.run();
         customMergersKeepCallbacks();
         var merger = ShapeJoinTestSupport.identity(16);
         DiscreteVoxelShape empty = new BitSetDiscreteVoxelShape(16, 16, 16);
