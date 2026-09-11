@@ -106,5 +106,5 @@ The Shaders tab opens the [shader browser and color post-processing controls](SH
 apply immediately; returning to the video tabs preserves their uncommitted drafts. Full-world shader packs
 remain unsupported until their rendering stages are implemented.
 
-The Optimizations tab also exposes independent **Biome offset reuse** and **Noise slice allocation**
+The Optimizations tab also exposes independent **Biome offset reuse**, **Noise slice allocation** and **End island height reuse**
 restart-only world controls. Both yield ownership to Lithium when it is installed.

@@ -97,3 +97,58 @@ The full release build passed 821 unit tests, all 27 world activation/conflict c
 and agent checks, and exact artifact/metadata/bytecode-level inspection across all supported targets.
 
 Broader chunk I/O, world generation, server scheduling and stutter attribution remain separate work.
+
+## End island heights
+
+The native End island height function depends on an immutable simplex-noise source and two integer
+coordinates. Its 25×25 neighborhood calculation repeats across vertical samples and nearby terrain
+queries. Kernel caches the exact returned float, including native NaN/overflow behavior. Misses call
+the original method. No noise arithmetic, random-number consumption or generation ordering changes.
+
+Each thread retains at most 1,024 entries in about 13 KiB of primitive arrays. Full signed coordinate
+keys and one of four weak source identities distinguish entries. Replacing a source invalidates its
+entries; collected sources cannot keep a world alive. The cache holds no chunks, registries or contexts.
+Custom `SimplexNoise` subclasses bypass caching because their values or call side effects may change.
+Other mods that alter the native source's purity need explicit compatibility testing or this switch off.
+
+**Optimizations → End island height reuse** controls `end_island_heights` in
+`config/kernel-world.properties`. It defaults on, requires restart, preserves unknown settings and
+disables itself when Lithium is installed or the config cannot be read. It is independent of the biome
+and noise-array settings. Ordinary Overworld and Nether noise evaluation is not replaced.
+
+Unit checks compare cached outputs with the actual target's native private method across multiple
+sources, local/full-width signed coordinates, eviction and exact float bit patterns. Deterministic
+weak-reference clearing checks source replacement without relying on GC timing. Real Mixin probes
+compare native sources against an uncached subclass with identical noise, inspect cache population,
+verify repeated subclass calls and run concurrent queries from four threads. Enabled, disabled and
+Lithium-presence modes are included in `buildAll`.
+
+```powershell
+.\gradlew.bat :mod:1.21.4:endIslandBenchmark :mod:26.2:endIslandBenchmark
+.\gradlew.bat :mod:26.2:endGenerationComparison
+```
+
+The isolated benchmark alternates native/cache measurement order and reports the median of seven
+warmed samples for vertical reuse and scattered misses. It excludes Mixin dispatch and complete world
+generation. The End launch comparison creates two new worlds, prepares a remote End halo in fixed
+order and compares all block/biome entries of nine full chunks. Its generation-plus-fingerprint time
+is diagnostic; it is not a startup, world-opening or gameplay FPS benchmark. Test saves remain isolated
+and the clients save/exit normally.
+
+On the available Ryzen 5 5600G, the isolated End-height results were:
+
+| Target / runtime | Pattern | Native ns/query | Kernel ns/query |
+|---|---|---:|---:|
+| 1.21.4 / Java 21 | Local vertical reuse | 7,517.66 | 246.99 |
+| 1.21.4 / Java 21 | Scattered | 9,058.03 | 8,869.07 |
+| 26.2 / Java 25 | Local vertical reuse | 7,322.35 | 241.78 |
+| 26.2 / Java 25 | Scattered | 8,612.13 | 8,619.58 |
+
+The End fixture uses seed `2718281828`, a 5×5 preparation halo, and full chunks at x=128–130,
+z=176–178. Each comparison fingerprints 100,394 non-air blocks as well as all air and biome entries.
+An earlier sparse fixture at x/z=1024–1026 also matched on the endpoints. These correctness launches
+showed variable generation-plus-hashing times and do not establish a consistent end-to-end speedup.
+
+All nine dense End comparisons matched exactly. All 27 enabled/disabled/Lithium-presence checks passed,
+as did endpoint bootstrap/window-adoption and GUI interaction checks for the three independent world
+controls. The release build passed 884 unit tests and exact artifact/metadata inspection for all targets.

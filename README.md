@@ -101,6 +101,8 @@ Implemented:
 
 - Single-allocation noise interpolation slices on all nine targets: each zero-filled row is allocated once instead of creating and immediately discarding an identical row. Independent restart-only GUI/config control, Lithium ownership guard, native-method allocation checks and world-output verification preserve generation semantics.
 
+- Bounded reuse of identical native End island heights across repeated terrain samples. The cache preserves exact float results, uses weak noise-source identities, leaves custom noise subclasses uncached and has an independent restart-only setting. See [world optimizations](docs/WORLD_OPTIMIZATIONS.md) for scope and validation.
+
 Not implemented:
 
 - First-run relaunch window.
@@ -127,6 +129,6 @@ On a recognized Fabric profile, the mod bundles and installs the Knot Client, ch
 
 The game-profile JVM option `-Dkernel.startupCache=false` disables startup caching. Cache contents live only in the current process and are released when initial loading completes, with a three-minute fallback expiry. See [startup cache behavior and measurement](docs/STARTUP_CACHES.md) for limits, recovery and benchmark commands.
 
-The requested sequence and pinned comparison versions are tracked in [the parity plan](docs/PARITY_PLAN.md). The subsequent loading-window request moved that work forward; same-window OpenGL startup is now implemented. Both full renderer and game-logic parity remain incomplete. Frame Sync, biome-offset reuse and noise-slice allocation reduction are implemented; limited color post-processing and shader installation are implemented, while full-world shader compatibility and broader world-generation work remain outstanding.
+The requested sequence and pinned comparison versions are tracked in [the parity plan](docs/PARITY_PLAN.md). The subsequent loading-window request moved that work forward; same-window OpenGL startup is now implemented. Both full renderer and game-logic parity remain incomplete. Frame Sync, biome-offset reuse, noise-slice allocation reduction and End island height reuse are implemented; limited color post-processing and shader installation are implemented, while full-world shader compatibility and broader world-generation work remain outstanding.
 
 Contributor and coding-agent rules are documented in [AGENTS.md](AGENTS.md).

@@ -14,6 +14,7 @@ public final class KernelMixinPlugin implements IMixinConfigPlugin {
     @Override public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
         if (mixinClassName.endsWith(".world.BiomeManagerMixin")) return dev.kernel.fabric.world.WorldSettings.biomeOffsetsActive();
         if (mixinClassName.endsWith(".world.NoiseInterpolatorMixin")) return dev.kernel.fabric.world.WorldSettings.noiseSlicesActive();
+        if (mixinClassName.endsWith(".world.EndIslandDensityMixin")) return dev.kernel.fabric.world.WorldSettings.endIslandHeightsActive();
         RendererFeature feature = RendererFeature.forMixin(mixinClassName);
         return feature == null || KernelRendererSettings.enabled(feature);
     }

@@ -9,11 +9,11 @@ import net.minecraft.client.gui.screens.Screen;
 
 final class WorldSettingsProbe {
     static void verify(Minecraft minecraft, Screen parent) throws java.io.IOException {
-        for (String key : new String[]{"biome_offsets", "noise_slices"}) verifySetting(minecraft, parent, key);
+        for (String key : new String[]{"biome_offsets", "noise_slices", "end_island_heights"}) verifySetting(minecraft, parent, key);
     }
     private static void verifySetting(Minecraft minecraft, Screen parent, String key) throws java.io.IOException {
         var saved = WorldSettings.saved();
-        boolean active = WorldSettings.biomeOffsetsActive(), activeNoise = WorldSettings.noiseSlicesActive();
+        boolean active = WorldSettings.biomeOffsetsActive(), activeNoise = WorldSettings.noiseSlicesActive(), activeEnd = WorldSettings.endIslandHeightsActive();
         open(minecraft, parent);
         GuiProbe.click(toggle(minecraft, key));
         GuiProbe.click(GuiProbe.find(GuiProbe.screen(minecraft), "gui.cancel"));
@@ -22,7 +22,7 @@ final class WorldSettingsProbe {
         GuiProbe.click(toggle(minecraft, key));
         GuiProbe.click(GuiProbe.find(GuiProbe.screen(minecraft), "kernel.settings.apply"));
         if (WorldSettings.saved().equals(saved)) throw new AssertionError("World-settings Apply did not save");
-        if (WorldSettings.biomeOffsetsActive() != active || WorldSettings.noiseSlicesActive() != activeNoise) throw new AssertionError("World setting changed active Mixins without restart");
+        if (WorldSettings.biomeOffsetsActive() != active || WorldSettings.noiseSlicesActive() != activeNoise || WorldSettings.endIslandHeightsActive() != activeEnd) throw new AssertionError("World setting changed active Mixins without restart");
         GuiProbe.click(toggle(minecraft, key));
         GuiProbe.click(GuiProbe.find(GuiProbe.screen(minecraft), "gui.done"));
         if (GuiProbe.screen(minecraft) != parent || !WorldConfig.load(minecraft.gameDirectory.toPath().resolve("config/kernel-world.properties")).equals(saved)) {

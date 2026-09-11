@@ -8,19 +8,31 @@ import java.nio.file.StandardCopyOption;
 import java.util.Properties;
 
 /** Restart-only world optimization preferences; unknown keys survive saves. */
-public record WorldConfig(boolean biomeOffsets, boolean noiseSlices) {
+public record WorldConfig(boolean biomeOffsets, boolean noiseSlices, boolean endIslandHeights) {
     public static WorldConfig load(Path path) throws IOException {
         Properties properties = read(path);
         return new WorldConfig(Boolean.parseBoolean(properties.getProperty("biome_offsets", "true")),
-            Boolean.parseBoolean(properties.getProperty("noise_slices", "true")));
+            Boolean.parseBoolean(properties.getProperty("noise_slices", "true")),
+            Boolean.parseBoolean(properties.getProperty("end_island_heights", "true")));
     }
-    public WorldConfig withBiomeOffsets(boolean enabled) { return new WorldConfig(enabled, noiseSlices); }
-    public WorldConfig withNoiseSlices(boolean enabled) { return new WorldConfig(biomeOffsets, enabled); }
+    public boolean enabled(WorldFeature feature) {
+        return switch (feature) {
+            case BIOME_OFFSETS -> biomeOffsets;
+            case NOISE_SLICES -> noiseSlices;
+            case END_ISLAND_HEIGHTS -> endIslandHeights;
+        };
+    }
+    public WorldConfig with(WorldFeature feature, boolean enabled) {
+        return switch (feature) {
+            case BIOME_OFFSETS -> new WorldConfig(enabled, noiseSlices, endIslandHeights);
+            case NOISE_SLICES -> new WorldConfig(biomeOffsets, enabled, endIslandHeights);
+            case END_ISLAND_HEIGHTS -> new WorldConfig(biomeOffsets, noiseSlices, enabled);
+        };
+    }
     public void save(Path path) throws IOException {
         Path target = path.toAbsolutePath();
         Properties properties = read(target);
-        properties.setProperty("biome_offsets", Boolean.toString(biomeOffsets));
-        properties.setProperty("noise_slices", Boolean.toString(noiseSlices));
+        for (var feature : WorldFeature.values()) properties.setProperty(feature.key(), Boolean.toString(enabled(feature)));
         Files.createDirectories(target.getParent());
         Path temporary = Files.createTempFile(target.getParent(), "kernel-world-", ".tmp");
         try {

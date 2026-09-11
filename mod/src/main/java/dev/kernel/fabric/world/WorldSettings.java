@@ -14,11 +14,13 @@ public final class WorldSettings {
         try { return WorldConfig.load(PATH); }
         catch (IOException | RuntimeException exception) {
             org.slf4j.LoggerFactory.getLogger("Kernel").warn("Cannot read world settings; leaving world optimizations disabled", exception);
-            return new WorldConfig(false, false);
+            return new WorldConfig(false, false, false);
         }
     }
     public static boolean biomeOffsetsActive() { return ACTIVE.biomeOffsets() && !LITHIUM; }
     public static boolean noiseSlicesActive() { return ACTIVE.noiseSlices() && !LITHIUM; }
+    public static boolean endIslandHeightsActive() { return ACTIVE.endIslandHeights() && !LITHIUM; }
+    public static boolean active(WorldFeature feature) { return ACTIVE.enabled(feature) && !LITHIUM; }
     public static boolean lithiumPresent() { return LITHIUM; }
     public static WorldConfig saved() { return saved; }
     public static boolean restartRequired(WorldConfig draft) { return !LITHIUM && !draft.equals(ACTIVE); }

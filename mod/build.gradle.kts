@@ -79,12 +79,13 @@ loom {
             programArguments.addAll("--width", "960", "--height", "540", "--username", "KernelChunks")
         }
     }
-    for (mode in listOf("Baseline", "Optimized")) {
-        runConfigs.create("worldGeneration$mode") {
+    for (dimension in listOf("world", "end")) for (mode in listOf("Baseline", "Optimized")) {
+        runConfigs.create("${dimension}Generation$mode") {
             client()
             generateRunConfig = false
-            runDirectory = layout.buildDirectory.dir("world-generation-${mode.lowercase()}-game")
+            runDirectory = layout.buildDirectory.dir("$dimension-generation-${mode.lowercase()}-game")
             jvmArguments.add("-Dkernel.guiProbe.worldGeneration=true")
+            jvmArguments.add("-Dkernel.worldProbe.end=${dimension == "end"}")
             // Test-local scheduling control: keep overlapping feature writes reproducible.
             jvmArguments.add("-Dmax.bg.threads=1")
             programArguments.addAll("--width", "960", "--height", "540", "--username", "KernelWorldProbe")
@@ -216,6 +217,16 @@ tasks {
         jvmArgs("-Xms512m", "-Xmx512m")
     }
 
+    register<JavaExec>("endIslandBenchmark") {
+        group = "verification"
+        description = "Compares repeated native End island heights with bounded exact-result reuse."
+        dependsOn(testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath
+        mainClass = "dev.kernel.fabric.world.EndIslandBenchmark"
+        javaLauncher = kernelJavaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion) }
+        jvmArgs("-Xms512m", "-Xmx512m")
+    }
+
     for (mode in listOf("Enabled", "Disabled", "Conflict")) {
         val worldSmoke = register<JavaExec>("worldOptimization${mode}Smoke") {
             group = "verification"
@@ -235,7 +246,7 @@ tasks {
             doFirst {
                 val config = workingDir.resolve("config/kernel-world.properties")
                 config.parentFile.mkdirs()
-                config.writeText("biome_offsets=${mode != "Disabled"}\nnoise_slices=${mode != "Disabled"}\n")
+                config.writeText("biome_offsets=${mode != "Disabled"}\nnoise_slices=${mode != "Disabled"}\nend_island_heights=${mode != "Disabled"}\n")
                 if (mode == "Conflict") {
                     conflict.mkdirs()
                     conflict.resolve("fabric.mod.json").writeText("""{"schemaVersion":1,"id":"lithium","version":"0.0.0","name":"Kernel ownership test marker"}""")
@@ -357,33 +368,36 @@ tasks {
             doLast { check(game.get().file("chunk-upload-complete.txt").asFile.isFile) { "Chunk upload probe did not complete." } }
         }
     }
-    for (mode in listOf("Baseline", "Optimized")) {
-        named<JavaExec>("runWorldGeneration$mode") {
-            dependsOn(prepareGuiProbe)
-            classpath += files(layout.buildDirectory.dir("gui-probe-mod"))
-            val game = layout.buildDirectory.dir("world-generation-${mode.lowercase()}-game")
-            doFirst {
-                val directory = game.get().asFile
-                directory.mkdirs()
-                directory.resolve("options.txt").writeText("onboardAccessibility:false\nguiScale:2\nrenderDistance:4\nsimulationDistance:5\n")
-                directory.resolve("config").mkdirs()
-                directory.resolve("config/kernel-world.properties").writeText("biome_offsets=${mode == "Optimized"}\nnoise_slices=${mode == "Optimized"}\n")
-                val marker = directory.resolve("world-generation-sha256.txt")
-                check(!marker.exists() || marker.delete())
+    for (dimension in listOf("world", "end")) {
+        val dimensionTask = dimension.replaceFirstChar { it.uppercase() }
+        for (mode in listOf("Baseline", "Optimized")) {
+            named<JavaExec>("run${dimensionTask}Generation$mode") {
+                dependsOn(prepareGuiProbe)
+                classpath += files(layout.buildDirectory.dir("gui-probe-mod"))
+                val game = layout.buildDirectory.dir("$dimension-generation-${mode.lowercase()}-game")
+                doFirst {
+                    val directory = game.get().asFile
+                    directory.mkdirs()
+                    directory.resolve("options.txt").writeText("onboardAccessibility:false\nguiScale:2\nrenderDistance:4\nsimulationDistance:5\nsoundCategory_master:0.0\n")
+                    directory.resolve("config").mkdirs()
+                    directory.resolve("config/kernel-world.properties").writeText("biome_offsets=${mode == "Optimized"}\nnoise_slices=${mode == "Optimized"}\nend_island_heights=${mode == "Optimized"}\n")
+                    val marker = directory.resolve("world-generation-sha256.txt")
+                    check(!marker.exists() || marker.delete())
+                }
+                doLast { check(game.get().file("world-generation-sha256.txt").asFile.isFile) { "World generation probe did not complete." } }
             }
-            doLast { check(game.get().file("world-generation-sha256.txt").asFile.isFile) { "World generation probe did not complete." } }
         }
-    }
-    register("worldGenerationComparison") {
-        group = "verification"
-        description = "Creates two isolated worlds and compares nine full remote chunks with biome reuse off/on."
-        dependsOn("runWorldGenerationBaseline", "runWorldGenerationOptimized")
-        doLast {
-            val baseline = layout.buildDirectory.file("world-generation-baseline-game/world-generation-sha256.txt").get().asFile.readText()
-            val optimized = layout.buildDirectory.file("world-generation-optimized-game/world-generation-sha256.txt").get().asFile.readText()
-            check(baseline == optimized) { "Generated block/biome output differs with biome reuse enabled." }
-            logger.lifecycle("Kernel world generation comparison: nine chunk block/biome fingerprints match.")
+        register("${dimension}GenerationComparison") {
+            group = "verification"
+            description = "Creates two isolated worlds and compares nine full remote chunks with world optimizations off/on."
+            dependsOn("run${dimensionTask}GenerationBaseline", "run${dimensionTask}GenerationOptimized")
+            doLast {
+                val baseline = layout.buildDirectory.file("$dimension-generation-baseline-game/world-generation-sha256.txt").get().asFile.readText()
+                val optimized = layout.buildDirectory.file("$dimension-generation-optimized-game/world-generation-sha256.txt").get().asFile.readText()
+                check(baseline == optimized) { "Generated block/biome output differs with world optimizations enabled." }
+                logger.lifecycle("Kernel $dimension generation comparison: nine chunk block/biome fingerprints match.")
+            }
         }
+        named("run${dimensionTask}GenerationOptimized") { mustRunAfter("run${dimensionTask}GenerationBaseline") }
     }
-    named("runWorldGenerationOptimized") { mustRunAfter("runWorldGenerationBaseline") }
 }

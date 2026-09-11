@@ -102,5 +102,7 @@
   "kernel.shaders.cancel": "Cancel job",
   "kernel.shaders.details": "Status details",
   "kernel.world.noise_slices": "Noise slice allocation",
-  "kernel.world.noise_slices.description": "Avoid allocating noise interpolation rows twice during world generation. Values, random streams and generation order are unchanged. Requires a restart."
+  "kernel.world.noise_slices.description": "Avoid allocating noise interpolation rows twice during world generation. Values, random streams and generation order are unchanged. Requires a restart.",
+  "kernel.world.end_island_heights": "End island height reuse",
+  "kernel.world.end_island_heights.description": "Reuse identical native End island heights across repeated terrain samples. Bounded per-thread storage preserves exact terrain values. Requires a restart."
 }
