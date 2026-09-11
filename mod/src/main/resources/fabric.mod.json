@@ -26,6 +26,7 @@
     "java": ">=${java}"
   },
   "breaks": {
-    "sodium": "*"
+    "sodium": "*",
+    "iris": "*"
   }
 }

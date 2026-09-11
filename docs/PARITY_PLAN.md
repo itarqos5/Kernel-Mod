@@ -45,7 +45,7 @@ work breakdown, not an assertion that all upstream options have already been aud
 | Entities and block entities | Allocation-reduced model emission | Visibility decisions, oversized bounds, off-screen render contracts, special effects and mod compatibility |
 | Particles and animated textures | Vanilla paths | Visibility-aware work scheduling without stale animations or altered particle simulation |
 | Configuration | Persistent per-feature switches, immutable startup snapshots, themed native video settings, one-time hardware recommendations and actual screen checks on all nine targets | Mod Menu integration, speech-engine/controller checks, broader renderer options and pinned-release configuration coverage |
-| Mod and pack compatibility | Sodium conflict explicitly declared | Fabric rendering integration, custom model/quad formats, pack reloads, mod hooks and a maintained test matrix |
+| Mod and pack compatibility | Sodium and Iris conflicts explicitly declared; limited original color post-processing | Fabric rendering integration, full-world shader stages, custom model/quad formats, pack reloads, mod hooks and a maintained test matrix |
 | Performance and platforms | Local isolated benchmarks only | Reproducible gameplay traces, render correctness captures, frame-time distributions, memory, upload stalls and physical GPU/OS testing |
 
 The connectivity solver replaces one part of occlusion preparation. It does not replace the visibility
@@ -114,8 +114,9 @@ from completing Minecraft initialization instantly.
 
 - [Frame Sync](FRAME_SYNC.md) is implemented: monitor-refresh cap and synchronized presentation,
   with actual paced FPS and a clearly labeled uncapped estimate in the HUD or F3.
-- An original shader-pack renderer with Modrinth discovery/installation and drag/drop import, plus an
-  explicit Iris incompatibility. A download manager alone does not satisfy working shader support.
+- [Original color post-processing](SHADERS.md), Modrinth discovery/installation, ZIP drag/drop and Iris
+  incompatibility are implemented. Full-world shader rendering still requires terrain/shadow/depth,
+  multi-buffer, texture and shader-properties support; a downloader or partial pipeline is not full compatibility.
 - Further deterministic singleplayer world-generation/world-loading improvements and reduced chunk
   loading stutters. Preserve vanilla world output, random-number consumption and mod lifecycle behavior.
 

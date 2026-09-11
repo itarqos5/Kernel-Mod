@@ -101,3 +101,7 @@ Real OpenGL client probes have exercised these controls on all nine targets on t
 machine. Speech-engine output, controller integrations, third-party menu replacements and the full hardware
 compatibility matrix still require further testing. Mod Menu integration is not implemented. The
 separate [pre-Fabric loading window](BOOTSTRAP_WINDOW.md) keeps settings closed at startup.
+
+The Shaders tab opens the [shader browser and color post-processing controls](SHADERS.md). Shader selections
+apply immediately; returning to the video tabs preserves their uncommitted drafts. Full-world shader packs
+remain unsupported until their rendering stages are implemented.

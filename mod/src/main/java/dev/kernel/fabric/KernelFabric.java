@@ -20,6 +20,7 @@ public final class KernelFabric implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        dev.kernel.fabric.shader.KernelShaders.initialize();
         for (RendererFeature feature : RendererFeature.values()) {
             if (KernelRendererSettings.supported(feature)) LOGGER.info("Kernel renderer {}: {}", feature.key(), KernelRendererSettings.enabled(feature) ? "enabled" : "disabled");
         }

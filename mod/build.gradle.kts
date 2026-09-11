@@ -62,6 +62,13 @@ loom {
         jvmArguments.add("-Dkernel.guiProbe.frameSync=true")
         programArguments.addAll("--width", "960", "--height", "540", "--username", "KernelFrameProbe")
     }
+    runConfigs.create("shaderSmoke") {
+        client()
+        generateRunConfig = false
+        runDirectory = layout.buildDirectory.dir("shader-smoke-game")
+        jvmArguments.add("-Dkernel.guiProbe.shaders=true")
+        programArguments.addAll("--width", "960", "--height", "540", "--username", "KernelShader")
+    }
     for (mode in listOf("Baseline", "Optimized")) {
         runConfigs.create("worldGeneration$mode") {
             client()
@@ -306,6 +313,22 @@ tasks {
             check(!marker.exists() || marker.delete())
         }
         doLast { check(game.get().file("frame-sync-complete.json").asFile.isFile) { "Frame Sync probe did not complete." } }
+    }
+    named<JavaExec>("runShaderSmoke") {
+        dependsOn(prepareGuiProbe)
+        classpath += files(layout.buildDirectory.dir("gui-probe-mod"))
+        if (providers.gradleProperty("kernelShaderLive").orNull == "true") systemProperty("kernel.guiProbe.liveModrinth", "true")
+        val game = layout.buildDirectory.dir("shader-smoke-game")
+        doFirst {
+            val directory = game.get().asFile
+            directory.mkdirs()
+            directory.resolve("options.txt").writeText("onboardAccessibility:false\nguiScale:2\nrenderDistance:4\nsimulationDistance:5\npauseOnLostFocus:false\n")
+            directory.resolve("config").mkdirs()
+            directory.resolve("config/kernel-shaders.properties").writeText("selected=\n")
+            val marker = directory.resolve("shader-probe-complete.json")
+            check(!marker.exists() || marker.delete())
+        }
+        doLast { check(game.get().file("shader-probe-complete.json").asFile.isFile) { "Shader probe did not complete." } }
     }
     for (mode in listOf("Baseline", "Optimized")) {
         named<JavaExec>("runWorldGeneration$mode") {

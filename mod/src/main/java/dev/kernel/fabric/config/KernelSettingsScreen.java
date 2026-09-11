@@ -27,7 +27,7 @@ import dev.kernel.fabric.world.WorldSettings;
 
 /** Draft-based video controls. The native screen keeps input, narration and background lifecycle ownership. */
 public final class KernelSettingsScreen extends Screen {
-    private static final List<String> TABS = List.of("video", "graphics", "optimizations", "other");
+    private static final List<String> TABS = List.of("video", "graphics", "optimizations", "other", "shaders");
     private final Screen parent;
     private final List<VideoSetting<?>> settings = new ArrayList<>();
     private final List<RendererFeature> features = Arrays.stream(RendererFeature.values()).filter(KernelRendererSettings::supported).toList();
@@ -140,7 +140,13 @@ public final class KernelSettingsScreen extends Screen {
         for (int i = 0; i < TABS.size(); i++) {
             String category = TABS.get(i);
             addRenderableWidget(new KernelButton(left, top + i * 26, sidebar, 24, tr("tab." + category), button -> {
-                tab = category; page = 0; rebuildWidgets();
+                if (category.equals("shaders")) {
+                    //? if >=26.2 {
+                    minecraft.gui.setScreen(new dev.kernel.fabric.shader.ShaderScreen(this));
+                    //? } else {
+                    /*minecraft.setScreen(new dev.kernel.fabric.shader.ShaderScreen(this));
+                    *///? }
+                } else { tab = category; page = 0; rebuildWidgets(); }
             }, () -> tab.equals(category), false));
         }
         KernelButton recommend = addRenderableWidget(new KernelButton(left, height - 28, sidebar, 22, tr("recommended"), button -> {
@@ -276,6 +282,14 @@ public final class KernelSettingsScreen extends Screen {
         minecraft.gui.setScreen(parent);
         //? } else {
         /*minecraft.setScreen(parent);
+        *///? }
+    }
+    public void showCategory(String category) {
+        if (category != null) { tab = category; page = 0; }
+        //? if >=26.2 {
+        minecraft.gui.setScreen(this);
+        //? } else {
+        /*minecraft.setScreen(this);
         *///? }
     }
     // Since 1.21.6, Screen's wrapper draws the background before the screen renderer.

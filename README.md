@@ -88,14 +88,16 @@ Implemented:
 - Compatibility with custom distance functions, nested sorts, concurrent workers and independent returned arrays. Custom `VertexSorting` implementations remain in control; subclasses of the newer compact input format use the original sorter.
 - Differential sorting tests against each target's actual vanilla implementation, real Fabric/Mixin factory smoke tests without launching the game, and an isolated sorting benchmark. Centroid generation, camera resort triggers, index uploads and blending remain vanilla.
 - The approved Kernel lightning icon and `literal.uu` author metadata.
-- A hard Fabric incompatibility with Sodium because both mods take ownership of the same renderer hot path.
-- A lightning-icon button left of Options in title/pause menus opens Kernel video settings, also available through the native video settings list. Four translucent tabs use white highlights, native video-option callbacks, Apply/Done/Cancel drafts and restart-only optimization switches. English fallbacks and the icon work without Fabric API. See [settings and recovery](docs/RENDERER_SETTINGS.md).
+- Hard Fabric incompatibilities with Sodium and Iris because they overlap Kernel's renderer/shader ownership.
+- A lightning-icon button left of Options in title/pause menus opens Kernel video settings, also available through the native video settings list. Four video/optimization tabs plus Shaders use translucent panels and white highlights. Video controls preserve native callbacks, Apply/Done/Cancel drafts and restart-only optimization switches. English fallbacks and the icon work without Fabric API. See [settings and recovery](docs/RENDERER_SETTINGS.md).
 
 - One-time conservative video recommendations from logical CPU count, JVM heap capacity and active GPU class, with an options backup and persistent marker that preserves subsequent manual choices. No settings window is opened at launch; Recommended also stages those values on demand.
 
 - Frame Sync with monitor-refresh pacing, preserved native FPS/VSync preferences, a GUI toggle, actual FPS and a labeled uncapped estimate that moves into F3. Nonblocking OpenGL timestamps have a CPU-only fallback. See [behavior and validation](docs/FRAME_SYNC.md).
 
 - Bounded per-thread biome-offset reuse for nearby client and integrated-server queries, preserving native biome choices and source calls, with a restart-only GUI switch and a Lithium ownership guard. See [scope, measurements and correctness checks](docs/WORLD_OPTIMIZATIONS.md).
+
+- An original OpenGL color post-processing shader pipeline with ordered composite/final passes, native Shaders GUI, Modrinth discovery/install, ZIP drag/drop, verified downloads, persistent selection and failed-pack recovery. Unsupported terrain/shadow/multi-buffer stages are explicitly rejected. See [shader support and limits](docs/SHADERS.md).
 
 Not implemented:
 
@@ -111,17 +113,18 @@ Not implemented:
 - Physical AMD, Intel, NVIDIA, Apple, and software-driver compatibility/performance testing; the current upload scheduler is vendor-neutral by construction but has not been validated on that hardware matrix.
 - Broader memory, server chunk-scheduling, world-generation, or adaptive frame-time scheduling optimizations.
 - Mod Menu integration, speech-engine/controller validation and complete renderer-option parity.
+- Full-world shader-pack support, including terrain/geometry replacement, shadows, depth effects, multiple color buffers, custom textures and shader properties/options. Popular full-world packs are not compatible with the limited color post-processing renderer yet.
 
 The approved black-and-white lightning icon has a transparent background and is included in the Fabric mod metadata. Its original bolt shape is preserved.
 
 ## Direction
 
-Kernel is being developed as an all-in-one Fabric optimization mod. Its initial renderer work optimizes translucent quad sorting and section-face connectivity, time-slices legacy chunk GPU uploads and reduces allocations in Minecraft's pose-stack, block-model tessellation, standalone model random selection, fluid-height calculation, baked-quad upload, immediate vertex-transform, entity/model-part rendering, and block-face visibility routines. These are only a few hot paths; Kernel does not yet match Sodium's renderer breadth or demonstrated performance. Compatibility, measurable frame-time improvements, and honest benchmarking take priority over feature claims. Kernel contains no Sodium or other third-party mod code, and Fabric Loader will reject installations that also contain Sodium. See [quad sorting behavior and measurement](docs/TRANSLUCENT_SORTING.md) for its scope and validation.
+Kernel is being developed as an all-in-one Fabric optimization mod. Its initial renderer work optimizes translucent quad sorting and section-face connectivity, time-slices legacy chunk GPU uploads and reduces allocations in Minecraft's pose-stack, block-model tessellation, standalone model random selection, fluid-height calculation, baked-quad upload, immediate vertex-transform, entity/model-part rendering, and block-face visibility routines. These are only a few hot paths; Kernel does not yet match Sodium's renderer breadth or demonstrated performance. Compatibility, measurable frame-time improvements, and honest benchmarking take priority over feature claims. Kernel contains no Sodium or other third-party mod code, and Fabric Loader will reject installations that also contain Sodium or Iris. See [quad sorting behavior and measurement](docs/TRANSLUCENT_SORTING.md) for its scope and validation.
 
 On a recognized Fabric profile, the mod bundles and installs the Knot Client, changes that profile's launcher `mainClass`, adds its profile-local Java agent argument, and leaves a `.kernel-backup` copy of the original JSON. On the following launch, the agent enables its audited startup-cache hooks and the Knot Client delegates to Fabric's original Knot entry point. Unsupported launchers are left untouched and Minecraft continues normally. No game or loader JAR is patched on disk, and no third-party libraries are bundled into the Knot Client; its optional ASM dependency is supplied by Fabric's launcher classpath.
 
 The game-profile JVM option `-Dkernel.startupCache=false` disables startup caching. Cache contents live only in the current process and are released when initial loading completes, with a three-minute fallback expiry. See [startup cache behavior and measurement](docs/STARTUP_CACHES.md) for limits, recovery and benchmark commands.
 
-The requested sequence and pinned comparison versions are tracked in [the parity plan](docs/PARITY_PLAN.md). The subsequent loading-window request moved that work forward; same-window OpenGL startup is now implemented. Both full renderer and game-logic parity remain incomplete. Frame Sync and a narrow biome-selection cache are implemented; a shader-pack rendering pipeline and broader world-generation work are still outstanding.
+The requested sequence and pinned comparison versions are tracked in [the parity plan](docs/PARITY_PLAN.md). The subsequent loading-window request moved that work forward; same-window OpenGL startup is now implemented. Both full renderer and game-logic parity remain incomplete. Frame Sync and a narrow biome-selection cache are implemented; limited color post-processing and shader installation are implemented, while full-world shader compatibility and broader world-generation work remain outstanding.
 
 Contributor and coding-agent rules are documented in [AGENTS.md](AGENTS.md).
