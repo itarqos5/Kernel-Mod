@@ -97,6 +97,10 @@ Implemented:
 - Spatially indexed pending section tasks on every target, with stationary-camera heap reuse, prompt native-task cancellation, preserved distance/recompile priorities, and a live-priority path for custom subclasses. Worker execution and mesh lifecycle remain native. See [task scheduling and validation](docs/CHUNK_TASK_SCHEDULING.md).
 - Original scanline section-face connectivity on every supported target, replacing per-cell flood-fill queues with reusable per-thread storage while preserving vanilla visibility results and visited-bit semantics. Minecraft's occlusion traversal remains in use.
 - Differential visibility tests against each target's actual mapped vanilla implementation, including randomized sections, walls, tunnels, enclosed cavities, repeated calls and concurrent chunk builders; standalone visibility and startup-cache microbenchmarks.
+- Leaner camera visibility queries on all targets: the existing native frustum test omits unused containment
+  categories when only visible/not-visible is needed. Full classifications and custom implementations
+  retain their native paths. **View visibility tests** has its own restart-only switch; see
+  [frustum validation and measurements](docs/FRUSTUM_TESTS.md).
 - Stable radix sorting of translucent quad indices across every supported target, preserving vanilla distance evaluation, equal-key order, NaNs and signed zeros. Batches below 512 quads retain vanilla's sorter; larger batches use the radix path with an already-ordered shortcut. Temporary key/index arrays are reused with a 16,384-quad retention cap per thread, and larger inputs use temporary storage.
 - Compatibility with custom distance functions, nested sorts, concurrent workers and independent returned arrays. Custom `VertexSorting` implementations remain in control; subclasses of the newer compact input format use the original sorter.
 - Differential sorting tests against each target's actual vanilla implementation, real Fabric/Mixin factory smoke tests without launching the game, and an isolated sorting benchmark. Centroid generation, camera resort triggers, index uploads and blending remain vanilla.

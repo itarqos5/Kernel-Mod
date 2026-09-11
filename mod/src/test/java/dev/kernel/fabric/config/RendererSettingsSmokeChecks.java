@@ -8,6 +8,7 @@ import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 /** Checks real Mixin activation and screen linkage, without initializing Minecraft or a graphics device. */
 public final class RendererSettingsSmokeChecks {
     public static void run() throws Exception {
+        dev.kernel.fabric.render.FrustumSmokeChecks.run(false);
         for (RendererFeature feature : RendererFeature.values()) {
             if (KernelRendererSettings.active().enabled(feature)) throw new AssertionError("Setting not loaded: " + feature);
         }

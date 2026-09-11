@@ -59,7 +59,7 @@ CPU/heap inputs and recommended distances. The Other tab identifies the active G
 ## Optimization persistence and recovery
 
 Optimization settings belong to the game directory's `config/kernel-renderer.properties`. This file
-is created when the screen saves settings. All eleven feature keys default to `true`:
+is created when the screen saves settings. All twelve feature keys default to `true`:
 
 ```properties
 vertex=true
@@ -72,6 +72,7 @@ chunk_upload=true
 chunk_queue=true
 chunk_uniforms=true
 visibility=true
+frustum=true
 quad_sorting=true
 ```
 
@@ -82,6 +83,9 @@ cache cleanup and access to the settings screen remain enabled. The bootstrap ca
 
 [Chunk camera snapshots](CHUNK_UNIFORMS.md) applies to the native batch uploader on 1.21.11 and 26.x;
 the option is hidden on earlier targets.
+
+[View visibility tests](FRUSTUM_TESTS.md) reduces boolean frustum-query work on every target. It is
+independent of the section-face connectivity solver controlled by `visibility`.
 
 Unknown keys survive saves. Invalid booleans disable the affected feature; unreadable or malformed
 files disable Kernel renderer optimizations for that launch and log diagnostics. Malformed files are

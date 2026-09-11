@@ -11,6 +11,7 @@ public enum RendererFeature {
     CHUNK_QUEUE("chunk_queue", true),
     CHUNK_UNIFORMS("chunk_uniforms", true),
     VISIBILITY("visibility", true),
+    FRUSTUM("frustum", true),
     QUAD_SORTING("quad_sorting", true);
 
     private final String key;
@@ -36,6 +37,7 @@ public enum RendererFeature {
             case "ChunkTaskMixin", "ChunkTaskQueueMixin", "ChunkRebuildTaskMixin", "ChunkResortTaskMixin" -> CHUNK_QUEUE;
             case "ChunkUniformMixin" -> CHUNK_UNIFORMS;
             case "VisGraphMixin" -> VISIBILITY;
+            case "FrustumMixin" -> FRUSTUM;
             case "VertexSortingMixin" -> QUAD_SORTING;
             default -> null;
         };

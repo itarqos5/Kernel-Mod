@@ -176,6 +176,7 @@ tasks {
         dependsOn(testClasses)
         classpath = sourceSets.test.get().runtimeClasspath.filter { it.exists() }
         mainClass = "dev.kernel.fabric.render.VertexSortingSmoke"
+        systemProperty("kernel.frustumBenchmark", providers.gradleProperty("kernelFrustumBenchmark").getOrElse("false"))
         javaLauncher = kernelJavaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion) }
         systemProperty("fabric.development", "true")
         systemProperty("fabric.gameVersion", sc.current.version)
@@ -263,6 +264,14 @@ tasks {
         javaLauncher = kernelJavaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion) }
         jvmArgs("-Xms256m", "-Xmx256m")
     }
+    register<JavaExec>("frustumBenchmark") {
+        group = "verification"
+        description = "Measures native boolean versus full frustum classification without launching Minecraft."
+        dependsOn(testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath
+        mainClass = "dev.kernel.fabric.render.FrustumBenchmark"
+        javaLauncher = kernelJavaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion) }
+    }
 
     for (mode in listOf("Enabled", "Disabled", "Conflict")) {
         val worldSmoke = register<JavaExec>("worldOptimization${mode}Smoke") {
@@ -300,6 +309,7 @@ tasks {
         dependsOn(testClasses)
         classpath = sourceSets.test.get().runtimeClasspath.filter { it.exists() }
         mainClass = "dev.kernel.fabric.config.RendererSettingsSmoke"
+        systemProperty("kernel.frustumBenchmark", providers.gradleProperty("kernelFrustumBenchmark").getOrElse("false"))
         javaLauncher = kernelJavaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion) }
         systemProperty("fabric.development", "true")
         systemProperty("fabric.gameVersion", sc.current.version)

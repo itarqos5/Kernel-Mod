@@ -12,6 +12,7 @@ import java.util.stream.IntStream;
 /** Loaded only through Knot's transforming game classloader. No JUnit launcher is involved. */
 public final class VertexSortingSmokeChecks {
     public static void run() throws ClassNotFoundException {
+        FrustumSmokeChecks.run(true);
         // Resolve every renderer target without initializing Minecraft or a graphics device. This
         // catches Mixin structural failures which helper-only unit tests cannot detect.
         for (String name : new String[] {

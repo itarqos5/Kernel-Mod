@@ -41,6 +41,7 @@
     "render.VertexConsumerMixin",
     "render.VertexSortingMixin",
     "render.VisGraphMixin",
+    "render.FrustumMixin",
     "startup.MinecraftStartupMixin",
     "startup.WindowMixin",
     "startup.LoadingOverlayMixin",

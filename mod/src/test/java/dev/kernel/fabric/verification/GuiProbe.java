@@ -141,6 +141,7 @@ public final class GuiProbe {
                     || !RendererConfig.load(settingsPath).config().equals(RendererConfig.defaults())) {
                     throw new AssertionError("Save failed to persist the settings or return to its parent");
                 }
+                verifyFrustumSetting(minecraft, parent);
                 try { WorldSettingsProbe.verify(minecraft, parent); }
                 catch (IOException exception) { throw new AssertionError("World settings persistence", exception); }
                 stage = 4;
@@ -181,6 +182,25 @@ public final class GuiProbe {
         captured = true;
     }
 
+    private static void verifyFrustumSetting(Minecraft minecraft, Screen parent) {
+        var saved = KernelRendererSettings.saved();
+        boolean active = KernelRendererSettings.enabled(RendererFeature.FRUSTUM);
+        String label = KernelTranslations.text(RendererFeature.FRUSTUM.translationKey()).getString();
+        for (boolean apply : new boolean[]{false, true}) {
+            click(find(parent, "kernel.settings.open"));
+            click(find(screen(minecraft), "kernel.video.tab.optimizations"));
+            click(findSetting(minecraft, label));
+            click(find(screen(minecraft), apply ? "kernel.settings.apply" : "gui.cancel"));
+            if (apply) {
+                if (KernelRendererSettings.saved().enabled(RendererFeature.FRUSTUM) == saved.enabled(RendererFeature.FRUSTUM))
+                    throw new AssertionError("Frustum Apply did not persist the draft");
+                if (KernelRendererSettings.enabled(RendererFeature.FRUSTUM) != active) throw new AssertionError("Frustum setting applied without restart");
+                click(findSetting(minecraft, label)); click(find(screen(minecraft), "gui.done"));
+            }
+            if (screen(minecraft) != parent || !KernelRendererSettings.saved().equals(saved))
+                throw new AssertionError("Frustum Cancel/Done did not preserve or restore the saved settings");
+        }
+    }
     private static Button findSetting(Minecraft minecraft, String label) {
         String nextLabel = KernelTranslations.text("kernel.settings.next").getString();
         for (int page = 0; page < 32; page++) {

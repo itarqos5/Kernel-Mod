@@ -40,6 +40,8 @@
   "kernel.option.chunk_queue.description": "Index pending section tasks by position and remove cancelled tasks promptly. Keep the game's original priority rules.",
   "kernel.option.visibility": "Section visibility solver",
   "kernel.option.visibility.description": "Use a scanline search to calculate which section faces are connected through empty space.",
+  "kernel.option.frustum": "View visibility tests",
+  "kernel.option.frustum.description": "Reduce the work needed to check whether a bounding box is visible to the camera. Visibility decisions stay unchanged.",
   "kernel.option.quad_sorting": "Translucent quad sorting",
   "kernel.option.quad_sorting.description": "Use stable radix sorting for large translucent meshes while preserving the game's distance order.",
   "kernel.video.recommended": "Recommended",
