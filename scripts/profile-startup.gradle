@@ -1,0 +1,39 @@
+import org.gradle.api.tasks.JavaExec
+
+// Developer-only JFR recording of the isolated bootstrap/settings probe. Never installed in a profile.
+gradle.projectsEvaluated {
+    def properties = gradle.startParameter.projectProperties
+    def version = properties.getOrDefault('kernelProfileVersion', '26.2')
+    def readFlag = { String key ->
+        def value = properties.getOrDefault(key, 'true')
+        if (!(value in ['true', 'false'])) throw new GradleException(key + ' must be true or false')
+        return value == 'true'
+    }
+    def caches = readFlag('kernelProfileCaches')
+    def shapes = readFlag('kernelProfileShapes')
+    def construction = readFlag('kernelProfileConstruction')
+    def target = gradle.rootProject.findProject(':mod:' + version)
+    if (target == null) throw new GradleException('Unknown profiling target: ' + version)
+    def directory = new File(gradle.rootProject.projectDir, 'build/startup-profiles')
+    directory.mkdirs()
+    def name = "startup-${version}-caches-${caches}-queries-${shapes}-construction-${construction}-${System.currentTimeMillis()}"
+    def recording = new File(directory, name + '.jfr')
+    target.tasks.named('runBootstrapSmoke', JavaExec).configure {
+        jvmArgs("-XX:StartFlightRecording=filename=${recording.absolutePath},settings=profile,dumponexit=true,maxsize=128m")
+        systemProperty('kernel.startupCache', caches)
+        doFirst {
+            def config = new File(target.layout.buildDirectory.get().asFile, 'bootstrap-smoke-game/config/kernel-world.properties')
+            config.parentFile.mkdirs()
+            def settings = new Properties()
+            for (key in ['biome_offsets', 'noise_slices', 'end_island_heights', 'packed_storage']) settings.setProperty(key, 'true')
+            settings.setProperty('shape_traversal', Boolean.toString(shapes))
+            settings.setProperty('shape_construction', Boolean.toString(construction))
+            config.withWriter('UTF-8') { settings.store(it, 'Isolated startup profiling controls') }
+        }
+        doLast {
+            new File(directory, name + '.json').text = new File(target.layout.buildDirectory.get().asFile,
+                'bootstrap-smoke-game/probe-complete.json').text
+            logger.lifecycle('Kernel startup recording: ' + recording.absolutePath)
+        }
+    }
+}

@@ -21,7 +21,8 @@ next launch, because saving does not unapply Mixins during a frame. Each optimiz
 its current active state. Save errors keep the screen open and log the reason.
 
 The Optimizations tab also contains [biome, noise and End island controls](WORLD_OPTIMIZATIONS.md),
-[Shape queries](SHAPE_QUERIES.md) and [Packed block decoding](PACKED_STORAGE.md). Their independent
+[Shape queries](SHAPE_QUERIES.md), [Shape construction](SHAPE_CONSTRUCTION.md) and
+[Packed block decoding](PACKED_STORAGE.md). Their independent
 restart-only switches use the world configuration and yield to Lithium.
 
 Pages adapt to the GUI height and can be changed with their buttons or the mouse wheel. Native button

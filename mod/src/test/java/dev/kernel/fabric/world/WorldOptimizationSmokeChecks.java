@@ -16,6 +16,7 @@ public final class WorldOptimizationSmokeChecks {
         PackedStorageSmokeChecks.run(expected);
         EndIslandSmokeChecks.run(expected);
         ShapeJoinSmokeChecks.run(expected);
+        ShapeConstructionSmokeChecks.run(expected);
         boolean applied = Arrays.stream(BiomeManager.class.getDeclaredFields()).anyMatch(field -> field.getName().equals("kernel$offsets"));
         if (expected != applied || expected != WorldSettings.biomeOffsetsActive()) throw new AssertionError("Biome Mixin activation mismatch");
         var method = BiomeManager.class.getDeclaredMethod("getFiddledDistance", long.class, int.class, int.class, int.class, double.class, double.class, double.class);

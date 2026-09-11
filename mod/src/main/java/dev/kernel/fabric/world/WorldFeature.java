@@ -6,7 +6,8 @@ public enum WorldFeature {
     NOISE_SLICES("noise_slices"),
     END_ISLAND_HEIGHTS("end_island_heights"),
     SHAPE_TRAVERSAL("shape_traversal"),
-    PACKED_STORAGE("packed_storage");
+    PACKED_STORAGE("packed_storage"),
+    SHAPE_CONSTRUCTION("shape_construction");
 
     private final String key;
     WorldFeature(String key) { this.key = key; }

@@ -176,6 +176,8 @@ Implemented:
 
 - Deferred first GPU allocation for native section-layer buffers on 1.21.4, with stable worker-visible objects, render-thread materialization and native upload/release ownership. Other targets retain their existing upload-time allocation. The independent restart-only control and validation are described in `docs/SECTION_BUFFERS.md`.
 
+- Reusable traversal state for materialized voxel-shape joins on all nine targets, preserving independent native outputs, exact empty bounds, native coordinate/operation order and custom callback ownership. A separate restart-only shape construction setting yields to Lithium; see `docs/SHAPE_CONSTRUCTION.md`.
+
 Not implemented:
 
 - Automatic game exit or relaunch messaging.

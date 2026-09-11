@@ -17,6 +17,7 @@
     "world.PackedStorageMixin",
     "world.EndIslandDensityMixin",
     "world.ShapeJoinMixin",
+    "world.ShapeConstructionMixin",
     "world.BitSetShapeMixin",
     "world.CubeMergerMixin",
     "world.IndirectMergerMixin",

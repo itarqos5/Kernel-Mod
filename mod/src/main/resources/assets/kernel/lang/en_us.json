@@ -114,5 +114,7 @@
   "kernel.world.shape_traversal": "Shape queries",
   "kernel.world.shape_traversal.description": "Accelerate native voxel overlap tests with bitsets and bounded coordinate mappings. Custom shape and operation behavior stays in control. Requires a restart.",
   "kernel.world.packed_storage": "Packed block decoding",
-  "kernel.world.packed_storage.description": "Decode common packed block arrays with fewer variable shifts. Storage formats and palette values stay unchanged. Requires a restart."
+  "kernel.world.packed_storage.description": "Decode common packed block arrays with fewer variable shifts. Storage formats and palette values stay unchanged. Requires a restart.",
+  "kernel.world.shape_construction": "Shape construction",
+  "kernel.world.shape_construction.description": "Reduce temporary memory use when building block shapes during startup and world updates. Requires a restart."
 }

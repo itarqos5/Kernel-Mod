@@ -17,6 +17,8 @@ public final class KernelMixinPlugin implements IMixinConfigPlugin {
         if (mixinClassName.endsWith(".world.EndIslandDensityMixin")) return dev.kernel.fabric.world.WorldSettings.endIslandHeightsActive();
         if (mixinClassName.endsWith(".world.PackedStorageMixin"))
             return dev.kernel.fabric.world.WorldSettings.active(dev.kernel.fabric.world.WorldFeature.PACKED_STORAGE);
+        if (mixinClassName.endsWith(".world.ShapeConstructionMixin"))
+            return dev.kernel.fabric.world.WorldSettings.active(dev.kernel.fabric.world.WorldFeature.SHAPE_CONSTRUCTION);
         if (mixinClassName.endsWith(".world.ShapeJoinMixin") || mixinClassName.endsWith(".world.BitSetShapeMixin")
             || mixinClassName.endsWith(".world.CubeMergerMixin") || mixinClassName.endsWith(".world.IndirectMergerMixin"))
             return dev.kernel.fabric.world.WorldSettings.active(dev.kernel.fabric.world.WorldFeature.SHAPE_TRAVERSAL);
