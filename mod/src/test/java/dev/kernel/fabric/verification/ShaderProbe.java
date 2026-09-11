@@ -42,6 +42,7 @@ public final class ShaderProbe {
         if (stage == 0 && !KernelShaders.busy()) {
             ShaderDepthGlChecks.run();
             ShaderProjectionGlChecks.run();
+            ShaderCameraGlChecks.run();
             dev.kernel.fabric.shader.ShaderWorldGlChecks.run();
             dev.kernel.fabric.shader.ShaderTextureGlChecks.run();
             ShaderGlChecks.run();
@@ -100,6 +101,7 @@ public final class ShaderProbe {
             if (verifiedWorldFrames == 0 || !ShaderWorldGlChecks.weatherObserved()) return;
             if (!ShaderDepthWorldChecks.advance(minecraft)) return;
             if (!ShaderProjectionWorldChecks.advance(minecraft)) return;
+            if (!ShaderCameraWorldChecks.advance(minecraft)) return;
             Path bad = KernelShaders.directory().resolve("unsupported-probe.zip");
             zip(bad, "#version 120\nuniform sampler2D shadowtex0; void main() { gl_FragColor = texture2D(shadowtex0,vec2(0.5)); }");
             KernelShaders.select("unsupported-probe.zip"); next(7); return;
@@ -159,6 +161,7 @@ public final class ShaderProbe {
             dev.kernel.fabric.shader.ShaderWorldGlChecks.verifyWorldPixels(minecraft, deltaTracker, target.height);
             ShaderDepthWorldChecks.verifyOutput(target.width, target.height);
             ShaderProjectionWorldChecks.verifyOutput(target.width, target.height);
+            ShaderCameraWorldChecks.verifyOutput(target.width, target.height);
         } finally {
             GL33C.glBindFramebuffer(GL33C.GL_READ_FRAMEBUFFER, read); GL33C.glDeleteFramebuffers(fbo);
             GL33C.glBindBuffer(GL33C.GL_PIXEL_PACK_BUFFER, packBuffer);
@@ -167,7 +170,7 @@ public final class ShaderProbe {
     }
     public static void verifyWorldFrame(net.minecraft.client.DeltaTracker deltaTracker) {
         if (!Boolean.getBoolean("kernel.guiProbe.shaders") || (stage != 6 && stage != 7)) return;
-        if (ShaderProjectionWorldChecks.skipInvalidFrame()) return;
+        if (ShaderProjectionWorldChecks.skipInvalidFrame() || ShaderCameraWorldChecks.skipInvalidFrame()) return;
         // The native HUD vignette intentionally darkens the final image afterwards; inspect before that HUD pass.
         assertWorldPixel(Minecraft.getInstance(), deltaTracker);
         if (stage == 6 && verifiedWorldFrames == 0) ShaderWorldGlChecks.beginLiveWeatherSample(Minecraft.getInstance());

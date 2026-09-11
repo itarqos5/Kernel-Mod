@@ -4,17 +4,20 @@ import java.io.IOException;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 
-/** Render-thread-owned world projection, inverse and previous completed world frame. */
-final class ShaderProjectionState {
+/** Render-thread-owned matrix, optional inverse and previous completed world frame. */
+final class ShaderMatrixState {
     static final int CURRENT = 1, INVERSE = 2, PREVIOUS = 4;
+    enum Kind { PROJECTION, MODEL_VIEW }
+    private final Kind kind;
     private final Matrix4f current = new Matrix4f();
     private final Matrix4f inverse, last;
     private final float[] currentValues, inverseValues, previousValues;
     private boolean captured, prepared, history;
     private int width, height, lastWidth, lastHeight;
 
-    ShaderProjectionState(int required) {
-        if (required == 0 || (required & ~7) != 0) throw new IllegalArgumentException("Invalid projection inputs");
+    ShaderMatrixState(Kind kind, int required) {
+        if (required == 0 || (required & ~7) != 0) throw new IllegalArgumentException("Invalid matrix inputs");
+        this.kind = java.util.Objects.requireNonNull(kind);
         currentValues = (required & CURRENT) != 0 ? new float[16] : null;
         inverse = (required & INVERSE) != 0 ? new Matrix4f() : null;
         inverseValues = inverse == null ? null : new float[16];
@@ -23,9 +26,11 @@ final class ShaderProjectionState {
     }
     void beginWorld() { captured = prepared = false; }
     void resetHistory() { history = false; beginWorld(); }
+    void discardHistory() { history = false; }
     boolean capture(Matrix4fc source, boolean reverse, boolean zeroToOne) {
         beginWorld();
-        normalize(source, reverse, zeroToOne, current);
+        if (kind == Kind.PROJECTION) normalize(source, reverse, zeroToOne, current);
+        else current.set(source);
         if (!current.isFinite()) return false;
         if (inverse != null) {
             current.invert(inverse);
@@ -37,23 +42,25 @@ final class ShaderProjectionState {
         return true;
     }
     void prepare(int width, int height) throws IOException {
-        if (!captured || width <= 0 || height <= 0) throw new IOException("This shader requires the current world projection");
+        if (!captured || width <= 0 || height <= 0) throw new IOException("This shader requires the current world " + kind);
         if (previousValues != null) (history && lastWidth == width && lastHeight == height ? last : current).get(previousValues);
         this.width = width; this.height = height; prepared = true;
     }
     float[] values(String name) {
-        if (!prepared) throw new IllegalStateException("Projection uniforms are not prepared");
-        float[] values = switch (name) {
-            case "gbufferProjection" -> currentValues;
-            case "gbufferProjectionInverse" -> inverseValues;
-            case "gbufferPreviousProjection" -> previousValues;
-            default -> throw new IllegalArgumentException("Unknown projection input: " + name);
+        if (!prepared) throw new IllegalStateException("Matrix uniforms are not prepared");
+        int input = kind == Kind.PROJECTION ? dev.kernel.fabric.shader.pack.ShaderUniforms.projectionInput(name)
+            : dev.kernel.fabric.shader.pack.ShaderUniforms.modelViewInput(name);
+        float[] values = switch (input) {
+            case CURRENT -> currentValues;
+            case INVERSE -> inverseValues;
+            case PREVIOUS -> previousValues;
+            default -> throw new IllegalArgumentException("Unknown matrix input: " + name);
         };
-        if (values == null) throw new IllegalStateException("Projection input was not requested");
+        if (values == null) throw new IllegalStateException("Matrix input was not requested");
         return values; // Only the render-thread uniform uploader reads these owned arrays.
     }
     void complete() {
-        if (!prepared) throw new IllegalStateException("No completed world projection");
+        if (!prepared) throw new IllegalStateException("No completed world matrix");
         if (last != null) last.set(current);
         lastWidth = width; lastHeight = height; history = true;
         beginWorld();

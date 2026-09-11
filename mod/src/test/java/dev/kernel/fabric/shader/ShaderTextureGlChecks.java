@@ -189,6 +189,10 @@ public final class ShaderTextureGlChecks {
                 uniform int worldTime, worldDay, moonPhase;
                 uniform float rainStrength, thunderStrength;
                 uniform mat4 gbufferProjection, gbufferProjectionInverse, gbufferPreviousProjection;
+                uniform mat4 gbufferModelView, gbufferModelViewInverse, gbufferPreviousModelView;
+                uniform vec3 cameraPosition, previousCameraPosition, cameraPositionFract, previousCameraPositionFract;
+                uniform ivec3 cameraPositionInt, previousCameraPositionInt;
+                uniform float eyeAltitude;
                 void main() {
                     if (gl_FragCoord.x < 2.0) gl_FragColor = vec4(rainStrength, thunderStrength, float(moonPhase)/7.0, 1.0);
                     else if (gl_FragCoord.x < 4.0) gl_FragColor = vec4(float(worldTime)/24000.0, float(worldDay%256)/255.0, 0.0, 1.0);
@@ -198,6 +202,21 @@ public final class ShaderTextureGlChecks {
                         float value = row == 0 ? gbufferProjection[index/4][index%4]
                             : row == 1 ? gbufferProjectionInverse[index/4][index%4] : gbufferPreviousProjection[index/4][index%4];
                         uint bits = floatBitsToUint(value);
+                        gl_FragColor = vec4(float(bits & 255u), float((bits >> 8) & 255u), float((bits >> 16) & 255u), float(bits >> 24)) / 255.0;
+                    }
+                    else if (gl_FragCoord.x < 38.0) {
+                        int index = int(gl_FragCoord.x) - 22, row = int(gl_FragCoord.y) % 3;
+                        float value = row == 0 ? gbufferModelView[index/4][index%4]
+                            : row == 1 ? gbufferModelViewInverse[index/4][index%4] : gbufferPreviousModelView[index/4][index%4];
+                        uint bits = floatBitsToUint(value);
+                        gl_FragColor = vec4(float(bits & 255u), float((bits >> 8) & 255u), float((bits >> 16) & 255u), float(bits >> 24)) / 255.0;
+                    }
+                    else if (gl_FragCoord.x < 57.0) {
+                        int index = int(gl_FragCoord.x) - 38, axis = index % 3;
+                        uint bits;
+                        if(index >= 12 && index < 18) bits = uint(index < 15 ? cameraPositionInt[axis] : previousCameraPositionInt[axis]);
+                        else bits = floatBitsToUint(index < 3 ? cameraPosition[axis] : index < 6 ? previousCameraPosition[axis]
+                            : index < 9 ? cameraPositionFract[axis] : index < 12 ? previousCameraPositionFract[axis] : eyeAltitude);
                         gl_FragColor = vec4(float(bits & 255u), float((bits >> 8) & 255u), float((bits >> 16) & 255u), float(bits >> 24)) / 255.0;
                     }
                     else gl_FragColor = texture2D(probeImage,vec2(.5));

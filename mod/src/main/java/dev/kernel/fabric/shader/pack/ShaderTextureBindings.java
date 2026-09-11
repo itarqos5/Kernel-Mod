@@ -36,7 +36,7 @@ public final class ShaderTextureBindings {
                 name = key.substring("customTexture.".length());
                 if (!name.matches("[A-Za-z_][A-Za-z_0-9]*") || name.startsWith("gl_") || name.startsWith("kernel_")
                     || ShaderUniforms.scalarType(name) >= 0 || ShaderUniforms.colorBuffer(name) >= 0 || ShaderUniforms.isDepthInput(name)
-                    || ShaderUniforms.projectionInput(name) != 0)
+                    || ShaderUniforms.projectionInput(name) != 0 || ShaderUniforms.modelViewInput(name) != 0 || ShaderUniforms.cameraType(name) >= 0)
                     throw new IOException("Custom texture name conflicts with a reserved binding: " + name);
             } else throw new IOException("Unsupported shader property: " + key);
             String path = declaration.getValue().strip();

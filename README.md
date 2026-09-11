@@ -131,6 +131,11 @@ Implemented:
   fresh-frame checks and resize/world resets prevent stale matrix history. Native hand projection
   remains separate. See [shader matrix inputs](docs/SHADERS.md#world-projection-inputs).
 
+- Current/inverse/previous world view matrices and native camera positions for post-processing.
+  Rebased positions preserve small movements far from spawn; integer/fractional inputs retain world
+  coordinates. Large teleports reset temporal history for packs using these inputs. Native rendering
+  keeps its original camera and matrices. See [camera inputs](docs/SHADERS.md#world-view-and-camera-inputs).
+
 - Single-allocation noise interpolation slices on all nine targets: each zero-filled row is allocated once instead of creating and immediately discarding an identical row. Independent restart-only GUI/config control, Lithium ownership guard, native-method allocation checks and world-output verification preserve generation semantics.
 
 - Bounded reuse of identical native End island heights across repeated terrain samples. The cache preserves exact float results, uses weak noise-source identities, leaves custom noise subclasses uncached and has an independent restart-only setting. See [world optimizations](docs/WORLD_OPTIMIZATIONS.md) for scope and validation.
@@ -149,7 +154,7 @@ Not implemented:
 - Physical AMD, Intel, NVIDIA, Apple, and software-driver compatibility/performance testing; the current upload scheduler is vendor-neutral by construction but has not been validated on that hardware matrix.
 - Broader memory, server chunk-scheduling, world-generation, or adaptive frame-time scheduling optimizations.
 - Mod Menu integration, speech-engine/controller validation and complete renderer-option parity.
-- Full-world shader-pack support, including terrain/geometry replacement, shadows, separate opaque-depth stages, model-view/camera and hand projection inputs, integer/other unsupported color formats, non-PNG/resource-pack textures and other shader properties/options. Popular full-world packs are not compatible with the limited color post-processing renderer yet.
+- Full-world shader-pack support, including terrain/geometry replacement, shadows, separate opaque-depth stages, hand projection inputs, integer/other unsupported color formats, non-PNG/resource-pack textures and other shader properties/options. Popular full-world packs are not compatible with the limited color post-processing renderer yet.
 
 The approved black-and-white lightning icon has a transparent background and is included in the Fabric mod metadata. Its original bolt shape is preserved.
 

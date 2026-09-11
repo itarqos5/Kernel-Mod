@@ -25,7 +25,8 @@ public final class ShaderPipeline implements AutoCloseable {
     private ShaderColorTargets targets;
     private ShaderCustomTextures images;
     private ShaderDepthTarget depth;
-    private ShaderProjectionState projection;
+    private ShaderMatrixState projection, modelView;
+    private ShaderCameraState camera;
     private static final int DEPTH_INPUT = 48;
     private int vao, sampler, mipmapSampler, frame, textureUnits, outputSlots;
     private final long started = System.nanoTime();
@@ -45,14 +46,19 @@ public final class ShaderPipeline implements AutoCloseable {
                     imageBindings.put(binding.getKey(), index);
                 }
                 for (var pass : pack.passes()) programs.add(compile(pass, imageBindings));
-                int required = 1, mipmaps = 0, projectionInputs = 0;
+                int required = 1, mipmaps = 0, projectionInputs = 0, viewInputs = 0;
+                boolean cameraInputs = false;
                 long sampled = 0;
                 boolean legacyDepth = false;
                 for (var program : programs) {
                     required |= program.written;
                     mipmaps |= program.mipmaps;
                     for (var uniform : program.uniforms) if (uniform.buffer < 0 && ShaderUniforms.isWorldInput(uniform.name)) usesWorldData = true;
-                    for (var uniform : program.uniforms) if (uniform.buffer < 0) projectionInputs |= ShaderUniforms.projectionInput(uniform.name);
+                    for (var uniform : program.uniforms) if (uniform.buffer < 0) {
+                        projectionInputs |= ShaderUniforms.projectionInput(uniform.name);
+                        viewInputs |= ShaderUniforms.modelViewInput(uniform.name);
+                        cameraInputs |= ShaderUniforms.cameraType(uniform.name) >= 0;
+                    }
                     for (var uniform : program.uniforms) if (uniform.buffer >= 0) {
                         sampled |= 1L << uniform.buffer;
                         legacyDepth |= uniform.buffer == 1 && uniform.name.equals("gdepth");
@@ -68,7 +74,9 @@ public final class ShaderPipeline implements AutoCloseable {
                     throw new IOException("This shader exceeds the graphics device's texture/output limits");
                 images = new ShaderCustomTextures(uniqueImages, sampled);
                 if ((sampled & (1L << DEPTH_INPUT)) != 0) depth = new ShaderDepthTarget();
-                if (projectionInputs != 0) projection = new ShaderProjectionState(projectionInputs);
+                if (projectionInputs != 0) projection = new ShaderMatrixState(ShaderMatrixState.Kind.PROJECTION, projectionInputs);
+                if (viewInputs != 0) modelView = new ShaderMatrixState(ShaderMatrixState.Kind.MODEL_VIEW, viewInputs);
+                if (cameraInputs || viewInputs != 0) camera = new ShaderCameraState();
                 targets = new ShaderColorTargets(required, legacyDepth ? pack.buffers().withLegacyDepth() : pack.buffers(),
                     mipmaps, images.bytes(), depth == null ? 0 : 4);
                 vao = GL33C.glGenVertexArrays();
@@ -80,13 +88,23 @@ public final class ShaderPipeline implements AutoCloseable {
     public boolean needsWorldData() { return usesWorldData; }
     public boolean needsDepth() { return depth != null; }
     public boolean needsProjection() { return projection != null; }
+    public boolean needsView() { return camera != null; }
     public void beginWorld() {
         if (depth != null) depth.invalidate();
         if (projection != null) projection.beginWorld();
+        if (modelView != null) modelView.beginWorld();
+        if (camera != null) camera.beginWorld();
     }
     public boolean captureProjection(org.joml.Matrix4fc matrix, boolean reverse, boolean zeroToOne) throws IOException {
         if (closed) throw new IOException("Shader pipeline is closed");
         return projection == null || projection.capture(matrix, reverse, zeroToOne);
+    }
+    public boolean captureView(org.joml.Matrix4fc matrix, double x, double y, double z) throws IOException {
+        if (closed) throw new IOException("Shader pipeline is closed");
+        if (camera == null) return true;
+        boolean valid = camera.capture(x, y, z);
+        if (modelView != null) valid &= modelView.capture(matrix, false, false);
+        return valid;
     }
     public void captureDepth(int[] textures, int width, int height, boolean reverse, boolean hand) throws IOException {
         if (closed) throw new IOException("Shader pipeline is closed");
@@ -101,8 +119,14 @@ public final class ShaderPipeline implements AutoCloseable {
         if (closed) throw new IOException("Shader pipeline is closed");
         if (sourceTexture <= 0 || width <= 0 || height <= 0) return;
         if (usesWorldData && world == null) throw new IOException("This shader requires current world inputs");
+        if (camera != null && camera.prepare(width, height)) {
+            targets.resetHistory();
+            if (projection != null) projection.discardHistory();
+            if (modelView != null) modelView.discardHistory();
+        }
         int depthTexture = depth == null ? 0 : depth.texture(width, height);
         if (projection != null) projection.prepare(width, height);
+        if (modelView != null) modelView.prepare(width, height);
         try (var state = new ShaderGlState(Math.max(1, textureUnits), outputSlots)) {
             state.prepare(); targets.begin(sourceTexture, width, height);
             long now = System.nanoTime(); float delta = (now - lastFrame) * 1.0e-9f;
@@ -124,7 +148,10 @@ public final class ShaderPipeline implements AutoCloseable {
                 for (var uniform : program.uniforms) {
                     if (uniform.buffer >= 0) GL33C.glUniform1i(uniform.location, uniform.unit);
                     else if (uniform.type == GL33C.GL_FLOAT_MAT4)
-                        GL33C.glUniformMatrix4fv(uniform.location, false, projection.values(uniform.name));
+                        GL33C.glUniformMatrix4fv(uniform.location, false,
+                            (ShaderUniforms.projectionInput(uniform.name) != 0 ? projection : modelView).values(uniform.name));
+                    else if (uniform.type == GL33C.GL_FLOAT_VEC3) GL33C.glUniform3fv(uniform.location, camera.vector(uniform.name));
+                    else if (uniform.type == GL33C.GL_INT_VEC3) GL33C.glUniform3iv(uniform.location, camera.integer(uniform.name));
                     else if (uniform.type == GL33C.GL_INT) GL33C.glUniform1i(uniform.location, switch (uniform.name) {
                         case "frameCounter" -> frame; case "worldTime" -> world.worldTime(); case "worldDay" -> world.worldDay();
                         case "moonPhase" -> world.moonPhase(); default -> throw new AssertionError(uniform.name);
@@ -133,6 +160,7 @@ public final class ShaderPipeline implements AutoCloseable {
                         case "viewWidth" -> width; case "viewHeight" -> height; case "aspectRatio" -> (float) width / height;
                         case "frameTime" -> delta; case "frameTimeCounter" -> elapsed;
                         case "rainStrength" -> world.rainStrength(); case "thunderStrength" -> world.thunderStrength();
+                        case "eyeAltitude" -> camera.altitude();
                         default -> throw new AssertionError(uniform.name);
                     });
                 }
@@ -143,12 +171,16 @@ public final class ShaderPipeline implements AutoCloseable {
             frame = (frame + 1) % 720720;
             if (depth != null) depth.invalidate();
             if (projection != null) projection.complete();
+            if (modelView != null) modelView.complete();
+            if (camera != null) camera.complete();
         }
     }
     /** Invalidates retained auxiliary images without changing the selected programs. */
     public void resetHistory() {
         if (targets != null) targets.resetHistory();
         if (projection != null) projection.resetHistory();
+        if (modelView != null) modelView.resetHistory();
+        if (camera != null) camera.resetHistory();
         beginWorld();
     }
     private static Program compile(PreparedShaderPack.Pass pass, Map<String, Integer> imageBindings) throws IOException {
@@ -195,7 +227,8 @@ public final class ShaderPipeline implements AutoCloseable {
                     if (buffer >= 16 && color >= 0 && (pass.mipmaps() & (1 << color)) != 0)
                         throw new IOException(pass.name() + " requests color mipmaps for an overridden image: " + name);
                     int expectedType = buffer >= 0 ? GL33C.GL_SAMPLER_2D
-                        : ShaderUniforms.projectionInput(name) != 0 ? GL33C.GL_FLOAT_MAT4 : ShaderUniforms.scalarType(name);
+                        : ShaderUniforms.projectionInput(name) != 0 || ShaderUniforms.modelViewInput(name) != 0 ? GL33C.GL_FLOAT_MAT4
+                        : ShaderUniforms.cameraType(name) >= 0 ? ShaderUniforms.cameraType(name) : ShaderUniforms.scalarType(name);
                     if (size.get(0) != 1 || type.get(0) != expectedType) {
                         throw new IOException(pass.name() + " requires unsupported uniform: " + name);
                     }

@@ -119,7 +119,7 @@ Minecraft 26.x can use either clip-depth range depending on the graphics backend
 This matches the forward screen-depth convention of the owned world-depth snapshot. It does not
 recover precision lost in depth storage. Minecraft's hand uses different native FOV/clip planes;
 the world inverse must not be used to reconstruct hand geometry as though it shared this projection.
-Model-view/camera and hand projection inputs remain unsupported.
+Hand projection inputs remain unsupported.
 
 Previous projection means the last successfully completed world shader frame at the same resolution.
 First use, a resize, a world change or pipeline replacement uses the current matrix as the previous
@@ -129,6 +129,46 @@ and resumes on the next valid capture without advancing history or disabling the
 An absent capture still produces an explicit rendering error through normal recovery.
 These uniform names cannot be overridden by custom PNG bindings, and arrays or non-mat4 declarations
 are rejected when active.
+
+### World view and camera inputs
+
+`mat4 gbufferModelView`, `gbufferModelViewInverse` and `gbufferPreviousModelView` describe the native
+world view transform. Kernel copies the exact `LevelRenderer` matrix argument and matching camera
+position, including detached cameras. It returns the original objects unchanged. The inverse is only
+calculated when active; packs without active view/camera inputs allocate no camera state. Matrix
+history uses the last completed world shader frame, with the same freshness and reset rules as projection.
+
+These names follow the [matrix input conventions](https://shaders.properties/current/reference/uniforms/matrices/).
+In Kernel, view bobbing and screen distortion remain in the captured **projection**, where Minecraft
+applies them. The view matrix maps camera-relative, world-aligned positions into native view space.
+For depth-written world geometry, applying projection inverse and then model-view inverse reconstructs
+that camera-relative position. The supplied matrices must be used together; adding another bob transform
+would apply the effect twice. This differs from engines that place bobbing in model-view and does not
+establish terrain-program or hand compatibility. See the [coordinate-space reference](https://shaders.properties/current/how-to/coordinate_spaces/)
+for the distinction between camera-relative and world coordinates.
+
+Supported [camera inputs](https://shaders.properties/current/reference/uniforms/camera/):
+
+| Uniform | Type | Kernel value |
+| --- | --- | --- |
+| `cameraPosition` | `vec3` | Current camera, with horizontal coordinates rebased for precision |
+| `previousCameraPosition` | `vec3` | Previous completed camera expressed in the current horizontal origin |
+| `cameraPositionInt`, `previousCameraPositionInt` | `ivec3` | Unshifted floor of each world-coordinate component |
+| `cameraPositionFract`, `previousCameraPositionFract` | `vec3` | Corresponding fractional remainder in [0, 1) |
+| `eyeAltitude` | `float` | Current native camera Y coordinate |
+
+Kernel maintains a horizontal origin until X or Z exceeds 30,000 blocks from it, then moves that axis's
+origin to a nearby multiple of 30,000. Both frames are rebased together, preserving their relative motion.
+Y is never shifted. This is Kernel's own rebasing policy, not a claim of identical upstream reset timing.
+Integer/fractional inputs preserve negative and far-world coordinates without the large rounding error
+of one absolute float. Fractional values that would round to 1 are capped at the nearest float below 1.
+
+For packs using view/camera inputs, a movement exceeding 1,000 blocks between completed frames resets
+retained color images and projection/view/camera history. First use, resize, world change and replacement
+also start with the current camera as previous. An unfinished or invalid frame never commits camera
+history or a new origin. Nonfinite cameras or coordinates outside the signed 32-bit block range leave
+that frame native and resume after a valid capture; this range includes Minecraft's normal world border.
+Active uniform types are checked, arrays are rejected, and custom PNG bindings cannot replace these names.
 
 ### Color formats and history
 
@@ -307,7 +347,7 @@ same-window startup with shader integration installed. The multi-target update p
 pixel and gameplay/GUI probes. The final parser checks additionally exercise conditional scope changes
 and a megabyte of malformed comment prefixes. Release artifacts are checked for exact game/Java
 metadata, matching bundled bootstrap bytes and absence of test or third-party implementation classes.
-The current adapter passed `buildAll`, 1,277 unit tests in 358 suites, 27 world
+The current adapter passed `buildAll`, 1,322 unit tests in 376 suites, 27 world
 activation/conflict probes, the renderer/bootstrap checks and all nine native shader/gameplay probes.
 The twelve-format pixel, precision, conversion, retained-history and mipmap checks run inside each
 supported Minecraft target. Release verification confirms nine mod JARs and one matching Knot Client JAR.
@@ -315,7 +355,11 @@ The depth update passed all nine expanded GPU/gameplay probes and both endpoint 
 After moving capture-program compilation into pack activation and updating the scope label, the final
 Java 21/25 endpoint gameplay probes and complete `buildAll` passed again. The projection update then
 passed all nine expanded native pixel/gameplay probes, including live FOV/distortion and transient
-invalid-frame recovery, and a complete `buildAll` with exact artifact verification. No end-to-end performance gain
+invalid-frame recovery, and a complete `buildAll` with exact artifact verification. The camera update passed
+all nine GPU/gameplay probes, including 27 first-person/rear/front camera-mode checks. GPU output checks
+cover all view/projection matrices, exact integer camera bits, negative/far coordinates, rebasing and
+temporal image/matrix reset after teleports. Both endpoint bootstrap handoffs and the complete release
+build passed again with zero failed, errored or skipped unit tests. No end-to-end performance gain
 is claimed for this optional rendering feature.
 Legacy `texture2D` calls retain support for a sampler named `texture`, including fragment bias and
 vertex sampling; native pixel checks exercise those cases on every supported target.

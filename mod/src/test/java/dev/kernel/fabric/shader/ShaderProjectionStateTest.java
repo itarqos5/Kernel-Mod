@@ -17,7 +17,7 @@ class ShaderProjectionStateTest {
                 if ((iteration & 1) != 0) nativeProjection.translate(.03f, -.08f, .01f)
                     .rotateX(.05f).rotateZ(-.02f).scale(.91f, 1.07f, 1).rotate(.04f, 0, .70710677f, .70710677f);
                 Matrix4f saved = new Matrix4f(nativeProjection), shaderProjection = new Matrix4f();
-                ShaderProjectionState.normalize(nativeProjection, reverse, zero, shaderProjection);
+                ShaderMatrixState.normalize(nativeProjection, reverse, zero, shaderProjection);
                 assertEquals(saved, nativeProjection);
                 Matrix4f inverse = shaderProjection.invert(new Matrix4f());
                 for (int sample = 0; sample < 16; sample++) {
@@ -38,7 +38,7 @@ class ShaderProjectionStateTest {
     }
     @Test void capturesOwnedValuesAndKeepsOnlyCompletedHistoryAcrossResizeAndWorldChanges() throws Exception {
         for (int mask = 1; mask < 8; mask++) {
-            var state = new ShaderProjectionState(mask);
+            var state = new ShaderMatrixState(ShaderMatrixState.Kind.PROJECTION, mask);
             assertThrows(IOException.class, () -> state.prepare(100, 50));
             var first = new Matrix4f().perspective(1.0f, 2, .05f, 512);
             var copy = new Matrix4f(first);
@@ -51,7 +51,7 @@ class ShaderProjectionStateTest {
             state.beginWorld(); // An unfinished render must not advance the history.
             assertFalse(state.capture(new Matrix4f().m00(Float.NaN), false, false));
             assertThrows(IOException.class, () -> state.prepare(100, 50));
-            if ((mask & ShaderProjectionState.INVERSE) != 0)
+            if ((mask & ShaderMatrixState.INVERSE) != 0)
                 assertFalse(state.capture(new Matrix4f().zero(), false, false));
             state.capture(second, false, false); state.prepare(100, 50); check(state, mask, second, copy);
             state.complete();
@@ -61,7 +61,7 @@ class ShaderProjectionStateTest {
             state.beginWorld(); assertThrows(IOException.class, () -> state.prepare(200, 50));
         }
     }
-    private static void check(ShaderProjectionState state, int mask, Matrix4f current, Matrix4f previous) {
+    private static void check(ShaderMatrixState state, int mask, Matrix4f current, Matrix4f previous) {
         if ((mask & 1) != 0) assertArrayEquals(current.get(new float[16]), state.values("gbufferProjection"));
         if ((mask & 2) != 0) assertArrayEquals(current.invert(new Matrix4f()).get(new float[16]), state.values("gbufferProjectionInverse"));
         if ((mask & 4) != 0) assertArrayEquals(previous.get(new float[16]), state.values("gbufferPreviousProjection"));

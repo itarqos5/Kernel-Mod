@@ -38,7 +38,7 @@ public final class KernelShaders {
     private static volatile Future<?> operation;
     private static ShaderPipeline pipeline;
     private static Object historyWorld;
-    private static boolean handDepth, invalidProjection;
+    private static boolean handDepth, invalidProjection, invalidView;
     private KernelShaders() {}
 
     public static Path directory() { return DIRECTORY; }
@@ -151,6 +151,7 @@ public final class KernelShaders {
     public static void beginWorld() {
         handDepth = false;
         invalidProjection = false;
+        invalidView = false;
         if (pipeline != null) pipeline.beginWorld();
     }
     public static void handPass() { handDepth = true; }
@@ -167,6 +168,11 @@ public final class KernelShaders {
             // Minecraft can briefly upload a nonfinite projection while entering a world.
             invalidProjection = !pipeline.captureProjection(matrix, reverseDepth(), zeroToOne);
         } catch (IOException | RuntimeException failure) { renderingFailed(failure); }
+    }
+    public static void captureView(org.joml.Matrix4fc matrix, net.minecraft.world.phys.Vec3 position) {
+        if (pipeline == null || closed || !pipeline.needsView()) return;
+        try { invalidView = !pipeline.captureView(matrix, position.x, position.y, position.z); }
+        catch (IOException | RuntimeException failure) { renderingFailed(failure); }
     }
     public static void scheduleDepth(com.mojang.blaze3d.framegraph.FrameGraphBuilder graph,
         net.minecraft.client.renderer.LevelTargetBundle targets, boolean clouds) {
@@ -203,7 +209,7 @@ public final class KernelShaders {
         *///? }
     }
     public static void renderWorld(net.minecraft.client.DeltaTracker deltaTracker) {
-        if (pipeline == null || closed || invalidProjection) return;
+        if (pipeline == null || closed || invalidProjection || invalidView) return;
         try {
             var minecraft = Minecraft.getInstance();
             //? if >=26.2 {

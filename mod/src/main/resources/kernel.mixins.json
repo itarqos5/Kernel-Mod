@@ -23,6 +23,7 @@
     "shader.ShaderFrameMixin",
     "shader.ShaderDepthMixin",
     "shader.ShaderProjectionMixin",
+    "shader.ShaderViewMixin",
     "render.BlockMixin",
     "render.ChunkTaskMixin",
     "render.ChunkRebuildTaskMixin",

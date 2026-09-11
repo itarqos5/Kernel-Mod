@@ -159,6 +159,13 @@ Implemented:
   untouched; these world inputs do not reconstruct the separately projected hand. Transient invalid
   native projections skip only that frame, preserving the selected pack and previous completed history.
 
+- Shader world model-view matrices and their inverse/previous values copy the native world-render
+  argument alongside its camera position. Rebased current/previous positions, exact integer/fractional
+  coordinates and eye altitude support post-processing on all targets. Horizontal rebasing keeps both
+  frames in the same origin; moves over 1,000 blocks reset temporal images and matrices for packs using
+  these inputs. Native camera/matrix objects remain untouched, with no GPU readback. Bobbing stays in
+  the captured native projection. See `docs/SHADERS.md` for coordinate and hand-stage limits.
+
 - Single-allocation noise interpolation slices on all nine targets: each zero-filled row is allocated once instead of creating and immediately discarding an identical row. Independent restart-only GUI/config control, Lithium ownership guard, native-method allocation checks and world-output verification preserve generation semantics.
 
 - Bounded exact-result reuse for native End island heights, with 1,024 primitive entries and four weak noise-source identities per thread. Native calculations run unchanged on misses; custom noise subclasses retain live evaluation. A separate restart-only setting yields to Lithium, with native differential checks and isolated End generation comparison tasks.
@@ -179,7 +186,7 @@ Not implemented:
 - Physical AMD, Intel, NVIDIA, Apple, and software-driver compatibility/performance validation. The current scheduler is vendor-neutral by construction, not a hardware-tested compatibility claim.
 - Frame-time governor, integrated-server coordination, input changes, server chunk scheduling, broader memory optimization, or broader world-generation optimization.
 - Mod Menu integration, speech-engine/controller validation and complete renderer-option parity.
-- Full-world shader-pack compatibility: terrain/geometry replacement, shadows, separate opaque-depth stages, model-view/camera and hand projection inputs, integer/other unsupported color formats, non-PNG/resource-pack textures, other shader properties/options and macro-generated include filenames. The limited color post-processing pipeline does not imply support for popular full-world shader packs.
+- Full-world shader-pack compatibility: terrain/geometry replacement, shadows, separate opaque-depth stages, hand projection inputs, integer/other unsupported color formats, non-PNG/resource-pack textures, other shader properties/options and macro-generated include filenames. The limited color post-processing pipeline does not imply support for popular full-world shader packs.
 - Sodium, FerriteCore, ModernFix, Lithium, C2ME, Entity Culling, or any other third-party source or bundled code.
 
 The user approved the supplied black-and-white lightning-bolt icon. The mod includes a cleaned, high-resolution rendition with a transparent background at `assets/kernel/icon.png`; the original bolt shape is preserved.

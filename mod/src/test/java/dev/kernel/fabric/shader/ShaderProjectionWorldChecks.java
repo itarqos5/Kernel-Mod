@@ -43,7 +43,7 @@ public final class ShaderProjectionWorldChecks {
         *///? } else {
         /*boolean reverse = false, zero = false;
         *///? }
-        current = new Matrix4f(); ShaderProjectionState.normalize(nativeProjection, reverse, zero, current);
+        current = new Matrix4f(); ShaderMatrixState.normalize(nativeProjection, reverse, zero, current);
         if (!injectedInvalid && current.isFinite()) {
             // Exercise one invalid Kernel capture without modifying Minecraft's own uploaded matrix.
             injectedInvalid = forcedSkip = true;

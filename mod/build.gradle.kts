@@ -323,6 +323,7 @@ tasks {
                 "dev/kernel/fabric/shader/ShaderTextureGlChecks*.class", "dev/kernel/fabric/shader/ShaderWorldGlChecks*.class",
                 "dev/kernel/fabric/shader/ShaderDepthGlChecks*.class", "dev/kernel/fabric/shader/ShaderDepthWorldChecks*.class",
                 "dev/kernel/fabric/shader/ShaderProjectionGlChecks*.class", "dev/kernel/fabric/shader/ShaderProjectionWorldChecks*.class",
+                "dev/kernel/fabric/shader/ShaderCameraGlChecks*.class", "dev/kernel/fabric/shader/ShaderCameraWorldChecks*.class",
                 "dev/kernel/fabric/shader/pack/ShaderTexturePreparationChecks*.class")
         }
         from(rootProject.file("mod/src/test/resources/gui-probe"))

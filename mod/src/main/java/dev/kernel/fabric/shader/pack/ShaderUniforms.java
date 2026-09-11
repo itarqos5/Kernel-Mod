@@ -26,6 +26,20 @@ public final class ShaderUniforms {
             default -> false;
         };
     }
+    public static int modelViewInput(String name) {
+        return switch (name) {
+            case "gbufferModelView" -> 1; case "gbufferModelViewInverse" -> 2; case "gbufferPreviousModelView" -> 4;
+            default -> 0;
+        };
+    }
+    public static int cameraType(String name) {
+        return switch (name) {
+            case "cameraPosition", "previousCameraPosition", "cameraPositionFract", "previousCameraPositionFract" -> GL33C.GL_FLOAT_VEC3;
+            case "cameraPositionInt", "previousCameraPositionInt" -> GL33C.GL_INT_VEC3;
+            case "eyeAltitude" -> GL33C.GL_FLOAT;
+            default -> -1;
+        };
+    }
     public static int scalarType(String name) { return SCALARS.getOrDefault(name, -1); }
     public static int colorBuffer(String name) {
         return switch (name) {

@@ -46,7 +46,7 @@ public final class ShaderProjectionGlChecks {
                     Matrix4f nativeProjection = new Matrix4f().setPerspective(.7f + frame * .08f, 1.5f,
                         reverse ? 512 : .05f, reverse ? .05f : 512, zero).translate(.03f, -.07f, .01f).rotateX(.04f);
                     Matrix4f expected = new Matrix4f();
-                    ShaderProjectionState.normalize(nativeProjection, reverse, zero, expected);
+                    ShaderMatrixState.normalize(nativeProjection, reverse, zero, expected);
                     if (!pipeline.captureProjection(nativeProjection, reverse, zero)) throw new AssertionError("Valid projection rejected");
                     nativeProjection.zero();
                     pipeline.render(texture, 4, 3);
