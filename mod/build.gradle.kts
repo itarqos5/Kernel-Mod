@@ -62,6 +62,17 @@ loom {
         jvmArguments.add("-Dkernel.guiProbe.frameSync=true")
         programArguments.addAll("--width", "960", "--height", "540", "--username", "KernelFrameProbe")
     }
+    for (mode in listOf("Baseline", "Optimized")) {
+        runConfigs.create("worldGeneration$mode") {
+            client()
+            generateRunConfig = false
+            runDirectory = layout.buildDirectory.dir("world-generation-${mode.lowercase()}-game")
+            jvmArguments.add("-Dkernel.guiProbe.worldGeneration=true")
+            // Test-local scheduling control: keep overlapping feature writes reproducible.
+            jvmArguments.add("-Dmax.bg.threads=1")
+            programArguments.addAll("--width", "960", "--height", "540", "--username", "KernelWorldProbe")
+        }
+    }
 }
 
 java {
@@ -178,6 +189,45 @@ tasks {
         jvmArgs("-Xms512m", "-Xmx512m")
     }
 
+    register<JavaExec>("biomeJitterBenchmark") {
+        group = "verification"
+        description = "Measures seed-dependent biome offset reuse against this target's native calculation."
+        dependsOn(testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath
+        mainClass = "dev.kernel.fabric.world.BiomeJitterBenchmark"
+        javaLauncher = kernelJavaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion) }
+        jvmArgs("-Xms512m", "-Xmx512m")
+    }
+
+    for (mode in listOf("Enabled", "Disabled", "Conflict")) {
+        val worldSmoke = register<JavaExec>("worldOptimization${mode}Smoke") {
+            group = "verification"
+            description = "Checks biome selection through real Fabric/Mixin with $mode optimization ownership."
+            dependsOn(testClasses)
+            classpath = sourceSets.test.get().runtimeClasspath.filter { it.exists() }
+            mainClass = "dev.kernel.fabric.world.WorldOptimizationSmoke"
+            javaLauncher = kernelJavaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion) }
+            systemProperty("fabric.development", "true")
+            systemProperty("fabric.gameVersion", sc.current.version)
+            systemProperty("fabric.gameMappingNamespace", if (sc.current.parsed >= "26.1") "official" else "named")
+            systemProperty("kernel.worldProbe.expectedEnabled", mode == "Enabled")
+            workingDir(layout.buildDirectory.dir("world-${mode.lowercase()}-smoke-game").get().asFile)
+            args("--gameDir", workingDir.absolutePath)
+            val conflict = layout.buildDirectory.dir("world-conflict-test-mod").get().asFile
+            if (mode == "Conflict") classpath += files(conflict)
+            doFirst {
+                val config = workingDir.resolve("config/kernel-world.properties")
+                config.parentFile.mkdirs()
+                config.writeText("biome_offsets=${mode != "Disabled"}\n")
+                if (mode == "Conflict") {
+                    conflict.mkdirs()
+                    conflict.resolve("fabric.mod.json").writeText("""{"schemaVersion":1,"id":"lithium","version":"0.0.0","name":"Kernel ownership test marker"}""")
+                }
+            }
+        }
+        check { dependsOn(worldSmoke) }
+    }
+
     register<JavaExec>("rendererSettingsSmoke") {
         group = "verification"
         description = "Checks persisted feature disabling and the settings screen through real Fabric and Mixin."
@@ -257,4 +307,33 @@ tasks {
         }
         doLast { check(game.get().file("frame-sync-complete.json").asFile.isFile) { "Frame Sync probe did not complete." } }
     }
+    for (mode in listOf("Baseline", "Optimized")) {
+        named<JavaExec>("runWorldGeneration$mode") {
+            dependsOn(prepareGuiProbe)
+            classpath += files(layout.buildDirectory.dir("gui-probe-mod"))
+            val game = layout.buildDirectory.dir("world-generation-${mode.lowercase()}-game")
+            doFirst {
+                val directory = game.get().asFile
+                directory.mkdirs()
+                directory.resolve("options.txt").writeText("onboardAccessibility:false\nguiScale:2\nrenderDistance:4\nsimulationDistance:5\n")
+                directory.resolve("config").mkdirs()
+                directory.resolve("config/kernel-world.properties").writeText("biome_offsets=${mode == "Optimized"}\n")
+                val marker = directory.resolve("world-generation-sha256.txt")
+                check(!marker.exists() || marker.delete())
+            }
+            doLast { check(game.get().file("world-generation-sha256.txt").asFile.isFile) { "World generation probe did not complete." } }
+        }
+    }
+    register("worldGenerationComparison") {
+        group = "verification"
+        description = "Creates two isolated worlds and compares nine full remote chunks with biome reuse off/on."
+        dependsOn("runWorldGenerationBaseline", "runWorldGenerationOptimized")
+        doLast {
+            val baseline = layout.buildDirectory.file("world-generation-baseline-game/world-generation-sha256.txt").get().asFile.readText()
+            val optimized = layout.buildDirectory.file("world-generation-optimized-game/world-generation-sha256.txt").get().asFile.readText()
+            check(baseline == optimized) { "Generated block/biome output differs with biome reuse enabled." }
+            logger.lifecycle("Kernel world generation comparison: nine chunk block/biome fingerprints match.")
+        }
+    }
+    named("runWorldGenerationOptimized") { mustRunAfter("runWorldGenerationBaseline") }
 }

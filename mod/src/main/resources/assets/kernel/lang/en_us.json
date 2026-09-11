@@ -1,4 +1,7 @@
 {
+  "kernel.world.biome_offsets": "Biome offset reuse",
+  "kernel.world.biome_offsets.description": "Reuse seed-dependent biome offsets for nearby blocks without caching biome or chunk state. Applies to the client and integrated server after restarting Minecraft.",
+  "kernel.world.lithium": "Disabled because Lithium already owns biome selection.",
   "kernel.frame.setting": "Frame Sync",
   "kernel.frame.description": "Synchronize presentation and cap foreground frames at your monitor's refresh rate. Native menu and idle limits still apply. Shows paced FPS and an estimated uncapped rate; moves into F3 when debug is open.",
   "kernel.frame.managed": "Frame Sync manages the live cap and VSync. Turn it off to use these saved native settings.",

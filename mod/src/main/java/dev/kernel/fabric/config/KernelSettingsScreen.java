@@ -16,6 +16,8 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import dev.kernel.fabric.frame.FrameSync;
+import dev.kernel.fabric.world.WorldConfig;
+import dev.kernel.fabric.world.WorldSettings;
 //? if <1.21.11 {
 /*import net.minecraft.client.GraphicsStatus;
 *///? }
@@ -30,6 +32,7 @@ public final class KernelSettingsScreen extends Screen {
     private final List<VideoSetting<?>> settings = new ArrayList<>();
     private final List<RendererFeature> features = Arrays.stream(RendererFeature.values()).filter(KernelRendererSettings::supported).toList();
     private RendererConfig pending = KernelRendererSettings.saved();
+    private WorldConfig pendingWorld = WorldSettings.saved();
     private String tab = "video";
     private int page;
     private int pages;
@@ -115,7 +118,7 @@ public final class KernelSettingsScreen extends Screen {
         int top = 50, rowHeight = 26;
         int rows = Math.max(1, (height - top - 72) / rowHeight);
         List<VideoSetting<?>> visibleSettings = settings.stream().filter(setting -> setting.tab.equals(tab)).toList();
-        int count = tab.equals("optimizations") ? features.size() : visibleSettings.size() + (tab.equals("video") ? 1 : 0);
+        int count = tab.equals("optimizations") ? features.size() + 1 : visibleSettings.size() + (tab.equals("video") ? 1 : 0);
         pages = Math.max(1, (count + rows - 1) / rows); page = Math.min(page, pages - 1);
         int first = page * rows;
         addRenderableOnly((graphics, mouseX, mouseY, delta) -> {
@@ -125,7 +128,7 @@ public final class KernelSettingsScreen extends Screen {
             KernelUi.text(graphics, font, tr("heading"), left + 34, 28, 0xFFAEB3B9);
             graphics.fill(contentX, 44, contentX + contentWidth, 45, 0x50FFFFFF);
             int textWidth = Math.max(20, contentWidth - 80);
-            String status = KernelTranslations.text(saveFailed ? "kernel.settings.save_failed" : KernelRendererSettings.restartRequired(pending)
+            String status = KernelTranslations.text(saveFailed ? "kernel.settings.save_failed" : restartRequired()
                 ? "kernel.settings.restart" : hasChanges() ? "kernel.settings.pending" : "kernel.settings.applied").getString();
             KernelUi.text(graphics, font, Component.literal(font.plainSubstrByWidth(status, totalWidth)), left, height - 43, saveFailed ? 0xFFFF9B9B : 0xFFB8BEC5);
             if (pages > 1) KernelUi.text(graphics, font, KernelTranslations.text("kernel.settings.page", page + 1, pages), contentX + contentWidth / 2 - 12, height - 64, 0xFFB8BEC5);
@@ -151,7 +154,8 @@ public final class KernelSettingsScreen extends Screen {
         recommend.setTooltip(Tooltip.create(tr("recommendation_description", Runtime.getRuntime().availableProcessors(), Runtime.getRuntime().maxMemory() / (1024 * 1024), preset.renderDistance(), preset.simulationDistance())));
         for (int row = 0; row < rows && first + row < count; row++) {
             int y = top + row * rowHeight;
-            if (tab.equals("optimizations")) addFeature(features.get(first + row), contentX, y, contentWidth);
+            if (tab.equals("optimizations") && first + row == features.size()) addBiomeOffsets(contentX, y, contentWidth);
+            else if (tab.equals("optimizations")) addFeature(features.get(first + row), contentX, y, contentWidth);
             else if (tab.equals("video") && first + row == 0) addFrameSync(contentX, y, contentWidth);
             else addSetting(visibleSettings.get(first + row - (tab.equals("video") ? 1 : 0)), contentX, y, contentWidth);
         }
@@ -218,12 +222,27 @@ public final class KernelSettingsScreen extends Screen {
             .append(KernelTranslations.text("kernel.settings.current", KernelRendererSettings.enabled(feature) ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF))));
     }
     private Component featureLabel(RendererFeature feature) { return pending.enabled(feature) ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF; }
-    private boolean hasChanges() { return pendingFrameSync != FrameSync.enabled() || !pending.equals(KernelRendererSettings.saved()) || settings.stream().anyMatch(VideoSetting::changed); }
+    private void addBiomeOffsets(int x, int y, int width) {
+        Component label = KernelTranslations.text("kernel.world.biome_offsets");
+        row(label, x, y, width, 68);
+        Component state = pendingWorld.biomeOffsets() ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF;
+        var button = addRenderableWidget(new KernelButton(x + width - 64, y + 1, 64, 22,
+            KernelTranslations.text("kernel.settings.value", label, state), pressed -> {
+                pendingWorld = new WorldConfig(!pendingWorld.biomeOffsets()); saveFailed = false; rebuildWidgets();
+            }, () -> pendingWorld.biomeOffsets(), false).visual(state));
+        button.active = !WorldSettings.lithiumPresent();
+        button.setTooltip(Tooltip.create(KernelTranslations.text(WorldSettings.lithiumPresent() ? "kernel.world.lithium" : "kernel.world.biome_offsets.description")
+            .append("\n").append(KernelTranslations.text("kernel.settings.current", WorldSettings.biomeOffsetsActive() ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF))));
+    }
+    private boolean restartRequired() { return KernelRendererSettings.restartRequired(pending) || WorldSettings.restartRequired(pendingWorld); }
+    private boolean hasChanges() { return pendingFrameSync != FrameSync.enabled() || !pending.equals(KernelRendererSettings.saved())
+        || !pendingWorld.equals(WorldSettings.saved()) || settings.stream().anyMatch(VideoSetting::changed); }
 
     private void apply(boolean close) {
         try {
             // Save restart-only settings first. If that fails, leave all live video settings untouched.
             KernelRendererSettings.save(pending);
+            WorldSettings.save(pendingWorld);
             FrameSync.save(pendingFrameSync);
             int mipmaps = minecraft.options.mipmapLevels().get();
             int scale = minecraft.options.guiScale().get();

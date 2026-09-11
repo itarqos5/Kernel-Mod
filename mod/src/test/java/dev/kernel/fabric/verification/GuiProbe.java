@@ -37,6 +37,7 @@ public final class GuiProbe {
     }
 
     public static void frame(Minecraft minecraft) {
+        if (Boolean.getBoolean("kernel.guiProbe.worldGeneration")) { WorldGenerationProbe.frame(minecraft, readyMillis); return; }
         if (Boolean.getBoolean("kernel.guiProbe.frameSync")) { FrameSyncProbe.frame(minecraft, readyMillis); return; }
         if (stage == 4) return;
         try { advance(minecraft); }
@@ -140,6 +141,8 @@ public final class GuiProbe {
                     || !RendererConfig.load(settingsPath).config().equals(RendererConfig.defaults())) {
                     throw new AssertionError("Save failed to persist the settings or return to its parent");
                 }
+                try { WorldSettingsProbe.verify(minecraft, parent); }
+                catch (IOException exception) { throw new AssertionError("World settings persistence", exception); }
                 stage = 4;
                 try {
                     Files.writeString(minecraft.gameDirectory.toPath().resolve("probe-complete.json"),

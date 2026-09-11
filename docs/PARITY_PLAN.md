@@ -61,7 +61,7 @@ are required on all nine targets; GPU render captures and full translucency pari
 
 Lithium's [published configuration inventory](https://github.com/CaffeineMC/lithium/blob/develop/lithium-fabric-mixin-config.md)
 is a discovery aid; acceptance must use the pinned releases above, including their defaults, dependencies
-and documented exceptions. All families below are unimplemented in Kernel:
+and documented exceptions. The families below remain incomplete in Kernel:
 
 - Collision queries and movement: voxel shapes, entity lookup, supporting blocks and exact boundary behavior.
 - Entity lifecycle and ticking: tracking, equipment changes, passenger traversal and client-only work avoidance.
@@ -69,7 +69,8 @@ and documented exceptions. All families below are unimplemented in Kernel:
 - Inventories and block entities: hopper transfer/lookup, change notification, sleeping and wake-up rules.
 - Chunk data: palettes, block access, serialization, tickets and entity collections.
 - Block and fluid work: neighbor updates, redstone, fluid flow, moving block shapes and scheduled/random ticks.
-- World and generation work: allocation reductions, caches, random-number sequencing and deterministic output.
+- World and generation work: [biome-offset reuse](WORLD_OPTIMIZATIONS.md) is implemented; broader allocation reductions,
+  caches, random-number sequencing and deterministic-output validation remain incomplete.
 - Configuration and compatibility: selective disabling, dependency-aware activation, conflict detection and mod hooks.
 
 Kernel's client-only scope includes its integrated server. Dedicated-server distribution is not currently

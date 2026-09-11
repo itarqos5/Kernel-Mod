@@ -12,6 +12,7 @@
     "frame.FrameTimingMixin",
     "frame.FrameHudMixin",
     "frame.FrameDebugMixin",
+    "world.BiomeManagerMixin",
     "render.BlockMixin",
     "render.ChunkTaskMixin",
     "render.ChunkRebuildTaskMixin",

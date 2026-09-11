@@ -111,6 +111,8 @@ Implemented:
 
 - Frame Sync is enabled by default with a persisted GUI toggle, native synchronized presentation, monitor-refresh cap, preserved native FPS/VSync choices and native idle throttles. Actual FPS and a labeled work-time estimate appear in the HUD or F3, with nonblocking GPU timestamps and a CPU-only fallback. See `docs/FRAME_SYNC.md`.
 
+- Bounded per-thread reuse of eight seed-dependent biome-corner offsets, preserving exact native selection and one current biome-source call per query. The cache stores only primitive values, uses full seed/coordinate keys, applies to client and integrated-server queries, has a restart-only GUI/config switch and yields to Lithium. Differential tests, enabled/disabled/conflict Mixin probes and generated-chunk comparisons are described in `docs/WORLD_OPTIMIZATIONS.md`.
+
 Not implemented:
 
 - Automatic game exit or relaunch messaging.
@@ -122,10 +124,10 @@ Not implemented:
 - Resource-pack preparation changes or processed-resource caching.
 - Startup profiler or stutter-attribution overlay.
 - Complete chunk mesh compiler, mesh-storage/draw-command replacement, persistent-mapped or multi-draw GPU submission system, occlusion traversal replacement, or verified Sodium feature/performance parity.
-- Lithium-style game-logic optimizations or verified Lithium feature/performance parity.
+- Full Lithium-style game-logic coverage or verified Lithium feature/performance parity.
 - Persistent startup/transformed-class caches or reproducible end-to-end launch-time improvements. Cache-hit counts and isolated warmed-operation benchmarks are not total-startup evidence.
 - Physical AMD, Intel, NVIDIA, Apple, and software-driver compatibility/performance validation. The current scheduler is vendor-neutral by construction, not a hardware-tested compatibility claim.
-- Frame-time governor, integrated-server coordination, input changes, server chunk scheduling, broader memory optimization, or world-generation optimization.
+- Frame-time governor, integrated-server coordination, input changes, server chunk scheduling, broader memory optimization, or broader world-generation optimization.
 - Mod Menu integration, speech-engine/controller validation and complete renderer-option parity.
 - Sodium, FerriteCore, ModernFix, Lithium, C2ME, Entity Culling, or any other third-party source or bundled code.
 
@@ -133,7 +135,7 @@ The user approved the supplied black-and-white lightning-bolt icon. The mod incl
 
 ## Requested implementation sequence
 
-The user requested full Sodium-style renderer feature parity, then full Lithium-style game-logic feature parity, then the custom pre-Fabric Kernel loading screen whose native window is adopted by Minecraft. The user subsequently authorized launch-time optimizations during renderer work. Keep all nine game targets and both Java generations. The user also requested the themed video settings interface and one-time hardware recommendations, explicitly keeping the loading window while requiring settings to stay closed at startup. The subsequent request to fix pre-Fabric startup moved the loading window forward; same-window OpenGL startup is implemented, while both parity milestones remain incomplete. The user also requested Frame Sync with actual/estimated FPS counters, original shader support with Modrinth/drag-drop installation and Iris incompatibility, and further singleplayer world-loading/generation improvements. Frame Sync is implemented; shader support and the additional world-generation work remain outstanding. Do not count a hot-path optimization as completing a broader renderer subsystem. Pinned comparison versions and acceptance work are tracked in `docs/PARITY_PLAN.md`; cache architecture, recovery and measurement are in `docs/STARTUP_CACHES.md`.
+The user requested full Sodium-style renderer feature parity, then full Lithium-style game-logic feature parity, then the custom pre-Fabric Kernel loading screen whose native window is adopted by Minecraft. The user subsequently authorized launch-time optimizations during renderer work. Keep all nine game targets and both Java generations. The user also requested the themed video settings interface and one-time hardware recommendations, explicitly keeping the loading window while requiring settings to stay closed at startup. The subsequent request to fix pre-Fabric startup moved the loading window forward; same-window OpenGL startup is implemented, while both parity milestones remain incomplete. The user also requested Frame Sync with actual/estimated FPS counters, original shader support with Modrinth/drag-drop installation and Iris incompatibility, and further singleplayer world-loading/generation improvements. Frame Sync and a narrow biome-selection cache are implemented; shader support and broader world-generation work remain outstanding. Do not count a hot-path optimization as completing a broader renderer subsystem. Pinned comparison versions and acceptance work are tracked in `docs/PARITY_PLAN.md`; cache architecture, recovery and measurement are in `docs/STARTUP_CACHES.md`.
 
 ## Ideas under consideration, not decisions
 

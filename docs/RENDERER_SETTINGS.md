@@ -20,6 +20,9 @@ fullscreen changes use the game's window/GUI lifecycle. Optimization switches ta
 next launch, because saving does not unapply Mixins during a frame. Each optimization's tooltip reports
 its current active state. Save errors keep the screen open and log the reason.
 
+The Optimizations tab also contains [Biome offset reuse](WORLD_OPTIMIZATIONS.md). It has a separate
+restart-only world configuration and is disabled when Lithium owns biome selection.
+
 Pages adapt to the GUI height and can be changed with their buttons or the mouse wheel. Native button
 and slider input retain keyboard focus and narration. Text has English translation fallbacks and the
 icon is registered as a dynamic texture, so the screen works with bare Fabric Loader without Fabric

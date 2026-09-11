@@ -23,6 +23,8 @@ public final class KernelFabric implements ClientModInitializer {
         for (RendererFeature feature : RendererFeature.values()) {
             if (KernelRendererSettings.supported(feature)) LOGGER.info("Kernel renderer {}: {}", feature.key(), KernelRendererSettings.enabled(feature) ? "enabled" : "disabled");
         }
+        LOGGER.info("Kernel biome offset reuse: {}", dev.kernel.fabric.world.WorldSettings.lithiumPresent() ? "disabled (Lithium owns biome selection)"
+            : dev.kernel.fabric.world.WorldSettings.biomeOffsetsActive() ? "enabled" : "disabled");
 
         try {
             KnotClientInstaller.InstallResult result = KnotClientInstaller.installForCurrentLaunch();

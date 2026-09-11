@@ -95,6 +95,8 @@ Implemented:
 
 - Frame Sync with monitor-refresh pacing, preserved native FPS/VSync preferences, a GUI toggle, actual FPS and a labeled uncapped estimate that moves into F3. Nonblocking OpenGL timestamps have a CPU-only fallback. See [behavior and validation](docs/FRAME_SYNC.md).
 
+- Bounded per-thread biome-offset reuse for nearby client and integrated-server queries, preserving native biome choices and source calls, with a restart-only GUI switch and a Lithium ownership guard. See [scope, measurements and correctness checks](docs/WORLD_OPTIMIZATIONS.md).
+
 Not implemented:
 
 - First-run relaunch window.
@@ -104,7 +106,7 @@ Not implemented:
 - Early-window adoption for Vulkan or other graphics backends, and a complete OS/driver, fullscreen, DPI and accessibility validation matrix.
 - Persistent startup caches, transformed-class caches, asynchronous Mixin preparation or processed-resource caching.
 - A complete chunk mesh compiler, mesh-storage/draw-command replacement, persistent-mapped or multi-draw GPU submission system, occlusion traversal replacement, or verified Sodium feature/performance parity.
-- Lithium-style game-logic optimizations or verified Lithium feature/performance parity.
+- Full Lithium-style game-logic coverage or verified Lithium feature/performance parity.
 - Reproducible end-to-end launch-time improvements; isolated repeated-operation microbenchmarks do not establish total startup gains.
 - Physical AMD, Intel, NVIDIA, Apple, and software-driver compatibility/performance testing; the current upload scheduler is vendor-neutral by construction but has not been validated on that hardware matrix.
 - Broader memory, server chunk-scheduling, world-generation, or adaptive frame-time scheduling optimizations.
@@ -120,6 +122,6 @@ On a recognized Fabric profile, the mod bundles and installs the Knot Client, ch
 
 The game-profile JVM option `-Dkernel.startupCache=false` disables startup caching. Cache contents live only in the current process and are released when initial loading completes, with a three-minute fallback expiry. See [startup cache behavior and measurement](docs/STARTUP_CACHES.md) for limits, recovery and benchmark commands.
 
-The requested sequence and pinned comparison versions are tracked in [the parity plan](docs/PARITY_PLAN.md). The subsequent loading-window request moved that work forward; same-window OpenGL startup is now implemented. Both full renderer and game-logic parity remain incomplete. Frame Sync is implemented; a shader-pack rendering pipeline and broader world-generation work are still outstanding.
+The requested sequence and pinned comparison versions are tracked in [the parity plan](docs/PARITY_PLAN.md). The subsequent loading-window request moved that work forward; same-window OpenGL startup is now implemented. Both full renderer and game-logic parity remain incomplete. Frame Sync and a narrow biome-selection cache are implemented; a shader-pack rendering pipeline and broader world-generation work are still outstanding.
 
 Contributor and coding-agent rules are documented in [AGENTS.md](AGENTS.md).
