@@ -15,8 +15,9 @@ public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBuffe
         java.util.Objects.requireNonNull(buffers);
     }
     public PreparedShaderPack(String filename, List<Pass> passes) { this(filename, passes, ShaderBufferSettings.defaults()); }
-    public record Pass(String name, String vertex, String fragment, List<Integer> drawTargets) {
+    public record Pass(String name, String vertex, String fragment, List<Integer> drawTargets, int mipmaps) {
         public Pass {
+            if ((mipmaps & ~0xffff) != 0) throw new IllegalArgumentException("Mipmap mask exceeds sixteen buffers");
             drawTargets = List.copyOf(drawTargets);
             if (drawTargets.isEmpty() || drawTargets.size() > ShaderDrawTargets.OUTPUT_COUNT)
                 throw new IllegalArgumentException("A pass requires one to eight color targets");
@@ -31,6 +32,9 @@ public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBuffe
         }
         public Pass(String name, String vertex, String fragment) {
             this(name, vertex, fragment, ShaderDrawTargets.defaults(name.equals("final")));
+        }
+        public Pass(String name, String vertex, String fragment, List<Integer> drawTargets) {
+            this(name, vertex, fragment, drawTargets, 0);
         }
     }
 
@@ -57,10 +61,11 @@ public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBuffe
                 String vertexSource = vertex ? archive.expand(name + ".vsh").source() : ShaderSource.DEFAULT_VERTEX;
                 if (UNSUPPORTED.matcher(fragmentSource).find() || UNSUPPORTED.matcher(vertexSource).find())
                     throw new IOException("This pack requires unsupported buffer configuration in " + name);
-                buffers.read(fragmentSource, name + ".fsh"); buffers.read(vertexSource, name + ".vsh");
+                int mipmaps = buffers.read(fragmentSource, name + ".fsh", true);
+                buffers.read(vertexSource, name + ".vsh", false);
                 var drawTargets = ShaderDrawTargets.read(fragmentSource, name.equals("final"));
                 passes.add(new Pass(name, vertex ? ShaderSource.translate(vertexSource, true) : vertexSource,
-                    ShaderSource.translate(fragmentSource, false), drawTargets));
+                    ShaderSource.translate(fragmentSource, false), drawTargets, mipmaps));
             }
             if (passes.isEmpty()) throw new IOException("No supported composite or final shader programs were found");
             return new PreparedShaderPack(path.getFileName().toString(), passes, buffers.build());

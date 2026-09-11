@@ -19,11 +19,11 @@ public final class ShaderPipeline implements AutoCloseable {
         Map.entry("viewWidth", GL33C.GL_FLOAT), Map.entry("viewHeight", GL33C.GL_FLOAT), Map.entry("aspectRatio", GL33C.GL_FLOAT),
         Map.entry("frameCounter", GL33C.GL_INT), Map.entry("frameTime", GL33C.GL_FLOAT), Map.entry("frameTimeCounter", GL33C.GL_FLOAT));
     private record Uniform(String name, int location, int type, int buffer) {}
-    private record Program(int handle, List<Uniform> uniforms, int[] targets, int written) {}
+    private record Program(int handle, List<Uniform> uniforms, int[] targets, int written, int mipmaps) {}
     private final List<Program> programs = new ArrayList<>();
     private final int[] samplerBuffers = new int[16], unitForBuffer = new int[16];
     private ShaderColorTargets targets;
-    private int vao, sampler, frame, textureUnits, outputSlots;
+    private int vao, sampler, mipmapSampler, frame, textureUnits, outputSlots;
     private final long started = System.nanoTime();
     private long lastFrame = started;
     private boolean closed;
@@ -33,10 +33,11 @@ public final class ShaderPipeline implements AutoCloseable {
             state.prepare();
             try {
                 for (var pass : pack.passes()) programs.add(compile(pass));
-                int required = 1, sampled = 0;
+                int required = 1, sampled = 0, mipmaps = 0;
                 boolean legacyDepth = false;
                 for (var program : programs) {
                     required |= program.written;
+                    mipmaps |= program.mipmaps;
                     for (var uniform : program.uniforms) if (uniform.buffer >= 0) {
                         sampled |= 1 << uniform.buffer;
                         legacyDepth |= uniform.name.equals("gdepth");
@@ -53,13 +54,10 @@ public final class ShaderPipeline implements AutoCloseable {
                 if (textureUnits > GL33C.glGetInteger(GL33C.GL_MAX_TEXTURE_IMAGE_UNITS)
                     || outputSlots > GL33C.glGetInteger(GL33C.GL_MAX_DRAW_BUFFERS))
                     throw new IOException("This shader exceeds the graphics device's texture/output limits");
-                targets = new ShaderColorTargets(required, legacyDepth ? pack.buffers().withLegacyDepth() : pack.buffers());
+                targets = new ShaderColorTargets(required, legacyDepth ? pack.buffers().withLegacyDepth() : pack.buffers(), mipmaps);
                 vao = GL33C.glGenVertexArrays();
-                sampler = GL33C.glGenSamplers();
-                GL33C.glSamplerParameteri(sampler, GL33C.GL_TEXTURE_MIN_FILTER, GL33C.GL_LINEAR);
-                GL33C.glSamplerParameteri(sampler, GL33C.GL_TEXTURE_MAG_FILTER, GL33C.GL_LINEAR);
-                GL33C.glSamplerParameteri(sampler, GL33C.GL_TEXTURE_WRAP_S, GL33C.GL_CLAMP_TO_EDGE);
-                GL33C.glSamplerParameteri(sampler, GL33C.GL_TEXTURE_WRAP_T, GL33C.GL_CLAMP_TO_EDGE);
+                sampler = sampler(false);
+                if (mipmaps != 0) mipmapSampler = sampler(true);
             } catch (IOException | RuntimeException failure) { close(); throw failure; }
         }
     }
@@ -72,12 +70,14 @@ public final class ShaderPipeline implements AutoCloseable {
             float elapsed = ((now - started) * 1.0e-9f) % 3600.0f; lastFrame = now;
             GL33C.glBindVertexArray(vao); GL33C.glViewport(0, 0, width, height);
             for (var program : programs) {
+                GL33C.glActiveTexture(GL33C.GL_TEXTURE0);
+                targets.mipmaps(program.mipmaps);
                 targets.outputs(program.targets);
                 GL33C.glUseProgram(program.handle);
                 for (int unit = 0; unit < textureUnits; unit++) {
                     GL33C.glActiveTexture(GL33C.GL_TEXTURE0 + unit);
                     GL33C.glBindTexture(GL33C.GL_TEXTURE_2D, targets.texture(samplerBuffers[unit]));
-                    GL33C.glBindSampler(unit, sampler);
+                    GL33C.glBindSampler(unit, (program.mipmaps & (1 << samplerBuffers[unit])) == 0 ? sampler : mipmapSampler);
                 }
                 for (var uniform : program.uniforms) {
                     if (uniform.buffer >= 0) GL33C.glUniform1i(uniform.location, unitForBuffer[uniform.buffer]);
@@ -141,7 +141,10 @@ public final class ShaderPipeline implements AutoCloseable {
                     uniforms.add(new Uniform(name, GL33C.glGetUniformLocation(program, name), type.get(0), buffer));
                 }
             }
-            var result = new Program(program, List.copyOf(uniforms), pass.drawTargets().stream().mapToInt(Integer::intValue).toArray(), written); program = 0; return result;
+            int sampled = 0;
+            for (var uniform : uniforms) if (uniform.buffer >= 0) sampled |= 1 << uniform.buffer;
+            var result = new Program(program, List.copyOf(uniforms), pass.drawTargets().stream().mapToInt(Integer::intValue).toArray(), written,
+                pass.mipmaps() & sampled); program = 0; return result;
         } finally {
             if (program != 0) GL33C.glDeleteProgram(program);
             if (vertex != 0) GL33C.glDeleteShader(vertex); if (fragment != 0) GL33C.glDeleteShader(fragment);
@@ -167,6 +170,14 @@ public final class ShaderPipeline implements AutoCloseable {
             }
         };
     }
+    private static int sampler(boolean mipmaps) {
+        int sampler = GL33C.glGenSamplers();
+        GL33C.glSamplerParameteri(sampler, GL33C.GL_TEXTURE_MIN_FILTER, mipmaps ? GL33C.GL_LINEAR_MIPMAP_LINEAR : GL33C.GL_LINEAR);
+        GL33C.glSamplerParameteri(sampler, GL33C.GL_TEXTURE_MAG_FILTER, GL33C.GL_LINEAR);
+        GL33C.glSamplerParameteri(sampler, GL33C.GL_TEXTURE_WRAP_S, GL33C.GL_CLAMP_TO_EDGE);
+        GL33C.glSamplerParameteri(sampler, GL33C.GL_TEXTURE_WRAP_T, GL33C.GL_CLAMP_TO_EDGE);
+        return sampler;
+    }
     @Override public void close() {
         if (closed) return; closed = true;
         if (targets != null) targets.close();
@@ -174,6 +185,7 @@ public final class ShaderPipeline implements AutoCloseable {
         programs.clear();
         if (vao != 0) GL33C.glDeleteVertexArrays(vao);
         if (sampler != 0) GL33C.glDeleteSamplers(sampler);
-        vao = sampler = 0;
+        if (mipmapSampler != 0) GL33C.glDeleteSamplers(mipmapSampler);
+        vao = sampler = mipmapSampler = 0;
     }
 }

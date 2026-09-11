@@ -38,4 +38,16 @@ public record ShaderBufferSettings(List<Buffer> buffers) {
             bytes += 2L * buffers.get(buffer).format().bytes();
         return bytes;
     }
+    public long allocationBytes(int required, int mipmaps, int width, int height) {
+        if (width <= 0 || height <= 0) throw new IllegalArgumentException("Positive buffer dimensions required");
+        long base = (long) width * height, mipPixels = 0;
+        while (width > 1 || height > 1) {
+            width = Math.max(1, width / 2); height = Math.max(1, height / 2);
+            mipPixels += (long) width * height;
+        }
+        try {
+            return Math.addExact(Math.multiplyExact(base, bytesPerPixel(required)),
+                Math.multiplyExact(mipPixels, bytesPerPixel(required & mipmaps)));
+        } catch (ArithmeticException overflow) { return Long.MAX_VALUE; }
+    }
 }

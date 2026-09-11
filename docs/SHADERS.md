@@ -29,8 +29,8 @@ images and writes separate alternate images, then flips its declared targets. Pa
 auxiliary buffers preserve the displayed color. `final` always writes the displayed color image.
 Linear filtering and edge clamping are supplied by an owned sampler. Intermediates default to RGBA8 at
 the native window resolution; required buffer pairs are allocated lazily within a 512 MiB combined budget.
-The budget counts both images using each selected format's declared bytes per pixel; driver overhead
-and internal padding can add physical GPU memory beyond that accounting.
+The budget counts both images and any complete mip chains using each selected format's declared bytes
+per pixel; driver overhead and internal padding can add physical GPU memory beyond that accounting.
 There is no automatic shader download or activation.
 
 Supported uniforms are scalar `viewWidth`, `viewHeight`, `aspectRatio`, `frameTime`, `frameTimeCounter`
@@ -85,8 +85,23 @@ Expansion is limited to 32 levels, 16 million source/expanded characters and 262
 Cached line arrays are reused during recursive expansion. Backslash/newline pairs are handled before
 comments, including on older GLSL versions, while subsequent line numbers and include source IDs remain
 available to the compiler. Macro-generated include filenames are not supported.
-Mipmap generation, Minecraft shader macros, fragment depth writes and discard-based passes are rejected
-until their semantics are implemented. A literal `MipmapEnabled = false` declaration is accepted.
+An unconditional fragment-program declaration such as `const bool colortex7MipmapEnabled = true;`
+generates that buffer's mip chain immediately before the requesting pass. This request is local to each
+pass; a later request regenerates the chain after intervening writes. Only active sampler inputs need
+generation/storage. Mipmap-enabled inputs use trilinear minification, with linear magnification and edge
+clamping; other inputs retain base-level linear sampling. Literal false disables the request for that pass.
+Vertex-stage requests are rejected. These controls support `texture2DLod`/`textureLod` in fullscreen
+programs within the existing GLSL adapter limits.
+
+Kernel creates mip levels only on its owned images. When the native world image needs mipmaps, it is
+first copied to an owned buffer; Minecraft's source texture and sampler settings remain unchanged.
+Chains include all levels down to 1×1, with each odd dimension halved and rounded down, independently
+clamped to at least one. Allocation checks account for both complete chains, detect arithmetic overflow
+and enforce the device's texture-size limit. Shader operations still add rendering work; mipmaps are a
+shader capability, not a general FPS optimization.
+
+Minecraft shader macros, fragment depth writes and discard-based passes are rejected until their
+semantics are implemented.
 
 Terrain/geometry programs, shadow rendering, depth-based effects, integer/other unsupported formats, compute or
 geometry stages, shader properties/options, custom textures and broad
@@ -124,7 +139,9 @@ per-frame clearing, preservation of the main color through auxiliary-only passes
 bounds, indexed GL-state restoration and failure recovery. Additional native fixtures check all twelve
 allocated formats, channel precision, normalized clamping, values outside 0–1 in float images, main-image
 conversion, custom clears, history across frames, explicit reset, resize, legacy `gdepth` precision and
-float-format allocation limits. It then
+float-format allocation limits. Mipmap fixtures additionally check all twelve formats, checkerboard
+downsampling, regeneration after pass feedback, source texture ownership, per-pass configuration,
+odd/one-dimensional byte accounting, device-size rejection and sampler/state restoration. It then
 imports a ZIP through the native drop handler, persists activation, creates a separate flat test world,
 checks the world-pass pixels, rejects an unsupported shader while retaining the working one, and disables
 shaders before saving/exiting. It never opens existing user worlds. Physical GPU/OS coverage remains
@@ -144,10 +161,10 @@ same-window startup with shader integration installed. The multi-target update p
 pixel and gameplay/GUI probes. The final parser checks additionally exercise conditional scope changes
 and a megabyte of malformed comment prefixes. Release artifacts are checked for exact game/Java
 metadata, matching bundled bootstrap bytes and absence of test or third-party implementation classes.
-The color-format/history update passed `buildAll`, 1,106 unit tests in 277 suites, 27 world
+The mipmap update passed `buildAll`, 1,142 unit tests in 286 suites, 27 world
 activation/conflict probes, the renderer/bootstrap checks and all nine native shader/gameplay probes.
-The twelve-format pixel, precision, conversion and retained-history checks run inside each supported
-Minecraft target. Release verification confirms nine mod JARs and one matching Knot Client JAR.
+The twelve-format pixel, precision, conversion, retained-history and mipmap checks run inside each
+supported Minecraft target. Release verification confirms nine mod JARs and one matching Knot Client JAR.
 
 Buffer routing follows the documented [render-target declarations](https://shaders.properties/current/reference/constants/rendertargets/)
 and [color-buffer conventions](https://shaders.properties/current/reference/buffers/colortex/), within the
@@ -155,6 +172,7 @@ explicit format/stage limits above. Buffer settings follow the documented
 [formats](https://shaders.properties/current/reference/constants/buffer_format/),
 [clear modes](https://shaders.properties/current/reference/constants/buffer_clear/) and
 [clear colors](https://shaders.properties/current/reference/constants/buffer_clear_color/) within those limits.
+Per-program generation follows the [color mipmap declarations](https://shaders.properties/current/reference/constants/colortex_mipmaps/).
 The implementation and test fixtures are original Kernel code.
 
 API references: [project search](https://docs.modrinth.com/api/operations/searchprojects/) and

@@ -10,6 +10,7 @@ import org.lwjgl.opengl.GL33C;
 final class ShaderColorTargets implements AutoCloseable {
     private static final long MAX_BYTES = 512L * 1024 * 1024;
     private final int required;
+    private final int mipmaps;
     private final ShaderBufferSettings settings;
     private final float[][] clearColors = new float[16][];
     private final int[] textures = new int[32], front = new int[16], current = new int[16];
@@ -18,7 +19,11 @@ final class ShaderColorTargets implements AutoCloseable {
     private boolean resetHistory = true;
 
     ShaderColorTargets(int required, ShaderBufferSettings settings) {
+        this(required, settings, 0);
+    }
+    ShaderColorTargets(int required, ShaderBufferSettings settings, int mipmaps) {
         this.required = required | 1; this.settings = settings;
+        this.mipmaps = mipmaps & this.required;
         for (int buffer = 0; buffer < 16; buffer++) clearColors[buffer] = settings.buffers().get(buffer).color().array();
     }
     int texture(int buffer) { return current[buffer]; }
@@ -40,9 +45,16 @@ final class ShaderColorTargets implements AutoCloseable {
                 GL33C.glClearBufferfv(GL33C.GL_COLOR, 0, clearColors[buffer]);
             }
         }
-        if (settings.buffers().getFirst().format() == ShaderColorFormat.RGBA8) current[0] = source;
+        if (settings.buffers().getFirst().format() == ShaderColorFormat.RGBA8 && (mipmaps & 1) == 0) current[0] = source;
         else blit(source, current[0]); // Apply declared channel/precision semantics before the first read.
         resetHistory = false;
+    }
+
+    void mipmaps(int requested) {
+        for (int buffer = 0; buffer < 16; buffer++) if ((requested & mipmaps & (1 << buffer)) != 0) {
+            GL33C.glBindTexture(GL33C.GL_TEXTURE_2D, current[buffer]);
+            GL33C.glGenerateMipmap(GL33C.GL_TEXTURE_2D);
+        }
     }
 
     void outputs(int[] buffers) throws IOException {
@@ -96,9 +108,10 @@ final class ShaderColorTargets implements AutoCloseable {
 
     private void resize(int width, int height) throws IOException {
         if (this.width == width && this.height == height) return;
-        long pixels = (long) width * height;
-        if (width <= 0 || height <= 0 || pixels > MAX_BYTES / settings.bytesPerPixel(required))
+        if (width <= 0 || height <= 0 || settings.allocationBytes(required, mipmaps, width, height) > MAX_BYTES)
             throw new IOException("Shader color buffers exceed the 512 MiB allocation budget at this resolution");
+        int limit = GL33C.glGetInteger(GL33C.GL_MAX_TEXTURE_SIZE);
+        if (width > limit || height > limit) throw new IOException("Shader dimensions exceed the graphics device's texture limit");
         close();
         try {
             drawFramebuffer = GL33C.glGenFramebuffers(); readFramebuffer = GL33C.glGenFramebuffers();
@@ -109,14 +122,29 @@ final class ShaderColorTargets implements AutoCloseable {
                     int texture = GL33C.glGenTextures(); textures[buffer * 2 + side] = texture;
                     GL33C.glBindTexture(GL33C.GL_TEXTURE_2D, texture);
                     GL33C.glTexImage2D(GL33C.GL_TEXTURE_2D, 0, format.internal(), width, height, 0, format.external(), format.type(), 0L);
+                    allocated(0, width, height);
                     GL33C.glTexParameteri(GL33C.GL_TEXTURE_2D, GL33C.GL_TEXTURE_MIN_FILTER, GL33C.GL_LINEAR);
                     GL33C.glTexParameteri(GL33C.GL_TEXTURE_2D, GL33C.GL_TEXTURE_MAG_FILTER, GL33C.GL_LINEAR);
                     GL33C.glTexParameteri(GL33C.GL_TEXTURE_2D, GL33C.GL_TEXTURE_WRAP_S, GL33C.GL_CLAMP_TO_EDGE);
                     GL33C.glTexParameteri(GL33C.GL_TEXTURE_2D, GL33C.GL_TEXTURE_WRAP_T, GL33C.GL_CLAMP_TO_EDGE);
+                    int levels = (mipmaps & (1 << buffer)) == 0 ? 0 : 31 - Integer.numberOfLeadingZeros(Math.max(width, height));
+                    GL33C.glTexParameteri(GL33C.GL_TEXTURE_2D, GL33C.GL_TEXTURE_MAX_LEVEL, levels);
+                    // Bound and allocate complete chains before any pass starts sampling them.
+                    for (int level = 1, w = width, h = height; level <= levels; level++) {
+                        w = Math.max(1, w / 2); h = Math.max(1, h / 2);
+                        GL33C.glTexImage2D(GL33C.GL_TEXTURE_2D, level, format.internal(), w, h, 0, format.external(), format.type(), 0L);
+                        allocated(level, w, h);
+                    }
                 }
             }
             this.width = width; this.height = height;
-        } catch (RuntimeException failure) { close(); throw failure; }
+        } catch (IOException | RuntimeException failure) { close(); throw failure; }
+    }
+
+    private static void allocated(int level, int width, int height) throws IOException {
+        if (GL33C.glGetTexLevelParameteri(GL33C.GL_TEXTURE_2D, level, GL33C.GL_TEXTURE_WIDTH) != width
+            || GL33C.glGetTexLevelParameteri(GL33C.GL_TEXTURE_2D, level, GL33C.GL_TEXTURE_HEIGHT) != height)
+            throw new IOException("The graphics device could not allocate a shader color image");
     }
 
     private static void attach(int target, int slot, int texture) {

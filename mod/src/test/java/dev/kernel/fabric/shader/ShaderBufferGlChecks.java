@@ -27,6 +27,7 @@ public final class ShaderBufferGlChecks {
                 conversion(source);
                 legacyDepth(source);
                 budget(source);
+                mipmaps(source);
                 if (GL33C.glGetError() != GL33C.GL_NO_ERROR) throw new AssertionError("Shader buffer checks generated a GL error");
             } finally { GL33C.glDeleteTextures(source); }
         } finally {
@@ -40,7 +41,7 @@ public final class ShaderBufferGlChecks {
         for (var format : ShaderColorFormat.values()) {
             var parser = new ShaderBufferDirectives();
             parser.read("const int colortex2Format = " + format + ";", "test");
-            try (var targets = new ShaderColorTargets(5, parser.build())) {
+            try (var targets = new ShaderColorTargets(5, parser.build(), 4)) {
                 targets.begin(source, 8, 5);
                 GL33C.glBindTexture(GL33C.GL_TEXTURE_2D, targets.texture(2));
                 if (GL33C.glGetTexLevelParameteri(GL33C.GL_TEXTURE_2D, 0, GL33C.GL_TEXTURE_INTERNAL_FORMAT) != format.internal())
@@ -49,7 +50,8 @@ public final class ShaderBufferGlChecks {
                 if (bits != 8 * format.bytes() / format.channels()) throw new AssertionError("Wrong precision: " + format);
                 for (float[] clear : new float[][]{{.1234567f,.2345678f,.3456789f,.456789f},{2.123456f,-.375f,2f,.625f}}) {
                     targets.outputs(new int[]{2}); GL33C.glClearBufferfv(GL33C.GL_COLOR, 0, clear); targets.flip(new int[]{2});
-                    float[] values = pixels(targets.texture(2), 8, 5);
+                    targets.mipmaps(4);
+                    float[] values = pixels(targets.texture(2), 2, 1, 2);
                     for (int index = 0; index < values.length; index++) {
                         int channel = index % 4;
                         float expected = channel < format.channels() ? clear[channel] : channel == 3 ? 1 : 0;
@@ -120,6 +122,84 @@ public final class ShaderBufferGlChecks {
             if (!GL33C.glIsTexture(previous)) throw new AssertionError("Budget rejection destroyed usable buffers");
         }
     }
+    private static void mipmaps(int source) throws Exception {
+        var parser = new ShaderBufferDirectives();
+        if (parser.read("const bool gaux4MipmapEnabled = true;", "composite.fsh", true) != 128
+            || parser.read("const bool gaux4MipmapEnabled = false;", "final.fsh", true) != 0)
+            throw new AssertionError("Mipmap requests leaked between passes");
+        if (parser.build().allocationBytes(1, 1, 8, 5) != 408
+            || parser.build().allocationBytes(1, 0, 8, 5) != 320
+            || parser.build().allocationBytes(1, 1, 1, 9) != 128
+            || parser.build().allocationBytes(0xffff, 0xffff, Integer.MAX_VALUE, Integer.MAX_VALUE) != Long.MAX_VALUE)
+            throw new AssertionError("Mipmap memory accounting differs");
+        for (int width : new int[]{8, 16}) {
+            var prepared = pack(Map.of("final.fsh", "#version 120\nconst bool colortex0MipmapEnabled = true;\n"
+                + "uniform sampler2D colortex0; varying vec2 texcoord; void main(){gl_FragColor=texture2DLod(colortex0,texcoord,4.0);}"));
+            try (var pipeline = new ShaderPipeline(prepared)) {
+                checkerboard(source, width, 8); renderChecked(pipeline, source, width, 8);
+                assertSolid(source, width, 8, new float[]{.5f,.5f,.5f,1}, 0, "source mipmaps");
+                GL33C.glBindTexture(GL33C.GL_TEXTURE_2D, source);
+                if (GL33C.glGetTexLevelParameteri(GL33C.GL_TEXTURE_2D, 1, GL33C.GL_TEXTURE_WIDTH) != 0)
+                    throw new AssertionError("Native world texture acquired Kernel mipmaps");
+            }
+        }
+        // Regenerate the current side immediately before each requesting pass, after previous writes.
+        var files = new LinkedHashMap<String, String>();
+        files.put("composite.fsh", "#version 120\n/* RENDERTARGETS:7 */\nvoid main(){gl_FragColor=vec4(vec3(mod(gl_FragCoord.x+gl_FragCoord.y,2.0)),1);}");
+        files.put("composite1.fsh", "#version 120\n/* RENDERTARGETS:7 */\nconst bool colortex7MipmapEnabled=true;\n"
+            + "uniform sampler2D gaux4; varying vec2 texcoord;void main(){gl_FragColor=texture2DLod(gaux4,texcoord,3.0)*vec4(.5,.5,.5,1);}");
+        files.put("final.fsh", "#version 120\nconst bool gaux4MipmapEnabled=true;\n"
+            + "uniform sampler2D colortex7; varying vec2 texcoord;void main(){gl_FragColor=texture2DLod(colortex7,texcoord,3.0);}");
+        try (var pipeline = new ShaderPipeline(pack(files))) {
+            for (int width : new int[]{8, 16}) for (int frame = 0; frame < 2; frame++) {
+                upload(source, width, 8); renderChecked(pipeline, source, width, 8);
+                assertSolid(source, width, 8, new float[]{.25f,.25f,.25f,1}, 0, "regenerated mipmaps");
+            }
+        }
+        upload(source, 8, 5);
+        try (var targets = new ShaderColorTargets(1, ShaderBufferSettings.defaults(), 1)) {
+            // The base pair fits; the complete pair of chains exceeds the budget.
+            try { targets.begin(source, 8000, 8000); throw new AssertionError("Mipmap allocation exceeded budget"); }
+            catch (java.io.IOException expected) { if (!expected.getMessage().contains("budget")) throw expected; }
+        }
+        try (var targets = new ShaderColorTargets(1, ShaderBufferSettings.defaults(), 0)) {
+            targets.begin(source, 8, 5);
+            int previous = targets.texture(0), limit = GL33C.glGetInteger(GL33C.GL_MAX_TEXTURE_SIZE);
+            try { targets.begin(source, limit + 1, 1); throw new AssertionError("Oversized texture accepted"); }
+            catch (java.io.IOException expected) { if (!expected.getMessage().contains("texture limit")) throw expected; }
+            if (!GL33C.glIsTexture(previous)) throw new AssertionError("Dimension rejection destroyed usable buffers");
+        }
+        System.out.println("Kernel shader mipmap checks passed: per-pass requests, memory accounting, source ownership, downsampling, feedback, regeneration and GL state.");
+    }
+    private static void renderChecked(ShaderPipeline pipeline, int source, int width, int height) throws Exception {
+        try (var state = new ShaderGlState(1, 1)) {
+            int sentinel = GL33C.glGenSamplers();
+            try {
+                GL33C.glBindSampler(0, sentinel); GL33C.glActiveTexture(GL33C.GL_TEXTURE3);
+                GL33C.glColorMaski(0, false, true, false, false); GL33C.glEnablei(GL33C.GL_BLEND, 0);
+                pipeline.render(source, width, height);
+                if (GL33C.glGetInteger(GL33C.GL_ACTIVE_TEXTURE) != GL33C.GL_TEXTURE3) throw new AssertionError("Mipmap active texture leak");
+                GL33C.glActiveTexture(GL33C.GL_TEXTURE0);
+                if (GL33C.glGetInteger(GL33C.GL_SAMPLER_BINDING) != sentinel
+                    || GL33C.glGetInteger(GL33C.GL_TEXTURE_BINDING_2D) != source)
+                    throw new AssertionError("Mipmap texture/sampler state leak");
+                try (var stack = org.lwjgl.system.MemoryStack.stackPush()) {
+                    var mask = stack.malloc(4); GL33C.glGetBooleani_v(GL33C.GL_COLOR_WRITEMASK, 0, mask);
+                    if (mask.get(0) != 0 || mask.get(1) == 0 || mask.get(2) != 0 || mask.get(3) != 0 || !GL33C.glIsEnabledi(GL33C.GL_BLEND, 0))
+                        throw new AssertionError("Mipmap blend/mask state leak");
+                }
+            } finally { GL33C.glDeleteSamplers(sentinel); }
+        }
+    }
+    private static void checkerboard(int texture, int width, int height) {
+        var data = MemoryUtil.memAlloc(width * height * 4);
+        try {
+            for (int y = 0; y < height; y++) for (int x = 0; x < width; x++) for (int channel = 0; channel < 4; channel++)
+                data.put((y * width + x) * 4 + channel, (byte) (channel == 3 || ((x + y) & 1) != 0 ? 255 : 0));
+            GL33C.glActiveTexture(GL33C.GL_TEXTURE0); GL33C.glBindTexture(GL33C.GL_TEXTURE_2D, texture);
+            GL33C.glTexImage2D(GL33C.GL_TEXTURE_2D, 0, GL33C.GL_RGBA8, width, height, 0, GL33C.GL_RGBA, GL33C.GL_UNSIGNED_BYTE, data);
+        } finally { MemoryUtil.memFree(data); }
+    }
     private static String sample(String sampler, String expression) {
         return "#version 120\nvarying vec2 texcoord; uniform sampler2D " + sampler
             + "; void main(){vec4 c=texture2D(" + sampler + ",texcoord);gl_FragColor=" + expression + ";}";
@@ -145,10 +225,13 @@ public final class ShaderBufferGlChecks {
         } finally { MemoryUtil.memFree(data); }
     }
     private static float[] pixels(int texture, int width, int height) {
+        return pixels(texture, width, height, 0);
+    }
+    private static float[] pixels(int texture, int width, int height, int level) {
         var data = MemoryUtil.memAllocFloat(width * height * 4);
         try {
             GL33C.glActiveTexture(GL33C.GL_TEXTURE0); GL33C.glBindTexture(GL33C.GL_TEXTURE_2D, texture);
-            GL33C.glGetTexImage(GL33C.GL_TEXTURE_2D, 0, GL33C.GL_RGBA, GL33C.GL_FLOAT, data);
+            GL33C.glGetTexImage(GL33C.GL_TEXTURE_2D, level, GL33C.GL_RGBA, GL33C.GL_FLOAT, data);
             float[] result = new float[data.remaining()]; data.get(result); return result;
         } finally { MemoryUtil.memFree(data); }
     }

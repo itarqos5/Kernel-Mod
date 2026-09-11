@@ -117,7 +117,7 @@ class ShaderPackTest {
         assertEquals(List.of(3, 15), prepared.drawTargets());
         assertTrue(prepared.fragment().contains("layout(location = 1) out vec4 kernel_fragColor1;"));
         for (String directive : List.of("const int colortex7Format = RGBA8I;", "const bool gaux4Clear = UNKNOWN;",
-            "const vec4 gcolorClearColor = vec4(0);", "const bool compositeMipmapEnabled = true;", "GAUX4FORMAT")) {
+            "const vec4 gcolorClearColor = vec4(0);", "const bool compositeMipmapEnabled = FLAG;", "GAUX4FORMAT")) {
             var configured = zip("configured.zip", Map.of("shaders/composite.fsh", shader + "\n/* " + directive + " */"));
             assertThrows(java.io.IOException.class, () -> PreparedShaderPack.read(configured));
         }
@@ -133,6 +133,16 @@ class ShaderPackTest {
         assertFalse(pack.buffers().buffers().get(7).clear());
         files.put("shaders/final.vsh", "/* const int colortex0Format = RGBA8; */");
         assertThrows(java.io.IOException.class, () -> PreparedShaderPack.read(zip("conflict.zip", files)));
+    }
+    @Test void mipmapConfigurationIsPerPassAndFragmentOnly() throws Exception {
+        String shader = "#version 120\nvoid main(){gl_FragColor=vec4(1);}";
+        var files = new HashMap<>(Map.of("shaders/composite.fsh", shader + "\nconst bool gaux4MipmapEnabled=true;",
+            "shaders/final.fsh", shader + "\nconst bool colortex7MipmapEnabled=false;"));
+        var prepared = PreparedShaderPack.read(zip("mipmaps.zip", files));
+        assertEquals(128, prepared.passes().getFirst().mipmaps());
+        assertEquals(0, prepared.passes().getLast().mipmaps());
+        files.put("shaders/composite.vsh", "/* const bool colortex0MipmapEnabled=true; */");
+        assertThrows(java.io.IOException.class, () -> PreparedShaderPack.read(zip("vertex-mipmaps.zip", files)));
     }
     @Test void shaderSelectionSurvivesUnknownSettingsAndRejectsPaths() throws Exception {
         Path file = temporary.resolve("kernel-shaders.properties");

@@ -116,9 +116,9 @@ from completing Minecraft initialization instantly.
 
 - [Frame Sync](FRAME_SYNC.md) is implemented: monitor-refresh cap and synchronized presentation,
   with actual paced FPS and a clearly labeled uncapped estimate in the HUD or F3.
-- [Original color post-processing](SHADERS.md) with sixteen logical color buffers, twelve normalized/floating-point formats, retained auxiliary history and eight simultaneous outputs, Modrinth discovery/installation, ZIP drag/drop and Iris
+- [Original color post-processing](SHADERS.md) with sixteen logical color buffers, twelve normalized/floating-point formats, per-pass mipmaps, retained auxiliary history and eight simultaneous outputs, Modrinth discovery/installation, ZIP drag/drop and Iris
   incompatibility are implemented. Full-world shader rendering still requires terrain/shadow/depth,
-  integer/other unsupported formats, mipmaps, texture and shader-properties support; a downloader or partial pipeline is not full compatibility.
+  integer/other unsupported formats, texture and shader-properties support; a downloader or partial pipeline is not full compatibility.
 - Further deterministic singleplayer world-generation/world-loading improvements and reduced chunk
   loading stutters. Preserve vanilla world output, random-number consumption and mod lifecycle behavior.
 

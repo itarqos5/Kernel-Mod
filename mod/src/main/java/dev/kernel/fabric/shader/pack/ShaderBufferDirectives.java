@@ -17,6 +17,12 @@ public final class ShaderBufferDirectives {
     private final ShaderBufferSettings.Color[] colors = new ShaderBufferSettings.Color[16];
 
     public void read(String source, String program) throws IOException {
+        read(source, program, false);
+    }
+
+    /** Returns the mipmap requests belonging to this program stage only. */
+    public int read(String source, String program, boolean fragment) throws IOException {
+        Boolean[] mipmaps = new Boolean[16];
         var comments = new ArrayList<ShaderLexical.Comment>();
         String code = ShaderLexical.maskComments(source, comments);
         char[] declarations = code.toCharArray();
@@ -62,13 +68,19 @@ public final class ShaderBufferDirectives {
                     }
                     case "MipmapEnabled" -> {
                         requireType(type, "bool", program);
-                        if (bool(value, program)) throw failure(program, "Color-buffer mipmaps are not supported yet");
+                        boolean enabled = bool(value, program);
+                        if (enabled && !fragment) throw failure(program, "Color mipmaps must be requested from a fragment program");
+                        if (mipmaps[buffer] != null && mipmaps[buffer] != enabled) throw failure(program, "Conflicting mipmap mode for color buffer " + buffer);
+                        mipmaps[buffer] = enabled;
                     }
                     default -> throw new AssertionError(kind);
                 }
             }
             offset = end + 1;
         }
+        int mask = 0;
+        for (int buffer = 0; buffer < 16; buffer++) if (Boolean.TRUE.equals(mipmaps[buffer])) mask |= 1 << buffer;
+        return mask;
     }
 
     public ShaderBufferSettings build() {
