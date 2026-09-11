@@ -108,12 +108,18 @@ class ShaderPackTest {
         Path supported = zip("passes.zip", Map.of("shaders/composite2.fsh", shader, "shaders/composite.fsh", shader, "shaders/final.fsh", shader));
         var pack = PreparedShaderPack.read(supported);
         assertEquals(List.of("composite", "composite2", "final"), pack.passes().stream().map(PreparedShaderPack.Pass::name).toList());
-        assertTrue(pack.passes().getFirst().fragment().contains("kernel_fragColor = vec4(1)"));
+        assertTrue(pack.passes().getFirst().fragment().contains("kernel_fragColor0 = vec4(1)"));
         var unsupported = zip("terrain.zip", Map.of("shaders/final.fsh", shader, "shaders/gbuffers_terrain.vsh", "void main() {}"));
         assertThrows(java.io.IOException.class, () -> PreparedShaderPack.read(unsupported));
-        var multiple = zip("mrt.zip", Map.of("shaders/final.fsh", shader.replace("DRAWBUFFERS:0", "DRAWBUFFERS:01")));
-        assertThrows(java.io.IOException.class, () -> PreparedShaderPack.read(multiple));
-        assertThrows(java.io.IOException.class, () -> ShaderSource.translate("void main() { gl_FragData[1] = vec4(1); }", false));
+        var multiple = zip("mrt.zip", Map.of("shaders/composite.fsh", shader.replace("DRAWBUFFERS:0", "RENDERTARGETS:3,15")
+            .replace("gl_FragData[0] = vec4(1);", "gl_FragData[0] = vec4(1); gl_FragData[1] = vec4(0);")));
+        var prepared = PreparedShaderPack.read(multiple).passes().getFirst();
+        assertEquals(List.of(3, 15), prepared.drawTargets());
+        assertTrue(prepared.fragment().contains("layout(location = 1) out vec4 kernel_fragColor1;"));
+        for (String directive : List.of("colortex7Format", "gaux4Clear", "gcolorClearColor", "compositeMipmapEnabled", "GAUX4FORMAT")) {
+            var configured = zip("configured.zip", Map.of("shaders/composite.fsh", shader + "\n/* " + directive + " */"));
+            assertThrows(java.io.IOException.class, () -> PreparedShaderPack.read(configured));
+        }
     }
     @Test void shaderSelectionSurvivesUnknownSettingsAndRejectsPaths() throws Exception {
         Path file = temporary.resolve("kernel-shaders.properties");

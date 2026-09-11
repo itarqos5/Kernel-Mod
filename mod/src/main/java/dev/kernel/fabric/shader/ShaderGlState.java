@@ -19,33 +19,45 @@ final class ShaderGlState implements AutoCloseable {
     private final int draw = GL33C.glGetInteger(GL33C.GL_DRAW_FRAMEBUFFER_BINDING);
     private final int read = GL33C.glGetInteger(GL33C.GL_READ_FRAMEBUFFER_BINDING);
     private final int active = GL33C.glGetInteger(GL33C.GL_ACTIVE_TEXTURE);
-    private final int texture;
-    private final int sampler;
+    private final int[] textures;
+    private final int[] samplers;
     private final int unpack = GL33C.glGetInteger(GL33C.GL_PIXEL_UNPACK_BUFFER_BINDING);
     private final int[] viewport = new int[4];
-    private final boolean[] color = new boolean[4];
+    private final boolean[] color;
     private final int[] polygon = new int[2];
-    private final boolean blend = GL33C.glIsEnabledi(GL33C.GL_BLEND, 0);
+    private final boolean[] blend;
     private final boolean clipControl = GL.getCapabilities().OpenGL45 || GL.getCapabilities().GL_ARB_clip_control;
     private final int clipOrigin = clipControl ? GL33C.glGetInteger(GL45C.GL_CLIP_ORIGIN) : 0;
     private final int clipDepth = clipControl ? GL33C.glGetInteger(GL45C.GL_CLIP_DEPTH_MODE) : 0;
 
-    ShaderGlState() {
+    ShaderGlState() { this(1, 1); }
+    ShaderGlState(int textureUnits, int outputs) {
+        textures = new int[textureUnits]; samplers = new int[textureUnits];
+        color = new boolean[outputs * 4]; blend = new boolean[outputs];
         GL33C.glGetIntegerv(GL33C.GL_VIEWPORT, viewport);
         GL33C.glGetIntegerv(GL33C.GL_POLYGON_MODE, polygon);
         try (var stack = MemoryStack.stackPush()) {
-            var mask = stack.malloc(4); GL33C.glGetBooleani_v(GL33C.GL_COLOR_WRITEMASK, 0, mask);
-            for (int i = 0; i < 4; i++) color[i] = mask.get(i) != 0;
+            var mask = stack.malloc(4);
+            for (int output = 0; output < outputs; output++) {
+                GL33C.glGetBooleani_v(GL33C.GL_COLOR_WRITEMASK, output, mask);
+                for (int channel = 0; channel < 4; channel++) color[output * 4 + channel] = mask.get(channel) != 0;
+                blend[output] = GL33C.glIsEnabledi(GL33C.GL_BLEND, output);
+            }
         }
         for (int i = 0; i < CAPABILITIES.length; i++) enabled[i] = GL33C.glIsEnabled(CAPABILITIES[i]);
+        for (int unit = 0; unit < textureUnits; unit++) {
+            GL33C.glActiveTexture(GL33C.GL_TEXTURE0 + unit);
+            textures[unit] = GL33C.glGetInteger(GL33C.GL_TEXTURE_BINDING_2D);
+            samplers[unit] = GL33C.glGetInteger(GL33C.GL_SAMPLER_BINDING);
+        }
         GL33C.glActiveTexture(GL33C.GL_TEXTURE0);
-        texture = GL33C.glGetInteger(GL33C.GL_TEXTURE_BINDING_2D);
-        sampler = GL33C.glGetInteger(GL33C.GL_SAMPLER_BINDING);
     }
     void prepare() {
         for (int capability : CAPABILITIES) GL33C.glDisable(capability);
-        GL33C.glDisablei(GL33C.GL_BLEND, 0);
-        GL33C.glColorMaski(0, true, true, true, true);
+        for (int output = 0; output < blend.length; output++) {
+            GL33C.glDisablei(GL33C.GL_BLEND, output);
+            GL33C.glColorMaski(output, true, true, true, true);
+        }
         GL33C.glPolygonMode(GL33C.GL_FRONT_AND_BACK, GL33C.GL_FILL);
         GL33C.glBindSampler(0, 0);
         GL33C.glBindBuffer(GL33C.GL_PIXEL_UNPACK_BUFFER, 0);
@@ -56,15 +68,21 @@ final class ShaderGlState implements AutoCloseable {
         GL33C.glBindFramebuffer(GL33C.GL_DRAW_FRAMEBUFFER, draw);
         GL33C.glBindFramebuffer(GL33C.GL_READ_FRAMEBUFFER, read);
         GL33C.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-        GL33C.glColorMaski(0, color[0], color[1], color[2], color[3]);
-        if (blend) GL33C.glEnablei(GL33C.GL_BLEND, 0); else GL33C.glDisablei(GL33C.GL_BLEND, 0);
+        for (int output = 0; output < blend.length; output++) {
+            int index = output * 4;
+            GL33C.glColorMaski(output, color[index], color[index + 1], color[index + 2], color[index + 3]);
+            if (blend[output]) GL33C.glEnablei(GL33C.GL_BLEND, output); else GL33C.glDisablei(GL33C.GL_BLEND, output);
+        }
         GL33C.glPolygonMode(GL33C.GL_FRONT_AND_BACK, polygon[0]);
         for (int i = 0; i < CAPABILITIES.length; i++) {
             if (enabled[i]) GL33C.glEnable(CAPABILITIES[i]); else GL33C.glDisable(CAPABILITIES[i]);
         }
         GL33C.glBindBuffer(GL33C.GL_PIXEL_UNPACK_BUFFER, unpack);
-        GL33C.glActiveTexture(GL33C.GL_TEXTURE0); GL33C.glBindTexture(GL33C.GL_TEXTURE_2D, texture);
-        GL33C.glBindSampler(0, sampler); GL33C.glActiveTexture(active);
+        for (int unit = 0; unit < textures.length; unit++) {
+            GL33C.glActiveTexture(GL33C.GL_TEXTURE0 + unit);
+            GL33C.glBindTexture(GL33C.GL_TEXTURE_2D, textures[unit]); GL33C.glBindSampler(unit, samplers[unit]);
+        }
+        GL33C.glActiveTexture(active);
         if (clipControl) GL45C.glClipControl(clipOrigin, clipDepth);
     }
 }

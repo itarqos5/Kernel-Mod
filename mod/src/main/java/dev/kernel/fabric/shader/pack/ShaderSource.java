@@ -26,9 +26,6 @@ public final class ShaderSource {
         if (Pattern.compile("(?m)^\\s*#\\s*extension\\b").matcher(source).find()) {
             throw new IOException("Shader extensions are not supported by the current fullscreen adapter");
         }
-        var outputs = Pattern.compile("gl_FragData\\s*\\[([^]]*)\\]").matcher(source);
-        while (outputs.find()) if (!outputs.group(1).trim().equals("0"))
-            throw new IOException("This shader writes unsupported color outputs");
         String header = "#version " + Math.max(330, version) + " core\n#define KERNEL 1\n";
         source = token(source, "varying", vertex ? "out" : "in");
         source = token(source, "texture2D", "texture");
@@ -47,10 +44,20 @@ public final class ShaderSource {
             source = token(source, "gl_ModelViewMatrix", "mat4(1.0)");
             source = token(source, "gl_ProjectionMatrix", "kernel_Ortho");
             source = token(source, "gl_Color", "vec4(1.0)");
-        } else if (Pattern.compile("\\bgl_FragColor\\b|\\bgl_FragData\\s*\\[").matcher(source).find()) {
-            header += "layout(location = 0) out vec4 kernel_fragColor;\n";
-            source = source.replaceAll("\\bgl_FragData\\s*\\[\\s*0\\s*\\]", "kernel_fragColor");
-            source = token(source, "gl_FragColor", "kernel_fragColor");
+        } else {
+            var outputs = Pattern.compile("\\bgl_FragData\\s*\\[([^]]*)\\]").matcher(source);
+            int used = Pattern.compile("\\bgl_FragColor\\b").matcher(source).find() ? 1 : 0;
+            var replaced = new StringBuilder();
+            while (outputs.find()) {
+                String index = outputs.group(1).trim();
+                if (!index.matches("[0-7]")) throw new IOException("Fragment outputs require literal indices from 0 to 7");
+                int slot = Integer.parseInt(index); used |= 1 << slot;
+                outputs.appendReplacement(replaced, "kernel_fragColor" + slot);
+            }
+            outputs.appendTail(replaced);
+            source = token(replaced.toString(), "gl_FragColor", "kernel_fragColor0");
+            for (int slot = 0; slot < 8; slot++) if ((used & (1 << slot)) != 0)
+                header += "layout(location = " + slot + ") out vec4 kernel_fragColor" + slot + ";\n";
         }
         return header + "#line 1 0\n" + source;
     }

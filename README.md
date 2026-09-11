@@ -105,7 +105,7 @@ Implemented:
 
 - Bounded per-thread biome-offset reuse for nearby client and integrated-server queries, preserving native biome choices and source calls, with a restart-only GUI switch and a Lithium ownership guard. See [scope, measurements and correctness checks](docs/WORLD_OPTIMIZATIONS.md).
 
-- An original OpenGL color post-processing shader pipeline with ordered composite/final passes, native Shaders GUI, Modrinth discovery/install, ZIP drag/drop, verified downloads, persistent selection and failed-pack recovery. Conditional and guarded literal includes use the native GLSL preprocessor, with bounded expansion and source diagnostics. Unsupported terrain/shadow/multi-buffer stages are explicitly rejected. See [shader support and limits](docs/SHADERS.md).
+- An original OpenGL color post-processing shader pipeline with ordered composite/final passes, native Shaders GUI, Modrinth discovery/install, ZIP drag/drop, verified downloads, persistent selection and failed-pack recovery. Conditional and guarded literal includes use the native GLSL preprocessor, with bounded expansion and source diagnostics. Up to sixteen RGBA8 color buffers and eight simultaneous outputs support explicit target routing, feedback between passes and indexed graphics-state restoration. Unsupported terrain/shadow/depth stages and custom buffer formats remain explicitly rejected. See [shader support and limits](docs/SHADERS.md).
 
 - Single-allocation noise interpolation slices on all nine targets: each zero-filled row is allocated once instead of creating and immediately discarding an identical row. Independent restart-only GUI/config control, Lithium ownership guard, native-method allocation checks and world-output verification preserve generation semantics.
 
@@ -125,7 +125,7 @@ Not implemented:
 - Physical AMD, Intel, NVIDIA, Apple, and software-driver compatibility/performance testing; the current upload scheduler is vendor-neutral by construction but has not been validated on that hardware matrix.
 - Broader memory, server chunk-scheduling, world-generation, or adaptive frame-time scheduling optimizations.
 - Mod Menu integration, speech-engine/controller validation and complete renderer-option parity.
-- Full-world shader-pack support, including terrain/geometry replacement, shadows, depth effects, multiple color buffers, custom textures and shader properties/options. Popular full-world packs are not compatible with the limited color post-processing renderer yet.
+- Full-world shader-pack support, including terrain/geometry replacement, shadows, depth effects, custom color formats, custom textures and shader properties/options. Popular full-world packs are not compatible with the limited color post-processing renderer yet.
 
 The approved black-and-white lightning icon has a transparent background and is included in the Fabric mod metadata. Its original bolt shape is preserved.
 

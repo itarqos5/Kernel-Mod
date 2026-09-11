@@ -39,6 +39,7 @@ public final class ShaderProbe {
         long elapsed = System.nanoTime() - changedAt;
         if (stage == 0 && !KernelShaders.busy()) {
             ShaderGlChecks.run();
+            ShaderMultipleTargetsChecks.run();
             GuiProbe.click(GuiProbe.find(GuiProbe.screen(minecraft), "kernel.settings.open"));
             GuiProbe.click(GuiProbe.find(GuiProbe.screen(minecraft), "kernel.video.tab.shaders"));
             if (!(GuiProbe.screen(minecraft) instanceof ShaderScreen)) throw new AssertionError("Shaders tab did not open");
