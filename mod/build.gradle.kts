@@ -120,7 +120,7 @@ tasks {
         group = "build"
         description = "Builds and copies this Minecraft version's remapped mod JAR to the root build directory."
 
-        dependsOn(loomx.modJar, test, "vertexSortingSmoke", "chunkTaskQueueSmoke", "rendererSettingsSmoke", rootProject.tasks.named("prepareArtifacts"))
+        dependsOn(loomx.modJar, check, rootProject.tasks.named("prepareArtifacts"))
         from(loomx.modJar.flatMap { it.archiveFile })
         into(rootProject.layout.buildDirectory.dir("libs"))
     }
