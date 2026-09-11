@@ -38,19 +38,50 @@ class ShaderPackTest {
             assertEquals(List.of("common.glsl", "final.fsh", "lib/shared.glsl"), new ArrayList<>(pack.files()));
         }
     }
-    @Test void invalidArchivesCannotEscapeAndOversizedSourcesAndCyclesAreRejected() throws Exception {
+    @Test void invalidArchivesCannotEscapeAndOversizedSourcesAreRejected() throws Exception {
         for (String bad : List.of("../outside.txt", "/absolute", "C:/absolute", "shaders\\other.glsl")) {
             var path = zip("bad.zip", Map.of("shaders/final.fsh", "void main() {}", bad, "bad"));
             assertThrows(java.io.IOException.class, () -> new ShaderPackArchive(path));
         }
         var duplicate = zip("duplicate.zip", Map.of("shaders/final.fsh", "", "shaders/./final.fsh", ""));
         assertThrows(java.io.IOException.class, () -> new ShaderPackArchive(duplicate));
-        var cycle = zip("cycle.zip", Map.of("shaders/final.fsh", "#include \"lib.glsl\"", "shaders/lib.glsl", "#include \"final.fsh\""));
-        try (var pack = new ShaderPackArchive(cycle)) { assertThrows(java.io.IOException.class, () -> pack.expand("final.fsh")); }
         var escape = zip("escape.zip", Map.of("shaders/final.fsh", "#include \"../outside.glsl\"", "outside.glsl", "bad"));
         try (var pack = new ShaderPackArchive(escape)) { assertThrows(java.io.IOException.class, () -> pack.expand("final.fsh")); }
         var oversized = zip("large.zip", Map.of("shaders/final.fsh", "x".repeat(4 * 1024 * 1024 + 1)));
         try (var pack = new ShaderPackArchive(oversized)) { assertThrows(java.io.IOException.class, () -> pack.source("final.fsh")); }
+    }
+    @Test void conditionalIncludesRetainDriverPreprocessingAndBoundRecursion() throws Exception {
+        var path = zip("conditional.zip", Map.of("shaders/final.fsh", "#version 330 core\n#if 0\n#include \"missing.glsl\"\n#endif\n#include \"guard.glsl\"\n",
+            "shaders/guard.glsl", "#ifndef GUARD\n#define GUARD\n#include \"guard.glsl\"\nconst float V = 1.0;\n#endif\n"));
+        try (var archive = new ShaderPackArchive(path)) {
+            var expanded = archive.expand("final.fsh");
+            String source = expanded.source();
+            assertTrue(source.contains("#if 0\n#line 1 1\n#error Kernel missing include: missing.glsl\n#line 4 0\n#endif"));
+            assertTrue(source.contains("#error Kernel include depth exceeded: guard.glsl"));
+            assertTrue(source.length() < 16000);
+            assertEquals(3, expanded.sourceFiles().size());
+            assertThrows(java.io.IOException.class, () -> archive.expand("missing-root.fsh"));
+        }
+    }
+    @Test void continuationsPrecedeCommentsAndPreservePhysicalLineNumbers() throws Exception {
+        var path = zip("continued.zip", Map.of("shaders/final.fsh",
+            "#version 330 core\n#inc\\\nlude \\\n\"lib.glsl\"\n// continued comment\\\n#include \"not-read.glsl\"\nvoid main() {}\n",
+            "shaders/lib.glsl", "const float V = 1.0;\n"));
+        try (var archive = new ShaderPackArchive(path)) {
+            String source = archive.expand("final.fsh").source();
+            assertTrue(source.contains("const float V = 1.0;\n"));
+            assertTrue(source.contains("#line 5 0\n// continued comment#include \"not-read.glsl\"\n\n"));
+            assertFalse(source.contains("missing include"));
+        }
+        // A newly exposed backslash/newline pair must not be spliced a second time.
+        path = zip("single-pass.zip", Map.of("shaders/final.fsh", "// note\\\\\n\n#include \"lib.glsl\"", "shaders/lib.glsl", "const int ACTIVE=1;"));
+        try (var archive = new ShaderPackArchive(path)) { assertTrue(archive.expand("final.fsh").source().contains("const int ACTIVE=1;")); }
+    }
+    @Test void expansionLimitsApplyEvenToBranchesThatTheDriverMayDisable() throws Exception {
+        var path = zip("many-lines.zip", Map.of("shaders/final.fsh", "#if 0\n" + "\n".repeat(262145) + "#endif"));
+        try (var archive = new ShaderPackArchive(path)) { assertThrows(java.io.IOException.class, () -> archive.expand("final.fsh")); }
+        path = zip("expanded.zip", Map.of("shaders/final.fsh", "#include \"large.glsl\"\n".repeat(6), "shaders/large.glsl", " ".repeat(3 * 1024 * 1024)));
+        try (var archive = new ShaderPackArchive(path)) { assertThrows(java.io.IOException.class, () -> archive.expand("final.fsh")); }
     }
     @Test void installationChecksIntegrityAndNeverOverwritesAnExistingPackOrImportSource() throws Exception {
         Path source = zip("original.zip", Map.of("shaders/final.fsh", "void main() {}"));

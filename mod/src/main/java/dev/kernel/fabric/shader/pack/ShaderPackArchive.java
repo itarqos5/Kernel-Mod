@@ -78,19 +78,49 @@ public final class ShaderPackArchive implements AutoCloseable {
     }
     public record Expanded(String source, Map<Integer, String> sourceFiles) {}
     public Expanded expand(String relativePath) throws IOException {
+        if (!contains(relativePath)) throw new IOException("Missing shader source: " + relativePath);
         var output = new StringBuilder(); var ids = new LinkedHashMap<String, Integer>();
-        expand(normalize(relativePath), output, ids, new HashMap<>(), new ArrayDeque<>());
+        expand(normalize(relativePath), output, ids, new SourceCache(), 0);
         var names = new LinkedHashMap<Integer, String>(); ids.forEach((name, id) -> names.put(id, name));
         return new Expanded(output.toString(), Map.copyOf(names));
     }
-    private void expand(String path, StringBuilder output, Map<String, Integer> ids, Map<String, String> sources, ArrayDeque<String> stack) throws IOException {
-        if (stack.size() >= 32 || stack.contains(path)) throw new IOException("Cyclic or excessively deep shader include: " + path);
-        stack.addLast(path); int id = ids.computeIfAbsent(path, ignored -> ids.size());
-        String text = sources.get(path);
-        if (text == null) { text = source(path); sources.put(path, text); }
-        String[] lines = text.split("\\R", -1); boolean blockComment = false;
+    private static final class SourceCache {
+        final Map<String, String[]> lines = new HashMap<>();
+        int characters, lineCount;
+    }
+    private void expand(String path, StringBuilder output, Map<String, Integer> ids, SourceCache sources, int depth) throws IOException {
+        int id = ids.computeIfAbsent(path, ignored -> ids.size());
+        // Preserve the surrounding #if/#define directives. The native GLSL preprocessor decides
+        // whether a missing include or unguarded cycle is active. Header guards can stop recursion.
+        if (depth >= 32 || !contains(path)) {
+            output.append("#error Kernel ").append(depth >= 32 ? "include depth exceeded: " : "missing include: ")
+                .append(path.replaceAll("[^A-Za-z0-9_./-]", "_")).append('\n');
+            return;
+        }
+        String[] lines = sources.lines.get(path);
+        if (lines == null) {
+            String text = source(path);
+            if (text.length() > MAX_EXPANDED_CHARS - sources.characters) throw new IOException("Shader include sources exceed 16 MiB");
+            int count = 1;
+            for (int i = 0; i < text.length(); i++) {
+                char value = text.charAt(i);
+                if (value == '\n' || value == '\r' && (i + 1 == text.length() || text.charAt(i + 1) != '\n')) count++;
+            }
+            if (count > 262_144 - sources.lineCount) throw new IOException("Shader include sources exceed 262144 lines");
+            sources.lineCount += count;
+            sources.characters += text.length();
+            lines = text.split("\\r\\n|\\r|\\n", -1); sources.lines.put(path, lines);
+        }
+        boolean blockComment = false;
         for (int line = 0; line < lines.length; line++) {
-            String raw = lines[line];
+            int firstLine = line;
+            var logical = new StringBuilder();
+            // Eliminate only original backslash/newline pairs, before comment recognition.
+            while (line + 1 < lines.length && lines[line].endsWith("\\")) {
+                logical.append(lines[line], 0, lines[line].length() - 1); line++;
+            }
+            logical.append(lines[line]);
+            String raw = logical.toString();
             boolean beganInComment = blockComment;
             boolean quoted = false;
             var active = new StringBuilder();
@@ -114,14 +144,19 @@ public final class ShaderPackArchive implements AutoCloseable {
                 int includedId = ids.computeIfAbsent(resolved, ignored -> ids.size());
                 if (beganInComment) output.append("*/\n");
                 output.append("#line 1 ").append(includedId).append('\n');
-                expand(resolved, output, ids, sources, stack);
+                expand(resolved, output, ids, sources, depth + 1);
                 output.append("#line ").append(line + 2).append(' ').append(id);
                 if (blockComment) output.append(" /*");
                 output.append('\n');
-            } else output.append(raw).append('\n');
+            } else {
+                output.append(raw);
+                // Older GLSL versions do not splice continued comments. Emit the logical line,
+                // retain following physical line numbers, and prevent a newly exposed pair being spliced again.
+                if (raw.endsWith("\\")) output.append(' ');
+                output.append("\n".repeat(line - firstLine + 1));
+            }
             if (output.length() > MAX_EXPANDED_CHARS) throw new IOException("Expanded shader source exceeds 16 MiB");
         }
-        stack.removeLast();
     }
     private static String normalize(String path) throws IOException {
         if (path.isEmpty() || path.startsWith("/") || path.indexOf('\\') >= 0 || path.indexOf(':') >= 0 || path.indexOf('\0') >= 0) throw new IOException("Invalid shader path: " + path);

@@ -35,11 +35,21 @@ Version-120 fullscreen shaders have a small compatibility adapter for `varying`,
 and `gl_FragData[0]`. Modern fragment shaders declare exactly one `vec4` output at location zero.
 A missing vertex shader uses Kernel's original fullscreen triangle with a `texcoord` output.
 Relative and pack-root `#include` paths are supported, with source IDs and line directives in diagnostics.
+Includes retain native GLSL conditionals and header guards: the graphics driver evaluates macros and
+branch expressions. Missing included files and excessive recursion emit a local `#error`, which the
+driver ignores only when that branch is inactive. Guarded recursive headers can therefore compile,
+while active missing files and unguarded cycles produce visible compilation errors. Missing root files,
+unsafe paths, unreadable sources and resource-limit violations still fail during preparation.
+
+Expansion is limited to 32 levels, 16 million source/expanded characters and 262,144 cached source lines.
+Cached line arrays are reused during recursive expansion. Backslash/newline pairs are handled before
+comments, including on older GLSL versions, while subsequent line numbers and include source IDs remain
+available to the compiler. Macro-generated include filenames are not supported.
 Buffer-format/mipmap/clear directives, Minecraft shader macros, fragment depth writes and discard-based
 passes are rejected until their semantics are implemented.
 
 Terrain/geometry programs, shadow rendering, depth-based effects, additional color buffers, compute or
-geometry stages, shader properties/options, custom textures, conditional-include preprocessing and broad
+geometry stages, shader properties/options, custom textures and broad
 legacy GLSL translation are **not implemented**. Packs requiring them are rejected with a visible reason.
 Popular full-world shader packs are not currently supported merely because they appear in Modrinth search.
 Kernel does not silently discard those stages or count a download as successful rendering.
@@ -57,7 +67,7 @@ is claimed. Fabric metadata declares Iris incompatible because both components w
 
 ## Validation
 
-Unit tests cover bounded archive access, includes/comments, path escapes, cyclic includes, duplicate
+Unit tests cover bounded archive access, conditional includes/comments/continuations, path escapes, bounded recursion, duplicate
 entries, oversized sources, download hashes, collisions, source preservation, Modrinth version selection,
 configuration recovery and rejection of unsupported pipeline stages.
 
@@ -72,6 +82,11 @@ checks the world-pass pixels, rejects an unsupported shader while retaining the 
 shaders before saving/exiting. It never opens existing user worlds. Physical GPU/OS coverage remains
 limited to the available Windows/AMD system; broader pack and platform support is still required.
 
+The native pixel fixtures also cover function-macro branch conditions, guarded recursive includes,
+inactive missing files, continued directives/comments, restored `__LINE__`/`__FILE__` values, and active
+include errors. GLSL condition and macro behavior is delegated to the driver according to the
+[Khronos language specification](https://raw.githubusercontent.com/KhronosGroup/GLSL/main/chapters/basics.adoc).
+
 All nine supported Minecraft targets passed these native rendering/GUI probes and a live Modrinth
 browser query. The live query checks project discovery only; deterministic download tests use original
 ZIP fixtures with injected transport and verify integrity/collision handling without downloading another
@@ -79,6 +94,9 @@ author's shader pack. Set `-PkernelShaderLive=true` to include live browser disc
 The release build passed 812 unit tests, all 27 world activation/conflict checks and the existing renderer
 and bootstrap agent checks. Additional 1.21.4/26.2 probes cover nondefault clip/rasterization state and
 combined pre-Fabric window adoption with the shader integration installed.
+
+The conditional-include update passed all nine expanded native pixel and gameplay/GUI probes, followed
+by `buildAll`, 911 unit tests and exact inspection of the ten release artifacts.
 
 API references: [project search](https://docs.modrinth.com/api/operations/searchprojects/) and
 [project versions](https://docs.modrinth.com/api/operations/getprojectversions/).

@@ -5,6 +5,11 @@ import dev.kernel.fabric.shader.pack.PreparedShaderPack;
 import dev.kernel.fabric.shader.pack.ShaderSource;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import org.lwjgl.opengl.GL33C;
 import org.lwjgl.opengl.GL45C;
 import org.lwjgl.opengl.GL;
@@ -41,8 +46,8 @@ final class ShaderGlChecks {
             """;
         var pass = new PreparedShaderPack.Pass("invert", ShaderSource.translate(vertex, true), ShaderSource.translate(source, false));
         try {
-            for (int passes : new int[]{1, 2}) {
-                var list = passes == 1 ? List.of(pass) : List.of(pass, pass);
+            for (var fixture : List.of(pass, conditionalIncludes().passes().getFirst())) for (int passes : new int[]{1, 2}) {
+                var list = passes == 1 ? List.of(fixture) : List.of(fixture, fixture);
                 int[] before = bindings();
                 try (var pipeline = new ShaderPipeline(new PreparedShaderPack("test", list))) {
                     assertBindings(before);
@@ -75,6 +80,16 @@ final class ShaderGlChecks {
             try (var ignored = new ShaderPipeline(new PreparedShaderPack("bad", List.of(invalid)))) { throw new AssertionError("Invalid shader compiled"); }
             catch (java.io.IOException expected) { }
             assertBindings(before);
+            for (boolean cycle : new boolean[]{false, true}) {
+                var files = cycle ? Map.of("final.fsh", "#version 120\n#include \"a.glsl\"\nvoid main(){gl_FragColor=vec4(1);}",
+                    "a.glsl", "#include \"b.glsl\"", "b.glsl", "#include \"a.glsl\"")
+                    : Map.of("final.fsh", "#version 120\n#include \"missing.glsl\"\nvoid main(){gl_FragColor=vec4(1);}");
+                try (var ignored = new ShaderPipeline(prepareZip(files))) { throw new AssertionError("Active invalid include compiled"); }
+                catch (java.io.IOException expected) {
+                    if (!expected.getMessage().contains(cycle ? "include depth exceeded" : "missing include")) throw expected;
+                }
+                assertBindings(before);
+            }
             var unsupported = new PreparedShaderPack.Pass("unknown", ShaderSource.DEFAULT_VERTEX,
                 "#version 330 core\nuniform sampler2D shadowtex0; in vec2 texcoord; out vec4 color; void main() {color=texture(shadowtex0,texcoord);}");
             try (var ignored = new ShaderPipeline(new PreparedShaderPack("bad", List.of(unsupported)))) { throw new AssertionError("Unsupported uniform was silently accepted"); }
@@ -89,7 +104,46 @@ final class ShaderGlChecks {
             for (int i = 0; i < altered.length; i++) { if (oldEnable[i]) GL33C.glEnable(altered[i]); else GL33C.glDisable(altered[i]); }
             if (clip) GL45C.glClipControl(origin, depth);
         }
-        System.out.println("Kernel shader GL checks passed: legacy translation, pixels, multiple passes, resize, failed compile/uniform and state restoration.");
+        System.out.println("Kernel shader GL checks passed: legacy translation, conditional/guarded includes, continuations, pixels, multiple passes, resize, active include errors, failed compile/uniform and state restoration.");
+    }
+    private static PreparedShaderPack conditionalIncludes() throws Exception {
+        return prepareZip(Map.of("final.fsh", """
+            #version 120
+            #define PICK(a,b) ((a)+(b))
+            #if PICK(1,2) == 3
+            #include "/lib/color.glsl"
+            #else
+            #include "missing-in-false-branch.glsl"
+            #endif
+            #if __VERSION__ < 330
+            #error Wrong translated language version
+            #endif
+            void main() { gl_FragColor = kernelInvert(texture2D(colortex0, texcoord)); }
+            """.replace("#include \"/lib/color.glsl\"", "#inc\\\nlude \\\n\"/lib/color.glsl\""),
+            "lib/color.glsl", """
+            #ifndef COLOR_INCLUDED
+            #define COLOR_INCLUDED
+            #include "color.glsl"
+            #if __LINE__ != 4 || __FILE__ != 1
+            #error Include source location was not restored
+            #endif
+            varying vec2 texcoord;
+            uniform sampler2D colortex0;
+            vec4 kernelInvert(vec4 c) { return vec4(1.0-c.rgb,c.a); }
+            #endif
+            """ + "// continued comment\\\n#include \"commented-out.glsl\"\n"));
+    }
+    private static PreparedShaderPack prepareZip(Map<String, String> files) throws Exception {
+        var path = Files.createTempFile("kernel-shader-include-", ".zip");
+        try {
+            try (var output = new ZipOutputStream(Files.newOutputStream(path))) {
+                for (var file : files.entrySet()) {
+                    output.putNextEntry(new ZipEntry("shaders/" + file.getKey()));
+                    output.write(file.getValue().getBytes(StandardCharsets.UTF_8)); output.closeEntry();
+                }
+            }
+            return PreparedShaderPack.read(path);
+        } finally { Files.deleteIfExists(path); }
     }
     private static int[] bindings() {
         int[] viewport = new int[4]; GL33C.glGetIntegerv(GL33C.GL_VIEWPORT, viewport);

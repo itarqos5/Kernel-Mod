@@ -343,7 +343,7 @@ tasks {
         doFirst {
             val directory = game.get().asFile
             directory.mkdirs()
-            directory.resolve("options.txt").writeText("onboardAccessibility:false\nguiScale:2\nrenderDistance:4\nsimulationDistance:5\npauseOnLostFocus:false\n")
+            directory.resolve("options.txt").writeText("onboardAccessibility:false\nguiScale:2\nrenderDistance:4\nsimulationDistance:5\npauseOnLostFocus:false\nsoundCategory_master:0.0\n")
             directory.resolve("config").mkdirs()
             directory.resolve("config/kernel-shaders.properties").writeText("selected=\n")
             val marker = directory.resolve("shader-probe-complete.json")

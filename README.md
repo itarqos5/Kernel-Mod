@@ -97,7 +97,7 @@ Implemented:
 
 - Bounded per-thread biome-offset reuse for nearby client and integrated-server queries, preserving native biome choices and source calls, with a restart-only GUI switch and a Lithium ownership guard. See [scope, measurements and correctness checks](docs/WORLD_OPTIMIZATIONS.md).
 
-- An original OpenGL color post-processing shader pipeline with ordered composite/final passes, native Shaders GUI, Modrinth discovery/install, ZIP drag/drop, verified downloads, persistent selection and failed-pack recovery. Unsupported terrain/shadow/multi-buffer stages are explicitly rejected. See [shader support and limits](docs/SHADERS.md).
+- An original OpenGL color post-processing shader pipeline with ordered composite/final passes, native Shaders GUI, Modrinth discovery/install, ZIP drag/drop, verified downloads, persistent selection and failed-pack recovery. Conditional and guarded literal includes use the native GLSL preprocessor, with bounded expansion and source diagnostics. Unsupported terrain/shadow/multi-buffer stages are explicitly rejected. See [shader support and limits](docs/SHADERS.md).
 
 - Single-allocation noise interpolation slices on all nine targets: each zero-filled row is allocated once instead of creating and immediately discarding an identical row. Independent restart-only GUI/config control, Lithium ownership guard, native-method allocation checks and world-output verification preserve generation semantics.
 
