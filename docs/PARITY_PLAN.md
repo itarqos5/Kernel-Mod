@@ -82,6 +82,9 @@ consumption, plus workload measurements and targeted mod compatibility checks.
 
 ## Launch-time work now implemented
 
+- Fabric-side [compact resource readers](RESOURCE_READERS.md) retain native UTF-8 streams and JDK
+  reader operations while reducing each initial character buffer from 8,192 to 2,048 characters.
+  The independent GUI/config switch requires a restart; resource contents are not cached.
 - An optional Java agent in the existing Knot Client JAR, installed through the recognized profile's JVM
   arguments alongside the existing main-class handoff. The existing one-time backup remains the recovery path.
 - Raw JAR class-entry reuse during the current launch. Fabric still resolves URLs and applies classloader

@@ -5,6 +5,7 @@
   "plugin": "dev.kernel.fabric.config.KernelMixinPlugin",
   "compatibilityLevel": "JAVA_21",
   "client": [
+    "startup.ResourceReaderMixin",
     "config.MenuSettingsButtonMixin",
     "config.VideoSettingsScreenMixin",
     "frame.FrameLimitMixin",

@@ -144,7 +144,7 @@ public final class GuiProbe {
                 verifyRendererSetting(minecraft, parent, RendererFeature.FRUSTUM);
                 if (KernelRendererSettings.supported(RendererFeature.SECTION_BUFFERS))
                     verifyRendererSetting(minecraft, parent, RendererFeature.SECTION_BUFFERS);
-                try { WorldSettingsProbe.verify(minecraft, parent); }
+                try { WorldSettingsProbe.verify(minecraft, parent); ResourceSettingsProbe.verify(minecraft, parent); }
                 catch (IOException exception) { throw new AssertionError("World settings persistence", exception); }
                 stage = 4;
                 try {
@@ -203,7 +203,7 @@ public final class GuiProbe {
                 throw new AssertionError(feature + " Cancel/Done did not preserve or restore the saved settings");
         }
     }
-    private static Button findSetting(Minecraft minecraft, String label) {
+    static Button findSetting(Minecraft minecraft, String label) {
         String nextLabel = KernelTranslations.text("kernel.settings.next").getString();
         for (int page = 0; page < 32; page++) {
             var buttons = screen(minecraft).children().stream().filter(Button.class::isInstance).map(Button.class::cast).toList();

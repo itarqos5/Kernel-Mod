@@ -64,6 +64,8 @@ Never bump either version automatically. Only change `mod_version` or `knot_clie
 
 Implemented:
 
+- Smaller native resource-reader character buffers on all nine targets: `Resource.openAsReader` retains its stream supplier, UTF-8 decoder and JDK BufferedReader, with a 2,048-character initial buffer instead of the JDK's 8,192-character default. No resource content is cached. A separate restart-only `compact_readers` setting in `config/kernel-resources.properties` is exposed in Optimizations. Unknown preferences survive saves; malformed/unreadable configuration disables the optional adapter. See `docs/RESOURCE_READERS.md` for contract differences, measurements and validation status.
+
 - Constant-shift decoding for native packed block arrays of at least 256 values and 4–16 bits/value
   on all nine targets. Source words, output ownership and palette formats remain unchanged; small,
   custom and unsuitable requests preserve native fallback behavior. A separate restart-only
@@ -186,7 +188,7 @@ Not implemented:
 - Automatic rollback, restoration, cleanup of old content-addressed Knot Client JARs, or uninstall UI.
 - Early-window adoption for Vulkan, other graphics backends or a complete OS/driver, fullscreen, DPI and accessibility validation matrix. Prompt display does not make Minecraft initialization instantaneous.
 - Asynchronous Mixin preparation or transformed-class caching.
-- Resource-pack preparation changes or processed-resource caching.
+- Resource-pack preparation scheduling changes or processed-resource caching.
 - Startup profiler or stutter-attribution overlay.
 - Complete chunk mesh compiler, mesh-storage/draw-command replacement, persistent-mapped or multi-draw GPU submission system, occlusion traversal replacement, or verified Sodium feature/performance parity.
 - Full Lithium-style game-logic coverage or verified Lithium feature/performance parity.

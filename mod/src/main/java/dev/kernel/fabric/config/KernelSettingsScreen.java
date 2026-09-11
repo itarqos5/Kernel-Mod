@@ -19,6 +19,8 @@ import dev.kernel.fabric.frame.FrameSync;
 import dev.kernel.fabric.world.WorldConfig;
 import dev.kernel.fabric.world.WorldFeature;
 import dev.kernel.fabric.world.WorldSettings;
+import dev.kernel.fabric.resource.ResourceConfig;
+import dev.kernel.fabric.resource.ResourceSettings;
 //? if <1.21.11 {
 /*import net.minecraft.client.GraphicsStatus;
 *///? }
@@ -34,6 +36,7 @@ public final class KernelSettingsScreen extends Screen {
     private final List<RendererFeature> features = Arrays.stream(RendererFeature.values()).filter(KernelRendererSettings::supported).toList();
     private RendererConfig pending = KernelRendererSettings.saved();
     private WorldConfig pendingWorld = WorldSettings.saved();
+    private ResourceConfig pendingResources = ResourceSettings.saved();
     private String tab = "video";
     private int page;
     private int pages;
@@ -120,7 +123,7 @@ public final class KernelSettingsScreen extends Screen {
         int rows = Math.max(1, (height - top - 72) / rowHeight);
         List<VideoSetting<?>> visibleSettings = settings.stream().filter(setting -> setting.tab.equals(tab)).toList();
         WorldFeature[] worldFeatures = WorldFeature.values();
-        int count = tab.equals("optimizations") ? features.size() + worldFeatures.length : visibleSettings.size() + (tab.equals("video") ? 1 : 0);
+        int count = tab.equals("optimizations") ? features.size() + worldFeatures.length + 1 : visibleSettings.size() + (tab.equals("video") ? 1 : 0);
         pages = Math.max(1, (count + rows - 1) / rows); page = Math.min(page, pages - 1);
         int first = page * rows;
         addRenderableOnly((graphics, mouseX, mouseY, delta) -> {
@@ -162,7 +165,8 @@ public final class KernelSettingsScreen extends Screen {
         recommend.setTooltip(Tooltip.create(tr("recommendation_description", Runtime.getRuntime().availableProcessors(), Runtime.getRuntime().maxMemory() / (1024 * 1024), preset.renderDistance(), preset.simulationDistance())));
         for (int row = 0; row < rows && first + row < count; row++) {
             int y = top + row * rowHeight;
-            if (tab.equals("optimizations") && first + row >= features.size()) addWorldSetting(worldFeatures[first + row - features.size()], contentX, y, contentWidth);
+            if (tab.equals("optimizations") && first + row == features.size() + worldFeatures.length) addResourceSetting(contentX, y, contentWidth);
+            else if (tab.equals("optimizations") && first + row >= features.size()) addWorldSetting(worldFeatures[first + row - features.size()], contentX, y, contentWidth);
             else if (tab.equals("optimizations")) addFeature(features.get(first + row), contentX, y, contentWidth);
             else if (tab.equals("video") && first + row == 0) addFrameSync(contentX, y, contentWidth);
             else addSetting(visibleSettings.get(first + row - (tab.equals("video") ? 1 : 0)), contentX, y, contentWidth);
@@ -246,15 +250,29 @@ public final class KernelSettingsScreen extends Screen {
         button.setTooltip(Tooltip.create(KernelTranslations.text(WorldSettings.lithiumPresent() ? "kernel.world.lithium" : key + ".description")
             .append("\n").append(KernelTranslations.text("kernel.settings.current", active ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF))));
     }
-    private boolean restartRequired() { return KernelRendererSettings.restartRequired(pending) || WorldSettings.restartRequired(pendingWorld); }
+    private void addResourceSetting(int x, int y, int width) {
+        Component label = KernelTranslations.text("kernel.resource.readers");
+        row(label, x, y, width, 68);
+        boolean enabled = pendingResources.compactReaders();
+        Component state = enabled ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF;
+        var button = addRenderableWidget(new KernelButton(x + width - 64, y + 1, 64, 22,
+            KernelTranslations.text("kernel.settings.value", label, state), pressed -> {
+                pendingResources = new ResourceConfig(!enabled); saveFailed = false; rebuildWidgets();
+            }, () -> enabled, false).visual(state));
+        button.setTooltip(Tooltip.create(KernelTranslations.text("kernel.resource.readers.description").append("\n")
+            .append(KernelTranslations.text("kernel.settings.current", ResourceSettings.compactReadersActive() ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF))));
+    }
+    private boolean restartRequired() { return KernelRendererSettings.restartRequired(pending) || WorldSettings.restartRequired(pendingWorld)
+        || ResourceSettings.restartRequired(pendingResources); }
     private boolean hasChanges() { return pendingFrameSync != FrameSync.enabled() || !pending.equals(KernelRendererSettings.saved())
-        || !pendingWorld.equals(WorldSettings.saved()) || settings.stream().anyMatch(VideoSetting::changed); }
+        || !pendingWorld.equals(WorldSettings.saved()) || !pendingResources.equals(ResourceSettings.saved()) || settings.stream().anyMatch(VideoSetting::changed); }
 
     private void apply(boolean close) {
         try {
             // Save restart-only settings first. If that fails, leave all live video settings untouched.
             KernelRendererSettings.save(pending);
             WorldSettings.save(pendingWorld);
+            ResourceSettings.save(pendingResources);
             FrameSync.save(pendingFrameSync);
             int mipmaps = minecraft.options.mipmapLevels().get();
             int scale = minecraft.options.guiScale().get();

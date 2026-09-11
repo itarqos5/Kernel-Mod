@@ -55,6 +55,8 @@ kernel-knot-client-0.1.0.jar
 
 Implemented:
 
+- [Smaller resource-reader buffers](docs/RESOURCE_READERS.md) during startup and resource reloads on every supported target. Native stream ownership, UTF-8 decoding and JDK reader behavior are retained; the initial character buffer uses 4 KiB instead of 16 KiB. The Optimizations tab provides an independent restart-only toggle. This is an allocation reduction, not a demonstrated total-launch speedup.
+
 - Invocation-local chunk camera snapshots on 1.21.11, 26.1.2 and 26.2: unchanged native matrix copies
   are shared within one draw-preparation batch, with raw-value/property comparison and fresh copies for
   changed input. Previously uploaded snapshots are never mutated. The restart-only `chunk_uniforms`

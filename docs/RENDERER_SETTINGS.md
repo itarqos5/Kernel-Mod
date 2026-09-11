@@ -25,6 +25,10 @@ The Optimizations tab also contains [biome, noise and End island controls](WORLD
 [Packed block decoding](PACKED_STORAGE.md). Their independent
 restart-only switches use the world configuration and yield to Lithium.
 
+[Resource reader buffers](RESOURCE_READERS.md) is a separate restart-only control in the same tab.
+It saves `compact_readers=true|false` in `config/kernel-resources.properties` and applies to resource
+loading at startup and during reloads. It does not alter the Knot Client's class caches.
+
 Pages adapt to the GUI height and can be changed with their buttons or the mouse wheel. Native button
 and slider input retain keyboard focus and narration. Text has English translation fallbacks and the
 icon is registered as a dynamic texture, so the screen works with bare Fabric Loader without Fabric

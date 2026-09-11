@@ -304,6 +304,39 @@ tasks {
         check { dependsOn(worldSmoke) }
     }
 
+    for (mode in listOf("Enabled", "Disabled", "Competing")) {
+        val resourceSmoke = register<JavaExec>("resourceReader${mode}Smoke") {
+            group = "verification"
+            description = "Checks native resource-reader behavior with $mode compact buffers."
+            dependsOn(testClasses)
+            classpath = sourceSets.test.get().runtimeClasspath.filter { it.exists() }
+            mainClass = "dev.kernel.fabric.resource.ResourceReaderSmoke"
+            javaLauncher = kernelJavaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion) }
+            systemProperty("fabric.development", "true")
+            systemProperty("fabric.gameVersion", sc.current.version)
+            systemProperty("fabric.gameMappingNamespace", if (sc.current.parsed >= "26.1") "official" else "named")
+            systemProperty("kernel.resourceProbe.expectedEnabled", mode != "Disabled")
+            systemProperty("kernel.resourceProbe.competing", mode == "Competing")
+            if (mode == "Competing") systemProperty("mixin.debug.countInjections", "true")
+            systemProperty("kernel.resourceReaderBenchmark", providers.gradleProperty("kernelResourceReaderBenchmark").getOrElse("false"))
+            workingDir(layout.buildDirectory.dir("resource-${mode.lowercase()}-smoke-game").get().asFile)
+            args("--gameDir", workingDir.absolutePath)
+            val competitor = layout.buildDirectory.dir("resource-ownership-test-mod").get().asFile
+            if (mode == "Competing") classpath += files(competitor)
+            doFirst {
+                val config = workingDir.resolve("config/kernel-resources.properties")
+                config.parentFile.mkdirs()
+                config.writeText("compact_readers=${mode != "Disabled"}\n")
+                if (mode == "Competing") {
+                    competitor.mkdirs()
+                    competitor.resolve("fabric.mod.json").writeText("""{"schemaVersion":1,"id":"kernel_reader_owner_test","version":"0.0.0","mixins":["kernel-reader-owner.mixins.json"]}""")
+                    competitor.resolve("kernel-reader-owner.mixins.json").writeText("""{"required":true,"package":"dev.kernel.fabric.resource.verification.mixin","compatibilityLevel":"JAVA_21","client":["ResourceReaderOwnerMixin"]}""")
+                }
+            }
+        }
+        check { dependsOn(resourceSmoke) }
+    }
+
     register<JavaExec>("rendererSettingsSmoke") {
         group = "verification"
         description = "Checks persisted feature disabling and the settings screen through real Fabric and Mixin."
