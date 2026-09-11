@@ -1,5 +1,8 @@
 # World and biome work
 
+Block-shape overlap checks also use [reusable traversal callbacks](SHAPE_QUERIES.md) during startup and
+world queries. This is independently controlled by **Shape query allocation** in the Optimizations tab.
+
 ## Biome selection
 
 Kernel reuses the eight seed-dependent corner offsets used by vanilla biome selection. Nearby blocks

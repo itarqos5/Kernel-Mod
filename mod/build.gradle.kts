@@ -14,6 +14,8 @@ val requiredJava = when {
     else -> JavaVersion.VERSION_21
 }
 
+val kernelAccessWidener = if (sc.current.parsed >= "26.1") "kernel-modern.accesswidener" else "kernel-legacy.accesswidener"
+
 repositories {
     mavenCentral()
 }
@@ -27,6 +29,7 @@ dependencies {
 }
 
 loom {
+    accessWidenerPath = rootProject.file("mod/src/main/resources/$kernelAccessWidener")
     runConfigs.all {
         preferGradleTask = true
         generateRunConfig = true
@@ -104,6 +107,7 @@ java {
 
 tasks {
     processResources {
+        exclude(if (sc.current.parsed >= "26.1") "kernel-legacy.accesswidener" else "kernel-modern.accesswidener")
         val properties = mapOf(
             "id" to project.property("mod_id"),
             "name" to project.property("mod_name"),
@@ -111,6 +115,7 @@ tasks {
             "minecraft" to sc.current.version,
             "loader" to project.property("fabric_loader_version"),
             "java" to requiredJava.majorVersion,
+            "accessWidener" to kernelAccessWidener,
             "knot_client_version" to project.property("knot_client_version")
         )
 
@@ -227,6 +232,16 @@ tasks {
         jvmArgs("-Xms512m", "-Xmx512m")
     }
 
+    register<JavaExec>("shapeJoinBenchmark") {
+        group = "verification"
+        description = "Compares reusable overlap traversal callbacks with the target's native method."
+        dependsOn(testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath
+        mainClass = "dev.kernel.fabric.world.ShapeJoinBenchmark"
+        javaLauncher = kernelJavaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion) }
+        jvmArgs("-Xms512m", "-Xmx512m")
+    }
+
     for (mode in listOf("Enabled", "Disabled", "Conflict")) {
         val worldSmoke = register<JavaExec>("worldOptimization${mode}Smoke") {
             group = "verification"
@@ -246,7 +261,7 @@ tasks {
             doFirst {
                 val config = workingDir.resolve("config/kernel-world.properties")
                 config.parentFile.mkdirs()
-                config.writeText("biome_offsets=${mode != "Disabled"}\nnoise_slices=${mode != "Disabled"}\nend_island_heights=${mode != "Disabled"}\n")
+                config.writeText("biome_offsets=${mode != "Disabled"}\nnoise_slices=${mode != "Disabled"}\nend_island_heights=${mode != "Disabled"}\nshape_traversal=${mode != "Disabled"}\n")
                 if (mode == "Conflict") {
                     conflict.mkdirs()
                     conflict.resolve("fabric.mod.json").writeText("""{"schemaVersion":1,"id":"lithium","version":"0.0.0","name":"Kernel ownership test marker"}""")

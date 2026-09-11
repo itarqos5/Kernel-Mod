@@ -15,6 +15,7 @@
     "world.BiomeManagerMixin",
     "world.NoiseInterpolatorMixin",
     "world.EndIslandDensityMixin",
+    "world.ShapeJoinMixin",
     "shader.ShaderFrameMixin",
     "render.BlockMixin",
     "render.ChunkTaskMixin",

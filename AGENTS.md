@@ -64,6 +64,13 @@ Never bump either version automatically. Only change `mod_version` or `knot_clie
 
 Implemented:
 
+- Reusable native block-shape overlap callbacks across all nine targets, reducing per-row temporary
+  allocation during startup and world queries while preserving native mergers, occupancy calls and
+  traversal order. Four small cursors per thread support reentrancy, clear references on release and
+  leave custom merger callback ownership intact. The restart-only `shape_traversal` GUI/config option
+  yields to Lithium. A single class-only access widener exposes legacy IndexMerger; artifacts select the
+  matching named/intermediary or official namespace. See `docs/SHAPE_QUERIES.md` for verification and limits.
+
 - Stonecutter 0.9.8 multi-version structure.
 - Loom Back Compat configuration for official mappings across 1.21.x and 26.x.
 - Fabric startup installation of the bundled Knot Client for official-launcher-style Fabric profiles.

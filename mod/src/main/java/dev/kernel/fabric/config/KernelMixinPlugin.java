@@ -15,6 +15,7 @@ public final class KernelMixinPlugin implements IMixinConfigPlugin {
         if (mixinClassName.endsWith(".world.BiomeManagerMixin")) return dev.kernel.fabric.world.WorldSettings.biomeOffsetsActive();
         if (mixinClassName.endsWith(".world.NoiseInterpolatorMixin")) return dev.kernel.fabric.world.WorldSettings.noiseSlicesActive();
         if (mixinClassName.endsWith(".world.EndIslandDensityMixin")) return dev.kernel.fabric.world.WorldSettings.endIslandHeightsActive();
+        if (mixinClassName.endsWith(".world.ShapeJoinMixin")) return dev.kernel.fabric.world.WorldSettings.active(dev.kernel.fabric.world.WorldFeature.SHAPE_TRAVERSAL);
         RendererFeature feature = RendererFeature.forMixin(mixinClassName);
         return feature == null || KernelRendererSettings.enabled(feature);
     }
