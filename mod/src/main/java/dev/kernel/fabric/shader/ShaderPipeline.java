@@ -34,9 +34,13 @@ public final class ShaderPipeline implements AutoCloseable {
             try {
                 for (var pass : pack.passes()) programs.add(compile(pass));
                 int required = 1, sampled = 0;
+                boolean legacyDepth = false;
                 for (var program : programs) {
                     required |= program.written;
-                    for (var uniform : program.uniforms) if (uniform.buffer >= 0) sampled |= 1 << uniform.buffer;
+                    for (var uniform : program.uniforms) if (uniform.buffer >= 0) {
+                        sampled |= 1 << uniform.buffer;
+                        legacyDepth |= uniform.name.equals("gdepth");
+                    }
                 }
                 required |= sampled;
                 Arrays.fill(unitForBuffer, -1);
@@ -49,7 +53,7 @@ public final class ShaderPipeline implements AutoCloseable {
                 if (textureUnits > GL33C.glGetInteger(GL33C.GL_MAX_TEXTURE_IMAGE_UNITS)
                     || outputSlots > GL33C.glGetInteger(GL33C.GL_MAX_DRAW_BUFFERS))
                     throw new IOException("This shader exceeds the graphics device's texture/output limits");
-                targets = new ShaderColorTargets(required);
+                targets = new ShaderColorTargets(required, legacyDepth ? pack.buffers().withLegacyDepth() : pack.buffers());
                 vao = GL33C.glGenVertexArrays();
                 sampler = GL33C.glGenSamplers();
                 GL33C.glSamplerParameteri(sampler, GL33C.GL_TEXTURE_MIN_FILTER, GL33C.GL_LINEAR);
@@ -90,6 +94,8 @@ public final class ShaderPipeline implements AutoCloseable {
             frame = (frame + 1) % 720720;
         }
     }
+    /** Invalidates retained auxiliary images without changing the selected programs. */
+    public void resetHistory() { if (targets != null) targets.resetHistory(); }
     private static Program compile(PreparedShaderPack.Pass pass) throws IOException {
         var names = ShaderFragmentOutputs.read(pass.fragment());
         int vertex = 0, fragment = 0, program = 0;
@@ -152,6 +158,7 @@ public final class ShaderPipeline implements AutoCloseable {
     private static int samplerBuffer(String name) {
         return switch (name) {
             case "gcolor", "texture" -> 0;
+            case "gdepth" -> 1;
             case "gnormal" -> 2; case "composite" -> 3;
             case "gaux1" -> 4; case "gaux2" -> 5; case "gaux3" -> 6; case "gaux4" -> 7;
             default -> {

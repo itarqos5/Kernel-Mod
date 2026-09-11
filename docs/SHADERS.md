@@ -27,16 +27,37 @@ passes, with up to eight simultaneous outputs mapped to sixteen logical color bu
 including the hand, starts in `colortex0` and is processed before the HUD. Each pass samples the current
 images and writes separate alternate images, then flips its declared targets. Passes that only write
 auxiliary buffers preserve the displayed color. `final` always writes the displayed color image.
-Linear filtering and edge clamping are supplied by an owned sampler. Intermediates use RGBA8 at the
-native window resolution; required buffer pairs are allocated lazily within a 512 MiB combined budget.
+Linear filtering and edge clamping are supplied by an owned sampler. Intermediates default to RGBA8 at
+the native window resolution; required buffer pairs are allocated lazily within a 512 MiB combined budget.
+The budget counts both images using each selected format's declared bytes per pixel; driver overhead
+and internal padding can add physical GPU memory beyond that accounting.
 There is no automatic shader download or activation.
 
 Supported uniforms are scalar `viewWidth`, `viewHeight`, `aspectRatio`, `frameTime`, `frameTimeCounter`
 (seconds modulo 3600), integer `frameCounter` (modulo 720720), and `colortex0` through `colortex15`.
-Legacy aliases are `gcolor`/`texture` (0), `gnormal` (2), `composite` (3), and `gaux1` through `gaux4` (4–7).
-`gdepth` remains unsupported because its legacy precision upgrade is not implemented. Buffer 1 starts
-white each frame; auxiliary buffers 2–15 start transparent black. A buffer's previous-frame contents
-are not retained. These buffers do not yet contain terrain normals, material data or depth automatically.
+Legacy aliases are `gcolor`/`texture` (0), `gdepth` (1), `gnormal` (2), `composite` (3), and `gaux1` through
+`gaux4` (4–7). An active `gdepth` sampler upgrades buffer 1 to RGBA32F unless the pack explicitly sets
+its format. This is a color-buffer alias, not a depth image. Buffer 1 defaults to white; auxiliary buffers
+2–15 default to transparent black. These buffers do not contain terrain normals, material data or depth
+automatically. By default they clear each frame; supported clear declarations can retain auxiliary history.
+
+Supported formats are `R8`, `RG8`, `RGBA8`, `R16`, `RG16`, `RGBA16`, `R16F`, `RG16F`, `RGBA16F`,
+`R32F`, `RG32F` and `RGBA32F` (`RGBA` aliases RGBA8). For example,
+`/* const int colortex7Format = RGBA16F; */` selects half-float storage.
+`const bool colortex7Clear = false;` retains the latest completed image between frames, and
+`const vec4 colortex7ClearColor = vec4(0.0, 0.0, 0.0, 1.0);` changes its initialization/clear color.
+All four clear components must be finite literal numbers. Both sides initialize before first use;
+resizing, changing worlds or switching pipelines invalidates retained history. Clear-enabled buffers
+still clear every frame.
+
+Buffer settings are collected from expanded fragment and vertex programs, including block-comment
+declarations. Each declaration must occupy its own line, be unconditional and use literal values;
+conflicting settings are errors. A declaration inside a preprocessor conditional/header guard is
+currently rejected. Format identifiers in live GLSL must be defined by the pack; Kernel does not
+replace pack macros. Main-buffer retention/custom clearing requires terrain integration and remains
+unsupported. A non-RGBA8 main format first converts the native world image to the selected format;
+this does not recover HDR values or precision already lost during native world rendering. Floating-point
+intermediates preserve subsequent shader calculations; final output converts back to the native target.
 
 An unconditional block comment on its own line selects composite outputs: `/* DRAWBUFFERS:037 */`
 maps output locations 0, 1 and 2 to buffers 0, 3 and 7; `/* RENDERTARGETS:3,15 */` also supports two-digit
@@ -64,10 +85,10 @@ Expansion is limited to 32 levels, 16 million source/expanded characters and 262
 Cached line arrays are reused during recursive expansion. Backslash/newline pairs are handled before
 comments, including on older GLSL versions, while subsequent line numbers and include source IDs remain
 available to the compiler. Macro-generated include filenames are not supported.
-Buffer-format/mipmap/clear directives, Minecraft shader macros, fragment depth writes and discard-based
-passes are rejected until their semantics are implemented.
+Mipmap generation, Minecraft shader macros, fragment depth writes and discard-based passes are rejected
+until their semantics are implemented. A literal `MipmapEnabled = false` declaration is accepted.
 
-Terrain/geometry programs, shadow rendering, depth-based effects, custom color formats, compute or
+Terrain/geometry programs, shadow rendering, depth-based effects, integer/other unsupported formats, compute or
 geometry stages, shader properties/options, custom textures and broad
 legacy GLSL translation are **not implemented**. Packs requiring them are rejected with a visible reason.
 Popular full-world shader packs are not currently supported merely because they appear in Modrinth search.
@@ -90,7 +111,8 @@ is claimed. Fabric metadata declares Iris incompatible because both components w
 Unit tests cover bounded archive access, conditional includes/comments/continuations, path escapes, bounded recursion, duplicate
 entries, oversized sources, download hashes, collisions, source preservation, Modrinth version selection,
 configuration recovery, draw-buffer parsing, legacy output translation, immutable target mappings,
-unsupported output declarations and rejection of unsupported pipeline stages.
+unsupported output declarations, literal buffer settings/conflicts, immutable format settings, byte-based
+allocation accounting and rejection of unsupported pipeline stages.
 
 ```powershell
 .\gradlew.bat :mod:1.21.4:runShaderSmoke :mod:26.2:runShaderSmoke
@@ -99,7 +121,10 @@ unsupported output declarations and rejection of unsupported pipeline stages.
 The GUI probe uses only original tiny shader fixtures. It checks actual driver pixels for one and two
 passes, nonzero/multiple targets, legacy and modern output locations, aliases, buffer-15 feedback,
 per-frame clearing, preservation of the main color through auxiliary-only passes, resize, allocation
-bounds, indexed GL-state restoration and failure recovery. It then
+bounds, indexed GL-state restoration and failure recovery. Additional native fixtures check all twelve
+allocated formats, channel precision, normalized clamping, values outside 0–1 in float images, main-image
+conversion, custom clears, history across frames, explicit reset, resize, legacy `gdepth` precision and
+float-format allocation limits. It then
 imports a ZIP through the native drop handler, persists activation, creates a separate flat test world,
 checks the world-pass pixels, rejects an unsupported shader while retaining the working one, and disables
 shaders before saving/exiting. It never opens existing user worlds. Physical GPU/OS coverage remains
@@ -119,12 +144,18 @@ same-window startup with shader integration installed. The multi-target update p
 pixel and gameplay/GUI probes. The final parser checks additionally exercise conditional scope changes
 and a megabyte of malformed comment prefixes. Release artifacts are checked for exact game/Java
 metadata, matching bundled bootstrap bytes and absence of test or third-party implementation classes.
-Final validation passed `buildAll`, 1,022 unit tests in 259 suites, 27 world activation/conflict probes,
-the renderer/bootstrap checks, and repeated native shader/gameplay probes on 1.21.4 and 26.2.
+The color-format/history update passed `buildAll`, 1,106 unit tests in 277 suites, 27 world
+activation/conflict probes, the renderer/bootstrap checks and all nine native shader/gameplay probes.
+The twelve-format pixel, precision, conversion and retained-history checks run inside each supported
+Minecraft target. Release verification confirms nine mod JARs and one matching Knot Client JAR.
 
 Buffer routing follows the documented [render-target declarations](https://shaders.properties/current/reference/constants/rendertargets/)
 and [color-buffer conventions](https://shaders.properties/current/reference/buffers/colortex/), within the
-explicit format/stage limits above. The implementation and test fixtures are original Kernel code.
+explicit format/stage limits above. Buffer settings follow the documented
+[formats](https://shaders.properties/current/reference/constants/buffer_format/),
+[clear modes](https://shaders.properties/current/reference/constants/buffer_clear/) and
+[clear colors](https://shaders.properties/current/reference/constants/buffer_clear_color/) within those limits.
+The implementation and test fixtures are original Kernel code.
 
 API references: [project search](https://docs.modrinth.com/api/operations/searchprojects/) and
 [project versions](https://docs.modrinth.com/api/operations/getprojectversions/).

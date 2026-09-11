@@ -37,6 +37,7 @@ public final class KernelShaders {
     private static boolean initialized;
     private static volatile Future<?> operation;
     private static ShaderPipeline pipeline;
+    private static Object historyWorld;
     private KernelShaders() {}
 
     public static Path directory() { return DIRECTORY; }
@@ -120,6 +121,11 @@ public final class KernelShaders {
 
     /** Invoked from the native rendering thread before drawing. */
     public static void beginFrame() {
+        Object world = Minecraft.getInstance().level;
+        if (historyWorld != world) {
+            if (pipeline != null) pipeline.resetHistory();
+            historyWorld = world;
+        }
         Request request = PENDING.getAndSet(null);
         if (request == null || closed || request.generation != GENERATION.get()) return;
         try {
@@ -172,6 +178,7 @@ public final class KernelShaders {
     }
     public static synchronized void close() {
         closed = true; cancel(); WORKER.shutdownNow();
+        historyWorld = null;
         if (pipeline != null) { pipeline.close(); pipeline = null; }
     }
 }

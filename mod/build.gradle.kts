@@ -307,7 +307,9 @@ tasks {
     val prepareGuiProbe = register<Sync>("prepareGuiProbe") {
         group = "verification"
         dependsOn(testClasses)
-        from(sourceSets.test.get().output.classesDirs) { include("dev/kernel/fabric/verification/**") }
+        from(sourceSets.test.get().output.classesDirs) {
+            include("dev/kernel/fabric/verification/**", "dev/kernel/fabric/shader/ShaderBufferGlChecks*.class")
+        }
         from(rootProject.file("mod/src/test/resources/gui-probe"))
         into(layout.buildDirectory.dir("gui-probe-mod"))
     }

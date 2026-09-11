@@ -116,10 +116,23 @@ class ShaderPackTest {
         var prepared = PreparedShaderPack.read(multiple).passes().getFirst();
         assertEquals(List.of(3, 15), prepared.drawTargets());
         assertTrue(prepared.fragment().contains("layout(location = 1) out vec4 kernel_fragColor1;"));
-        for (String directive : List.of("colortex7Format", "gaux4Clear", "gcolorClearColor", "compositeMipmapEnabled", "GAUX4FORMAT")) {
+        for (String directive : List.of("const int colortex7Format = RGBA8I;", "const bool gaux4Clear = UNKNOWN;",
+            "const vec4 gcolorClearColor = vec4(0);", "const bool compositeMipmapEnabled = true;", "GAUX4FORMAT")) {
             var configured = zip("configured.zip", Map.of("shaders/composite.fsh", shader + "\n/* " + directive + " */"));
             assertThrows(java.io.IOException.class, () -> PreparedShaderPack.read(configured));
         }
+    }
+    @Test void bufferSettingsAreCollectedFromBothProgramStagesAndExpandedIncludes() throws Exception {
+        var files = new HashMap<String, String>();
+        files.put("shaders/final.fsh", "#version 120\n#include \"buffers.glsl\"\nvoid main(){gl_FragColor=vec4(1);}");
+        files.put("shaders/final.vsh", "#version 120\n/* const int gdepthFormat = R32F; */\nvoid main(){gl_Position=gl_Vertex;}");
+        files.put("shaders/buffers.glsl", "/* const int colortex0Format = RG16; */\n/* const bool colortex7Clear = false; */");
+        var pack = PreparedShaderPack.read(zip("settings.zip", files));
+        assertEquals(ShaderColorFormat.RG16, pack.buffers().buffers().get(0).format());
+        assertEquals(ShaderColorFormat.R32F, pack.buffers().buffers().get(1).format());
+        assertFalse(pack.buffers().buffers().get(7).clear());
+        files.put("shaders/final.vsh", "/* const int colortex0Format = RGBA8; */");
+        assertThrows(java.io.IOException.class, () -> PreparedShaderPack.read(zip("conflict.zip", files)));
     }
     @Test void shaderSelectionSurvivesUnknownSettingsAndRejectsPaths() throws Exception {
         Path file = temporary.resolve("kernel-shaders.properties");
