@@ -225,7 +225,7 @@ tasks {
             doFirst {
                 val config = workingDir.resolve("config/kernel-world.properties")
                 config.parentFile.mkdirs()
-                config.writeText("biome_offsets=${mode != "Disabled"}\n")
+                config.writeText("biome_offsets=${mode != "Disabled"}\nnoise_slices=${mode != "Disabled"}\n")
                 if (mode == "Conflict") {
                     conflict.mkdirs()
                     conflict.resolve("fabric.mod.json").writeText("""{"schemaVersion":1,"id":"lithium","version":"0.0.0","name":"Kernel ownership test marker"}""")
@@ -340,7 +340,7 @@ tasks {
                 directory.mkdirs()
                 directory.resolve("options.txt").writeText("onboardAccessibility:false\nguiScale:2\nrenderDistance:4\nsimulationDistance:5\n")
                 directory.resolve("config").mkdirs()
-                directory.resolve("config/kernel-world.properties").writeText("biome_offsets=${mode == "Optimized"}\n")
+                directory.resolve("config/kernel-world.properties").writeText("biome_offsets=${mode == "Optimized"}\nnoise_slices=${mode == "Optimized"}\n")
                 val marker = directory.resolve("world-generation-sha256.txt")
                 check(!marker.exists() || marker.delete())
             }

@@ -13,6 +13,7 @@
     "frame.FrameHudMixin",
     "frame.FrameDebugMixin",
     "world.BiomeManagerMixin",
+    "world.NoiseInterpolatorMixin",
     "shader.ShaderFrameMixin",
     "render.BlockMixin",
     "render.ChunkTaskMixin",

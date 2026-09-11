@@ -8,14 +8,19 @@ import java.nio.file.StandardCopyOption;
 import java.util.Properties;
 
 /** Restart-only world optimization preferences; unknown keys survive saves. */
-public record WorldConfig(boolean biomeOffsets) {
+public record WorldConfig(boolean biomeOffsets, boolean noiseSlices) {
     public static WorldConfig load(Path path) throws IOException {
-        return new WorldConfig(Boolean.parseBoolean(read(path).getProperty("biome_offsets", "true")));
+        Properties properties = read(path);
+        return new WorldConfig(Boolean.parseBoolean(properties.getProperty("biome_offsets", "true")),
+            Boolean.parseBoolean(properties.getProperty("noise_slices", "true")));
     }
+    public WorldConfig withBiomeOffsets(boolean enabled) { return new WorldConfig(enabled, noiseSlices); }
+    public WorldConfig withNoiseSlices(boolean enabled) { return new WorldConfig(biomeOffsets, enabled); }
     public void save(Path path) throws IOException {
         Path target = path.toAbsolutePath();
         Properties properties = read(target);
         properties.setProperty("biome_offsets", Boolean.toString(biomeOffsets));
+        properties.setProperty("noise_slices", Boolean.toString(noiseSlices));
         Files.createDirectories(target.getParent());
         Path temporary = Files.createTempFile(target.getParent(), "kernel-world-", ".tmp");
         try {

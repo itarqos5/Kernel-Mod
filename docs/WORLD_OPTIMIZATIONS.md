@@ -1,5 +1,7 @@
 # World and biome work
 
+## Biome selection
+
 Kernel reuses the eight seed-dependent corner offsets used by vanilla biome selection. Nearby blocks
 query the same quart cells repeatedly. Each thread holds a bounded 128-cell cache, keyed by the complete
 seed and signed quart coordinates, with about 27 KiB of primitive arrays. Entries contain no worlds,
@@ -68,5 +70,30 @@ tests cover selected seeds and positions, not every possible world, datapack or 
 
 All nine supported targets passed the controlled off/on fingerprint comparison. Settings interaction
 probes passed on 1.21.4 and 26.2, and the release build passed 749 unit tests plus real Mixin smoke checks.
+
+## Noise interpolation arrays
+
+Each supported version's `NoiseChunk.NoiseInterpolator.allocateSlice` first creates a complete rectangular
+array and then replaces every row with another identically sized, zero-filled row. Kernel creates that
+rectangular array once. Every call still owns its complete set of rows; dimensions, positive-zero values,
+negative-size exceptions and integer overflow behavior are unchanged. Noise calculations, coordinates,
+random streams, cell traversal and generation scheduling remain native.
+
+**Optimizations → Noise slice allocation** controls this independently of biome reuse. The restart-only
+`noise_slices` setting in `config/kernel-world.properties` defaults on and is disabled alongside the biome
+optimization when Lithium is present or configuration cannot be read. This is an allocation reduction,
+not a terrain algorithm or a claim of complete world-loading acceleration.
+
+The real Mixin checks instantiate only the allocation receiver without its world-dependent constructor
+(test-only use of `Unsafe`) and invoke the actual mapped method. They check row shape, fresh ownership,
+zero values and invalid dimensions, then measure allocated bytes with the JVM's thread-allocation counter.
+All nine actual mapped methods measured 4,120 bytes per 5×49 slice with the optimization disabled and
+2,080 bytes with it enabled on the available Java 21/25 runtimes. The Lithium-presence checks retained
+the native 4,120-byte behavior. No world-load timing or FPS claim follows from this byte count.
+
+The combined world optimizations also passed fresh off/on block/biome fingerprint comparisons on 1.21.4,
+1.21.6 and 26.2. GUI Apply/Done/Cancel checks cover both independent switches on 1.21.4 and 26.2.
+The full release build passed 821 unit tests, all 27 world activation/conflict checks, the existing renderer
+and agent checks, and exact artifact/metadata/bytecode-level inspection across all supported targets.
 
 Broader chunk I/O, world generation, server scheduling and stutter attribution remain separate work.

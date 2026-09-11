@@ -118,7 +118,7 @@ public final class KernelSettingsScreen extends Screen {
         int top = 50, rowHeight = 26;
         int rows = Math.max(1, (height - top - 72) / rowHeight);
         List<VideoSetting<?>> visibleSettings = settings.stream().filter(setting -> setting.tab.equals(tab)).toList();
-        int count = tab.equals("optimizations") ? features.size() + 1 : visibleSettings.size() + (tab.equals("video") ? 1 : 0);
+        int count = tab.equals("optimizations") ? features.size() + 2 : visibleSettings.size() + (tab.equals("video") ? 1 : 0);
         pages = Math.max(1, (count + rows - 1) / rows); page = Math.min(page, pages - 1);
         int first = page * rows;
         addRenderableOnly((graphics, mouseX, mouseY, delta) -> {
@@ -160,7 +160,7 @@ public final class KernelSettingsScreen extends Screen {
         recommend.setTooltip(Tooltip.create(tr("recommendation_description", Runtime.getRuntime().availableProcessors(), Runtime.getRuntime().maxMemory() / (1024 * 1024), preset.renderDistance(), preset.simulationDistance())));
         for (int row = 0; row < rows && first + row < count; row++) {
             int y = top + row * rowHeight;
-            if (tab.equals("optimizations") && first + row == features.size()) addBiomeOffsets(contentX, y, contentWidth);
+            if (tab.equals("optimizations") && first + row >= features.size()) addWorldSetting(first + row > features.size(), contentX, y, contentWidth);
             else if (tab.equals("optimizations")) addFeature(features.get(first + row), contentX, y, contentWidth);
             else if (tab.equals("video") && first + row == 0) addFrameSync(contentX, y, contentWidth);
             else addSetting(visibleSettings.get(first + row - (tab.equals("video") ? 1 : 0)), contentX, y, contentWidth);
@@ -228,17 +228,21 @@ public final class KernelSettingsScreen extends Screen {
             .append(KernelTranslations.text("kernel.settings.current", KernelRendererSettings.enabled(feature) ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF))));
     }
     private Component featureLabel(RendererFeature feature) { return pending.enabled(feature) ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF; }
-    private void addBiomeOffsets(int x, int y, int width) {
-        Component label = KernelTranslations.text("kernel.world.biome_offsets");
+    private void addWorldSetting(boolean noiseSlices, int x, int y, int width) {
+        String key = "kernel.world." + (noiseSlices ? "noise_slices" : "biome_offsets");
+        Component label = KernelTranslations.text(key);
         row(label, x, y, width, 68);
-        Component state = pendingWorld.biomeOffsets() ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF;
+        boolean enabled = noiseSlices ? pendingWorld.noiseSlices() : pendingWorld.biomeOffsets();
+        Component state = enabled ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF;
         var button = addRenderableWidget(new KernelButton(x + width - 64, y + 1, 64, 22,
             KernelTranslations.text("kernel.settings.value", label, state), pressed -> {
-                pendingWorld = new WorldConfig(!pendingWorld.biomeOffsets()); saveFailed = false; rebuildWidgets();
-            }, () -> pendingWorld.biomeOffsets(), false).visual(state));
+                pendingWorld = noiseSlices ? pendingWorld.withNoiseSlices(!enabled) : pendingWorld.withBiomeOffsets(!enabled);
+                saveFailed = false; rebuildWidgets();
+            }, () -> enabled, false).visual(state));
         button.active = !WorldSettings.lithiumPresent();
-        button.setTooltip(Tooltip.create(KernelTranslations.text(WorldSettings.lithiumPresent() ? "kernel.world.lithium" : "kernel.world.biome_offsets.description")
-            .append("\n").append(KernelTranslations.text("kernel.settings.current", WorldSettings.biomeOffsetsActive() ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF))));
+        boolean active = noiseSlices ? WorldSettings.noiseSlicesActive() : WorldSettings.biomeOffsetsActive();
+        button.setTooltip(Tooltip.create(KernelTranslations.text(WorldSettings.lithiumPresent() ? "kernel.world.lithium" : key + ".description")
+            .append("\n").append(KernelTranslations.text("kernel.settings.current", active ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF))));
     }
     private boolean restartRequired() { return KernelRendererSettings.restartRequired(pending) || WorldSettings.restartRequired(pendingWorld); }
     private boolean hasChanges() { return pendingFrameSync != FrameSync.enabled() || !pending.equals(KernelRendererSettings.saved())

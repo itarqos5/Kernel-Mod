@@ -69,7 +69,7 @@ and documented exceptions. The families below remain incomplete in Kernel:
 - Inventories and block entities: hopper transfer/lookup, change notification, sleeping and wake-up rules.
 - Chunk data: palettes, block access, serialization, tickets and entity collections.
 - Block and fluid work: neighbor updates, redstone, fluid flow, moving block shapes and scheduled/random ticks.
-- World and generation work: [biome-offset reuse](WORLD_OPTIMIZATIONS.md) is implemented; broader allocation reductions,
+- World and generation work: [biome-offset reuse and noise-slice allocation reduction](WORLD_OPTIMIZATIONS.md) are implemented; broader allocation reductions,
   caches, random-number sequencing and deterministic-output validation remain incomplete.
 - Configuration and compatibility: selective disabling, dependency-aware activation, conflict detection and mod hooks.
 

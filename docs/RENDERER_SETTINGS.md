@@ -105,3 +105,6 @@ separate [pre-Fabric loading window](BOOTSTRAP_WINDOW.md) keeps settings closed 
 The Shaders tab opens the [shader browser and color post-processing controls](SHADERS.md). Shader selections
 apply immediately; returning to the video tabs preserves their uncommitted drafts. Full-world shader packs
 remain unsupported until their rendering stages are implemented.
+
+The Optimizations tab also exposes independent **Biome offset reuse** and **Noise slice allocation**
+restart-only world controls. Both yield ownership to Lithium when it is installed.

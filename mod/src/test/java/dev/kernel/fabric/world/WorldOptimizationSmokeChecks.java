@@ -11,6 +11,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class WorldOptimizationSmokeChecks {
     public static void run() throws Throwable {
         boolean expected = Boolean.getBoolean("kernel.worldProbe.expectedEnabled");
+        if (WorldSettings.noiseSlicesActive() != expected) throw new AssertionError("Noise slice activation mismatch");
+        NoiseSliceSmokeChecks.run(expected);
         boolean applied = Arrays.stream(BiomeManager.class.getDeclaredFields()).anyMatch(field -> field.getName().equals("kernel$offsets"));
         if (expected != applied || expected != WorldSettings.biomeOffsetsActive()) throw new AssertionError("Biome Mixin activation mismatch");
         var method = BiomeManager.class.getDeclaredMethod("getFiddledDistance", long.class, int.class, int.class, int.class, double.class, double.class, double.class);

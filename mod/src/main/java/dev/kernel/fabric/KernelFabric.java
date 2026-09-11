@@ -26,6 +26,8 @@ public final class KernelFabric implements ClientModInitializer {
         }
         LOGGER.info("Kernel biome offset reuse: {}", dev.kernel.fabric.world.WorldSettings.lithiumPresent() ? "disabled (Lithium owns biome selection)"
             : dev.kernel.fabric.world.WorldSettings.biomeOffsetsActive() ? "enabled" : "disabled");
+        LOGGER.info("Kernel noise slice allocation: {}", dev.kernel.fabric.world.WorldSettings.lithiumPresent() ? "disabled (Lithium present)"
+            : dev.kernel.fabric.world.WorldSettings.noiseSlicesActive() ? "enabled" : "disabled");
 
         try {
             KnotClientInstaller.InstallResult result = KnotClientInstaller.installForCurrentLaunch();
