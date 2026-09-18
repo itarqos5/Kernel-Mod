@@ -27,6 +27,8 @@ public final class ShaderTextureBindings {
         var bindings = new LinkedHashMap<String, String>();
         for (var declaration : declarations.entrySet()) {
             String key = declaration.getKey(), name;
+            // Option declarations and screen layout belong to ShaderProperties, which reads the same file.
+            if (ShaderProperties.presentational(key)) continue;
             if (key.startsWith("texture.composite.")) {
                 int buffer = ShaderUniforms.colorBuffer(key.substring("texture.composite.".length()));
                 if (buffer < 0) throw new IOException("Unsupported composite texture binding: " + key);

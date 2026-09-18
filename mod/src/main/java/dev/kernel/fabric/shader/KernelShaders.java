@@ -22,6 +22,7 @@ public final class KernelShaders {
     private record Request(long generation, PreparedShaderPack pack, boolean persist) {}
     private static final Path DIRECTORY = FabricLoader.getInstance().getGameDir().resolve("shaderpacks");
     private static final Path CONFIG = FabricLoader.getInstance().getConfigDir().resolve("kernel-shaders.properties");
+    private static final Path OPTIONS = FabricLoader.getInstance().getConfigDir().resolve("kernel-shaders");
     private static final ShaderHttp HTTP = new ShaderHttp("0.1.0");
     private static final ModrinthShaders MODRINTH = new ModrinthShaders(HTTP::json);
     private static final ShaderPackInstaller INSTALLER = new ShaderPackInstaller(DIRECTORY, HTTP);
@@ -39,11 +40,25 @@ public final class KernelShaders {
     private static ShaderPipeline pipeline;
     private static Object historyWorld;
     private static boolean handDepth, invalidProjection, invalidView;
+    private static volatile List<ShaderOption> options = List.of();
+    private static volatile ShaderOptionConfig optionValues = ShaderOptionConfig.empty();
+    private static volatile ShaderProperties properties = ShaderProperties.empty();
+    /** The dimension folder the active pipeline was prepared for, so a dimension change can rebuild it. */
+    private static volatile String preparedDimension = PreparedShaderPack.OVERWORLD;
     private KernelShaders() {}
 
     public static Path directory() { return DIRECTORY; }
     public static List<String> installed() { return installed; }
     public static String active() { return active; }
+    /** The options the active pack declares, ordered the way the pack lays them out. */
+    public static List<ShaderOption> options() { return options; }
+    public static ShaderProperties properties() { return properties; }
+    /** The value in force for one option: the stored value when the pack still accepts it, else its default. */
+    public static String optionValue(ShaderOption option) {
+        String stored = optionValues.values().get(option.name());
+        return stored != null && option.accepts(stored) ? stored : option.defaultValue();
+    }
+    public static boolean optionChanged(ShaderOption option) { return !optionValue(option).equals(option.defaultValue()); }
     public static String message() { return error.isEmpty() ? message : error; }
     public static boolean failed() { return !error.isEmpty(); }
     public static boolean busy() { return busy; }
@@ -57,12 +72,45 @@ public final class KernelShaders {
             refreshFiles();
             String saved = ShaderConfig.load(CONFIG).selected();
             if (saved.isEmpty()) finish(generation, "Shaders are off");
-            else prepare(generation, saved, false);
+            else prepare(generation, saved, PreparedShaderPack.OVERWORLD, false);
         });
     }
     public static void refresh() { start("Reading installed packs", generation -> { refreshFiles(); finish(generation, "Drop a shader ZIP here or browse Modrinth"); }); }
-    public static void select(String filename) { start("Preparing " + filename, generation -> prepare(generation, filename, true)); }
+    public static void select(String filename) {
+        String dimension = currentDimension();
+        start("Preparing " + filename, generation -> prepare(generation, filename, dimension, true));
+    }
     public static void disable() { start("Disabling shaders", generation -> PENDING.set(new Request(generation, null, true))); }
+
+    /**
+     * Changes one option of the active pack and rebuilds it.
+     *
+     * <p>The value is saved first: a pack that no longer compiles with a chosen value must still remember
+     * the choice, so the player can change it again instead of losing the whole selection.
+     */
+    public static void setOption(String name, String value) {
+        String pack = active;
+        if (pack.isEmpty()) return;
+        String dimension = preparedDimension;
+        ShaderOptionConfig updated = optionValues.with(name, value);
+        start("Applying " + name, generation -> {
+            optionValues = updated;
+            updated.save(ShaderOptionConfig.file(OPTIONS, pack));
+            prepare(generation, pack, dimension, false);
+        });
+    }
+
+    /** Restores every option of the active pack to the value the pack itself ships. */
+    public static void resetOptions() {
+        String pack = active;
+        if (pack.isEmpty() || optionValues.values().isEmpty()) return;
+        String dimension = preparedDimension;
+        start("Restoring pack defaults", generation -> {
+            optionValues = ShaderOptionConfig.empty();
+            optionValues.save(ShaderOptionConfig.file(OPTIONS, pack));
+            prepare(generation, pack, dimension, false);
+        });
+    }
     public static void importPacks(List<Path> files) {
         if (files.isEmpty()) return;
         if (files.size() > 32) { fail("Drop at most 32 shader ZIP files at once"); return; }
@@ -98,14 +146,31 @@ public final class KernelShaders {
         if (operation != null) operation.cancel(true);
         busy = false; message = "Shader operation cancelled"; error = ""; REVISION.incrementAndGet();
     }
-    private static void prepare(long generation, String filename, boolean persist) throws IOException {
+    private static void prepare(long generation, String filename, String dimension, boolean persist) throws IOException {
         new ShaderConfig(filename);
         Path path = DIRECTORY.resolve(filename);
         if (!Files.isRegularFile(path)) throw new IOException("Selected shader pack is missing: " + filename);
-        PreparedShaderPack prepared = PreparedShaderPack.read(path);
+        if (!filename.equals(active) || options.isEmpty()) optionValues = ShaderOptionConfig.load(ShaderOptionConfig.file(OPTIONS, filename));
+        PreparedShaderPack prepared = PreparedShaderPack.read(path, dimension, optionValues.values());
         if (generation == GENERATION.get()) {
             message = "Compiling " + filename; PENDING.set(new Request(generation, prepared, persist)); REVISION.incrementAndGet();
         }
+    }
+
+    /**
+     * Returns the pack folder for the dimension being rendered.
+     *
+     * <p>Only the render thread may call this, because it reads the live client world.
+     */
+    private static String currentDimension() {
+        var level = Minecraft.getInstance().level;
+        if (level == null) return PreparedShaderPack.OVERWORLD;
+        //? if >=1.21.11 {
+        String path = level.dimension().identifier().getPath();
+        //? } else {
+        /*String path = level.dimension().location().getPath();
+        *///? }
+        return PreparedShaderPack.dimensionFolder(path);
     }
     private static void refreshFiles() throws IOException {
         if (!Files.isDirectory(DIRECTORY)) { installed = List.of(); return; }
@@ -127,6 +192,11 @@ public final class KernelShaders {
             if (pipeline != null) pipeline.resetHistory();
             historyWorld = world;
         }
+        // A pack may replace whole programs per dimension, so entering one rebuilds the active pipeline.
+        if (pipeline != null && !active.isEmpty() && !busy && !currentDimension().equals(preparedDimension)) {
+            String pack = active, dimension = currentDimension();
+            start("Preparing " + pack + " for this dimension", generation -> prepare(generation, pack, dimension, false));
+        }
         Request request = PENDING.getAndSet(null);
         if (request == null || closed || request.generation != GENERATION.get()) return;
         try {
@@ -136,6 +206,12 @@ public final class KernelShaders {
                 if (request.generation != GENERATION.get() || closed) { if (replacement != null) replacement.close(); return; }
                 ShaderPipeline old = pipeline; pipeline = replacement;
                 active = request.pack == null ? "" : request.pack.filename();
+                // Publish the pack description only once its programs have compiled, so a failed
+                // compilation never leaves the settings screen describing a pipeline that is not running.
+                options = request.pack == null ? List.of() : request.pack.options();
+                properties = request.pack == null ? ShaderProperties.empty() : request.pack.properties();
+                preparedDimension = request.pack == null ? PreparedShaderPack.OVERWORLD : request.pack.dimension();
+                if (request.pack == null) optionValues = ShaderOptionConfig.empty();
                 if (old != null) old.close();
                 String selected = active;
                 if (request.persist) {

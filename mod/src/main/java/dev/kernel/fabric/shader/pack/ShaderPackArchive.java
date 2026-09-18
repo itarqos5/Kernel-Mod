@@ -65,6 +65,20 @@ public final class ShaderPackArchive implements AutoCloseable {
         return java.util.Collections.unmodifiableSortedSet(result);
     }
     public boolean contains(String relativePath) throws IOException { return files.containsKey(root + normalize(relativePath)); }
+    /**
+     * Resolves a pack file against the current dimension folder, falling back to the pack root.
+     *
+     * <p>Iris-format packs may ship {@code world0}, {@code world-1} and {@code world1} folders that
+     * replace whole programs for that dimension. Includes inside a replaced program still resolve
+     * relative to the file that contains them, so a dimension program can include either folder.
+     */
+    public String resolve(String dimension, String relativePath) throws IOException {
+        if (dimension != null && !dimension.isEmpty()) {
+            String candidate = dimension + "/" + relativePath;
+            if (contains(candidate)) return normalize(candidate);
+        }
+        return contains(relativePath) ? normalize(relativePath) : null;
+    }
     public String source(String relativePath) throws IOException {
         return text(relativePath, MAX_SOURCE_BYTES);
     }

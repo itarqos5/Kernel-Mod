@@ -21,9 +21,11 @@ Downloads stop after five minutes of transfer, and archive/source/entry limits b
 
 ## Current rendering contract
 
-This is an original, limited **post-processing** renderer, not Iris/OptiFine shader compatibility.
-Kernel currently supports up to 16 ordered `composite`, `composite1` through `composite99`, and `final`
-passes, with up to eight simultaneous outputs mapped to sixteen logical color buffers. The world image,
+This is an original, limited **post-processing** renderer. It reads the Iris/OptiFine pack format, but it
+does not yet render the world stages that format describes, so it is not Iris shader compatibility.
+Kernel currently supports up to 32 ordered `deferred`, `deferred1` through `deferred99`, `composite`,
+`composite1` through `composite99`, and `final` passes, in that order,
+with up to eight simultaneous outputs mapped to sixteen logical color buffers. The world image,
 including the hand, starts in `colortex0` and is processed before the HUD. Each pass samples the current
 images and writes separate alternate images, then flips its declared targets. Passes that only write
 auxiliary buffers preserve the displayed color. `final` always writes the displayed color image.
@@ -263,9 +265,55 @@ pixel-unpack state. Failed replacement, disabling and shutdown release owned tex
 Minecraft shader macros other than `MC_HAND_DEPTH`, fragment depth writes and discard-based passes
 are rejected until their semantics are implemented.
 
-Terrain/geometry programs, shadow rendering, opaque-only depth and hand projection inputs,
-integer/other unsupported formats, compute or geometry stages, other shader properties/options, non-PNG/resource-pack textures and broad
+## Pack options
+
+Kernel reads the options a pack declares in its own source, using the Iris/OptiFine syntax, and offers
+them under **Pack options** in the Shaders tab. A bare `#define NAME`, shipped either active or commented
+out, becomes an on/off option; `#define NAME value //[a b c]` and `const int NAME = value; //[a b c]`
+become value options whose choices are exactly the ones the pack listed, plus the value the pack ships.
+Text after the declaration becomes the description shown beneath the list. Nothing evaluates preprocessor
+conditions: a declaration inside an inactive `#if` branch is still listed, and the GLSL preprocessor
+decides whether it matters. A declaration that begins inside a block comment is ignored.
+
+Choosing a value rewrites the declaring line rather than prepending a define, because a pack ships some
+options already enabled and prepending cannot undo an existing `#define`. Each rewrite replaces one
+physical line with one physical line, so the `#line` directives produced by include expansion keep
+pointing at the original source and compiler errors keep naming the right file. Options are applied
+before buffer settings and draw-target declarations are read, since packs guard those behind options.
+
+`shaders.properties` supplies the layout. When a pack declares `screen`, `screen.<NAME>` and `sliders`,
+Kernel offers exactly the options that layout names, in that order; this matters because every include
+guard in a pack is also a bare `#define` and would otherwise appear as a setting. A pack with no declared
+screens offers everything it declares except names that read as include guards. An option the pack marks
+as a slider shows a position indicator rather than a drag handle, because dragging would recompile the
+whole pipeline at every intermediate value. `program.<name>.enabled` is honoured for a literal boolean,
+a single option name, or a negated option name; a longer expression leaves the stage enabled, because
+dropping a stage on a guess would silently lose rendering the pack expects. Properties that change how a
+pass draws remain unrecognised and still refuse the pack.
+
+Values are stored per pack in `config/kernel-shaders/<pack>.txt` as plain `name=value` lines, so
+switching or reinstalling a pack cannot reinterpret another pack's choices. They are validated against
+the pack's declarations at compile time rather than at read time: a file written for an older version of
+a pack stays readable and simply loses entries that pack no longer declares. A malformed or unreadable
+file reads as no stored values. Changing an option saves it first and then recompiles, so a value that
+fails to compile is still remembered and can be changed again. **Pack defaults** clears every stored value.
+
+## Dimension folders
+
+Iris-format packs may ship `world0`, `world-1` and `world1` folders that replace whole programs and
+`shaders.properties` for the Overworld, the Nether and the End. Kernel resolves each program against the
+current dimension's folder first and falls back to the pack root, so a folder that replaces one program
+leaves the rest alone. Includes still resolve relative to the file that contains them, so a replaced
+program can include either folder. Entering a different dimension rebuilds the active pipeline; the
+rebuild is a normal pack preparation, so a failure leaves the previous pipeline running and reports why.
+Dimensions other than the three the format names use the Overworld folder.
+
+Terrain/geometry programs, shadow rendering, `prepare` stages, opaque-only depth and hand projection
+inputs, integer/other unsupported formats, compute or geometry stages, the shader properties that change
+how a pass draws, non-PNG/resource-pack textures and broad
 legacy GLSL translation are **not implemented**. Packs requiring them are rejected with a visible reason.
+A pack that ships `gbuffers_*`, `shadow*` or `prepare*` programs is refused by name, because running only
+its later passes over Minecraft's own world image would produce output the pack never described.
 Popular full-world shader packs are not currently supported merely because they appear in Modrinth search.
 Kernel does not silently discard those stages or count a download as successful rendering.
 
@@ -286,6 +334,10 @@ is claimed. Fabric metadata declares Iris incompatible because both components w
 Unit tests cover bounded archive access, conditional includes/comments/continuations, path escapes, bounded recursion, duplicate
 entries, oversized sources, download hashes, collisions, source preservation, Modrinth version selection,
 configuration recovery, draw-buffer parsing, legacy output translation, immutable target mappings,
+option discovery and in-place rewriting including Windows line endings and bounded counts, rejection of
+reserved names, macro functions and unusable value lists, `shaders.properties` parsing, screen flattening
+without loops or repeats, program-toggle evaluation, per-pack option storage and its recovery from
+malformed files, deferred/composite/final ordering, dimension-folder resolution and fallback,
 unsupported output declarations, literal buffer settings/conflicts, immutable format settings, byte-based
 allocation accounting and rejection of unsupported pipeline stages. PNG checks cover format/interlace
 combinations, oversized decompressed streams, header/chunk corruption, metadata types, binding limits,
