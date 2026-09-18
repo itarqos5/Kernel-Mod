@@ -10,6 +10,7 @@
   "contact": {
     "sources": "https://github.com/itarqos5/Kernel-Mod"
   },
+  "license": "LGPL-3.0-only",
   "environment": "client",
   "accessWidener": "${accessWidener}",
   "entrypoints": {

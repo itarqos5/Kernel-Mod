@@ -103,6 +103,12 @@ public final class KernelWorldShaders {
                 ShaderWorldEnvironment.parse(vertexSource, true), true);
             String translatedFragment = ShaderWorldTranslation.translate(program.fragment(),
                 ShaderWorldEnvironment.parse(fragmentSource, false), false);
+            if (Boolean.getBoolean("kernel.worldShaders.dump")) try {
+                var directory = java.nio.file.Path.of("kernel-world-shader-dump");
+                java.nio.file.Files.createDirectories(directory);
+                java.nio.file.Files.writeString(directory.resolve(core + ".vsh"), translatedVertex);
+                java.nio.file.Files.writeString(directory.resolve(core + ".fsh"), translatedFragment);
+            } catch (java.io.IOException ignored) { }
             return new Decision(translatedVertex, translatedFragment);
         } catch (Exception failure) {
             // One line per pack, not per shader: a pack that cannot be translated usually cannot be

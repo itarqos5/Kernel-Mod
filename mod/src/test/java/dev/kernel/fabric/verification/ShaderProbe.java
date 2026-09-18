@@ -188,9 +188,12 @@ public final class ShaderProbe {
         *///? }
         try (var stack = MemoryStack.stackPush()) {
             var pixel = stack.malloc(4);
-            GL33C.glReadPixels(target.width / 2, target.height / 2, 1, 1, GL33C.GL_RGBA, GL33C.GL_UNSIGNED_BYTE, pixel);
+            // Sample away from the screen centre: looking straight down puts the player's own arm there,
+            // and the arm is drawn by a program this pack does not replace.
+            int x = target.width / 4, y = target.height * 3 / 4;
+            GL33C.glReadPixels(x, y, 1, 1, GL33C.GL_RGBA, GL33C.GL_UNSIGNED_BYTE, pixel);
             int red = pixel.get(0) & 255, green = pixel.get(1) & 255, blue = pixel.get(2) & 255;
-            System.out.println("Kernel world-stage pixel: " + red + "," + green + "," + blue);
+            System.out.println("Kernel world-stage pixel at " + x + "," + y + ": " + red + "," + green + "," + blue);
             if (green < 250 || red > 5 || blue > 5)
                 throw new AssertionError("Terrain was not drawn by the pack's own program: " + red + "," + green + "," + blue);
         }

@@ -154,11 +154,21 @@ pack produces are the pixels it asked for. Packs needing more stay refused by na
   what callers read but not what the device compiles. Hooking the wrong one substituted nothing, which is
   what the GPU probe caught.
 
-  On 1.21.5 the probe now shows six core shader stages compiled from a pack, so a translated program does
-  compile and link inside a real Minecraft pipeline on a real driver. What it draws is still wrong: a
-  `gbuffers_terrain` writing a constant green produces magenta in `colortex0`. The final pass is not at
-  fault — making it output a constant produces that constant — so the defect is in the world translation
-  or in how its output reaches the colour target.
+  On 1.21.5 the probe shows six core shader stages compiled from a pack, and the translated source is
+  correct: dumping it with `-Dkernel.worldShaders.dump=true` yields a valid, self-consistent pair whose
+  vertex stage transforms by the version's own position expression and whose fragment stage writes the
+  output name that version declares.
+
+  It is also genuinely compiled. Feeding deliberately invalid GLSL makes the driver reject it and
+  Minecraft report `Couldn't compile pipeline minecraft:pipeline/cutout`, `cutout_mipped`, `translucent`
+  and `tripwire`, each naming `minecraft:core/terrain`.
+
+  What that list does not contain is `solid`, and the visible surface of a superflat world is drawn in the
+  solid layer. The pack's program therefore reaches four terrain pipelines and not the one on screen, so
+  the world still renders as Minecraft drew it. The remaining defect is **invalidation, not translation**:
+  clearing the graphics device's pipeline cache when a pack is adopted does not cause every already
+  compiled terrain pipeline to be rebuilt from the new source. The next step is to force a complete
+  shader rebuild on pack change rather than relying on that cache alone.
 
   Because of that, a pack shipping `gbuffers_*` is still refused by default, exactly as before. Set
   `-Dkernel.worldShaders=true` to opt into the incomplete path; the shader probe exercises the world stage

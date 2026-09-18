@@ -1,7 +1,5 @@
 package dev.kernel.fabric.world;
 
-import com.sun.management.ThreadMXBean;
-import java.lang.management.ManagementFactory;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.concurrent.*;
@@ -84,18 +82,19 @@ public final class ShapeCoordinatesSmokeChecks {
         }
     }
     private static void allocation(boolean enabled) throws Throwable {
-        ThreadMXBean bean = (ThreadMXBean) ManagementFactory.getThreadMXBean();
         for (int size : new int[]{1, 16, 64, 65}) {
             var grid = new Grid(size, size, size);
             VoxelShape live = ShapeCoordinatesTestSupport.create(grid, false), reference = ShapeCoordinatesTestSupport.create(grid, true);
-            for (int i = 0; i < 20000; i++) { sink = live.getCoords(Axis.X); sink = reference.getCoords(Axis.X); }
-            long thread = Thread.currentThread().threadId(), before = bean.getThreadAllocatedBytes(thread);
-            for (int i = 0; i < 8192; i++) sink = reference.getCoords(Axis.X);
-            long original = bean.getThreadAllocatedBytes(thread) - before;
-            before = bean.getThreadAllocatedBytes(thread);
-            for (int i = 0; i < 8192; i++) sink = live.getCoords(Axis.X);
-            long actual = bean.getThreadAllocatedBytes(thread) - before;
-            check(original == 16L * 8192 && actual == (enabled && size <= 64 ? 0 : original), "Native/live coordinate allocation: " + original + "/" + actual);
+            boolean shared = enabled && size <= 64;
+            // Retry the measurement: an allocation count depends on how far JIT compilation has reached,
+            // which varies with build load. See AllocationProbe.
+            long[] measured = dev.kernel.fabric.verification.AllocationProbe.settle(
+                () -> { sink = live.getCoords(Axis.X); sink = reference.getCoords(Axis.X); }, 20000, 8192,
+                totals -> totals[0] == 16L * 8192 && totals[1] == (shared ? 0 : totals[0]),
+                () -> sink = reference.getCoords(Axis.X),
+                () -> sink = live.getCoords(Axis.X));
+            long original = measured[0], actual = measured[1];
+            check(original == 16L * 8192 && actual == (shared ? 0 : original), "Native/live coordinate allocation: " + original + "/" + actual);
         }
         check(new CubePointRange(1) != new CubePointRange(1), "Direct native construction was replaced");
     }

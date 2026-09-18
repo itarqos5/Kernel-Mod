@@ -478,6 +478,9 @@ tasks {
         val sectionBuffers = providers.gradleProperty("kernelSectionBuffers").orNull
         require(sectionBuffers == null || sectionBuffers == "true" || sectionBuffers == "false") { "kernelSectionBuffers must be true or false" }
         if (providers.gradleProperty("kernelShaderLive").orNull == "true") systemProperty("kernel.guiProbe.liveModrinth", "true")
+        // Opt into the incomplete world stage, which the probe exercises only under this property.
+        if (providers.gradleProperty("kernelWorldShaders").orNull == "true") systemProperty("kernel.worldShaders", "true")
+        if (providers.gradleProperty("kernelWorldShaders").orNull == "true") systemProperty("kernel.worldShaders.dump", "true")
         val game = layout.buildDirectory.dir("shader-smoke-game")
         val chunkUniforms = providers.gradleProperty("kernelChunkUniforms").orNull
         require(chunkUniforms == null || chunkUniforms == "true" || chunkUniforms == "false") { "kernelChunkUniforms must be true or false" }

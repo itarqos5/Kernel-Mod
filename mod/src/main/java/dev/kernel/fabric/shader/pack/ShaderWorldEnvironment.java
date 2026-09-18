@@ -20,7 +20,7 @@ import java.util.regex.Pattern;
  * <p>Nothing here is copied into a Kernel artifact. The parsed declarations are used to re-emit a
  * prelude for the pack's own program at runtime, from the game's own installed files.
  */
-public record ShaderWorldEnvironment(String version, List<String> imports, Map<String, String> attributes,
+public record ShaderWorldEnvironment(boolean vertex, String version, List<String> imports, Map<String, String> attributes,
                                      Map<String, String> uniforms, String position, String fragmentOutput) {
     private static final int MAX_SOURCE = 256 * 1024;
     private static final Pattern VERSION = Pattern.compile("(?m)^[ \\t]*#version[ \\t]+([0-9]+)(?:[ \\t]+\\w+)?[ \\t]*$");
@@ -73,7 +73,7 @@ public record ShaderWorldEnvironment(String version, List<String> imports, Map<S
             if (found.find()) position = found.group(1);
             if (position.contains("(") != position.contains(")")) return null;
         }
-        return new ShaderWorldEnvironment(version.group(1), imports, attributes, uniforms, position, fragmentOutput);
+        return new ShaderWorldEnvironment(vertex, version.group(1), imports, attributes, uniforms, position, fragmentOutput);
     }
 
     private static Map<String, String> declarations(Pattern pattern, String code) {
@@ -84,11 +84,19 @@ public record ShaderWorldEnvironment(String version, List<String> imports, Map<S
 
     public boolean hasAttribute(String name) { return attributes.containsKey(name); }
 
-    /** Re-emits the version, imports and declarations a substituted program compiles against. */
+    /**
+     * Re-emits the version, imports and declarations a substituted program compiles against.
+     *
+     * <p>Only the vertex stage gets the {@code in} declarations. There they are the vertex format's
+     * attributes, which a substituted program still receives. In a fragment program they are varyings
+     * written by Minecraft's own vertex program, which has been replaced, so re-emitting them declares
+     * inputs that nothing writes and the pair does not link. The pack's two stages declare whatever
+     * varyings they agree on between themselves.
+     */
     public String prelude() {
         var prelude = new StringBuilder("#version ").append(version).append('\n');
         for (String name : imports) prelude.append("#moj_import <").append(name).append(">\n");
-        for (var attribute : attributes.entrySet())
+        if (vertex) for (var attribute : attributes.entrySet())
             prelude.append("in ").append(attribute.getValue()).append(' ').append(attribute.getKey()).append(";\n");
         for (var uniform : uniforms.entrySet())
             prelude.append("uniform ").append(uniform.getValue()).append(' ').append(uniform.getKey()).append(";\n");
