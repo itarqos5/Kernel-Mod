@@ -109,7 +109,10 @@ class ShaderPackTest {
         var pack = PreparedShaderPack.read(supported);
         assertEquals(List.of("composite", "composite2", "final"), pack.passes().stream().map(PreparedShaderPack.Pass::name).toList());
         assertTrue(pack.passes().getFirst().fragment().contains("kernel_fragColor0 = vec4(1)"));
-        var unsupported = zip("terrain.zip", Map.of("shaders/final.fsh", shader, "shaders/gbuffers_terrain.vsh", "void main() {}"));
+        // World programs are refused until the world stage is opted into, and shadow stages always are.
+        var terrain = zip("terrain.zip", Map.of("shaders/final.fsh", shader, "shaders/gbuffers_terrain.vsh", "void main() {}"));
+        assertThrows(java.io.IOException.class, () -> PreparedShaderPack.read(terrain));
+        var unsupported = zip("shadowed.zip", Map.of("shaders/final.fsh", shader, "shaders/shadow.vsh", "void main() {}"));
         assertThrows(java.io.IOException.class, () -> PreparedShaderPack.read(unsupported));
         var multiple = zip("mrt.zip", Map.of("shaders/composite.fsh", shader.replace("DRAWBUFFERS:0", "RENDERTARGETS:3,15")
             .replace("gl_FragData[0] = vec4(1);", "gl_FragData[0] = vec4(1); gl_FragData[1] = vec4(0);")));

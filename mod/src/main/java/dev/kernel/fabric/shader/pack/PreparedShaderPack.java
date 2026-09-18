@@ -11,14 +11,19 @@ import java.util.regex.Pattern;
 /** Immutable CPU-side preparation. Only complete, supported pipelines reach the GPU compiler. */
 public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBufferSettings buffers,
                                  java.util.Map<String, ShaderTextureImage> textures, List<ShaderOption> options,
-                                 ShaderProperties properties, String dimension) {
+                                 ShaderProperties properties, String dimension,
+                                 java.util.Map<String, WorldProgram> worldPrograms) {
     /** The ordered fullscreen stages Kernel runs, matching the Iris order of deferred before composite. */
     private static final Pattern PASS = Pattern.compile("(?:world-?[0-9]+/)?(?:deferred|composite)(?:[1-9]|[1-9][0-9])?\\.(?:vsh|fsh)"
         + "|(?:world-?[0-9]+/)?final\\.(?:vsh|fsh)");
     private static final Pattern UNSUPPORTED = Pattern.compile("\\b(?:superSamplingLevel|noiseTextureResolution|GAUX4FORMAT)\\b");
-    /** Stages that draw or consume world geometry, which Kernel does not render yet. */
-    private static final Pattern WORLD_STAGE = Pattern.compile("(?:world-?[0-9]+/)?(?:gbuffers_[A-Za-z_0-9]+|shadow(?:comp)?[0-9]*|prepare[0-9]*)\\.(?:vsh|fsh|gsh|csh|tcs|tes)");
+    /** Stages Kernel does not run at all: a pack needing them is refused rather than partly drawn. */
+    private static final Pattern REFUSED_STAGE = Pattern.compile("(?:world-?[0-9]+/)?(?:shadow(?:comp)?[0-9]*|prepare[0-9]*)\\.(?:vsh|fsh|gsh|csh|tcs|tes)");
+    /** World programs Kernel can substitute for a Minecraft core shader. */
+    private static final Pattern GBUFFERS = Pattern.compile("(?:world-?[0-9]+/)?gbuffers_[A-Za-z_0-9]+\\.(?:vsh|fsh)");
     public static final int MAX_PASSES = 32;
+    /** Opt-in for the incomplete world stage; see docs/SHADER_WORLD_STAGE.md. */
+    public static final String WORLD_STAGE_PROPERTY = "kernel.worldShaders";
     /** The dimension folders Iris-format packs use. */
     public static final String OVERWORLD = "world0", NETHER = "world-1", END = "world1";
 
@@ -29,11 +34,28 @@ public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBuffe
         options = List.copyOf(options);
         java.util.Objects.requireNonNull(properties);
         java.util.Objects.requireNonNull(dimension);
+        worldPrograms = Map.copyOf(worldPrograms);
+    }
+
+    /**
+     * One world program a pack ships, expanded with its options applied but not yet translated.
+     *
+     * <p>Translation needs the environment of the Minecraft program being replaced, which is only known
+     * once the game asks for that shader, so it happens at substitution time rather than here. Both
+     * stages are always present: a program supplying only one would replace half of a Minecraft program
+     * pair and leave the varyings of the two halves disagreeing.
+     */
+    public record WorldProgram(String name, String vertex, String fragment) {
+        public WorldProgram {
+            java.util.Objects.requireNonNull(name);
+            java.util.Objects.requireNonNull(vertex);
+            java.util.Objects.requireNonNull(fragment);
+        }
     }
     public PreparedShaderPack(String filename, List<Pass> passes) { this(filename, passes, ShaderBufferSettings.defaults()); }
     public PreparedShaderPack(String filename, List<Pass> passes, ShaderBufferSettings buffers) { this(filename, passes, buffers, java.util.Map.of()); }
     public PreparedShaderPack(String filename, List<Pass> passes, ShaderBufferSettings buffers, java.util.Map<String, ShaderTextureImage> textures) {
-        this(filename, passes, buffers, textures, List.of(), ShaderProperties.empty(), "");
+        this(filename, passes, buffers, textures, List.of(), ShaderProperties.empty(), "", Map.of());
     }
     public record Pass(String name, String vertex, String fragment, List<Integer> drawTargets, int mipmaps) {
         public Pass {
@@ -67,10 +89,10 @@ public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBuffe
         };
     }
 
-    /** Returns the program stages this pack ships that Kernel cannot render yet, in archive order. */
+    /** Returns the program stages this pack ships that Kernel cannot render at all, in archive order. */
     public static List<String> worldStages(ShaderPackArchive archive) {
         var stages = new ArrayList<String>();
-        for (String file : archive.files()) if (WORLD_STAGE.matcher(file).matches()) stages.add(file);
+        for (String file : archive.files()) if (REFUSED_STAGE.matcher(file).matches()) stages.add(file);
         return List.copyOf(stages);
     }
 
@@ -86,12 +108,18 @@ public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBuffe
      */
     public static PreparedShaderPack read(Path path, String dimension, Map<String, String> optionValues) throws IOException {
         try (var archive = new ShaderPackArchive(path)) {
-            var worldStages = worldStages(archive);
-            if (!worldStages.isEmpty()) throw new IOException("This pack draws world geometry, which Kernel does not render yet: "
-                + String.join(", ", worldStages.subList(0, Math.min(3, worldStages.size())))
-                + (worldStages.size() > 3 ? " and " + (worldStages.size() - 3) + " more" : ""));
+            // World-stage substitution is incomplete: programs compile and run, but what they draw has
+            // not been verified correct. Until it has, a pack shipping them is refused exactly as before,
+            // because accepting one and drawing it wrongly is worse than declining it with a reason.
+            boolean worldStage = Boolean.getBoolean(WORLD_STAGE_PROPERTY);
+            var refused = new ArrayList<>(worldStages(archive));
+            if (!worldStage) for (String file : archive.files()) if (GBUFFERS.matcher(file).matches()) refused.add(file);
+            if (!refused.isEmpty()) throw new IOException("This pack needs rendering stages Kernel does not run: "
+                + String.join(", ", refused.subList(0, Math.min(3, refused.size())))
+                + (refused.size() > 3 ? " and " + (refused.size() - 3) + " more" : ""));
             for (String file : archive.files()) {
-                if (file.matches(".*\\.(?:vsh|fsh|gsh|csh|tcs|tes)") && !PASS.matcher(file).matches()) {
+                if (file.matches(".*\\.(?:vsh|fsh|gsh|csh|tcs|tes)")
+                    && !PASS.matcher(file).matches() && !GBUFFERS.matcher(file).matches()) {
                     throw new IOException("This pack requires an unsupported rendering stage: " + file);
                 }
             }
@@ -122,10 +150,25 @@ public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBuffe
                     ShaderSource.translate(fragmentSource, false), drawTargets, mipmaps));
             }
             if (passes.isEmpty()) throw new IOException("No supported deferred, composite or final shader programs were found");
+            var world = new LinkedHashMap<String, WorldProgram>();
+            for (String name : worldStage ? ShaderWorldPrograms.names() : java.util.Set.<String>of()) {
+                String vertexPath = archive.resolve(dimension, name + ".vsh");
+                String fragmentPath = archive.resolve(dimension, name + ".fsh");
+                // Both stages are required. Replacing only one half of a Minecraft program pair would
+                // leave the two halves disagreeing about their varyings.
+                if (vertexPath == null || fragmentPath == null) continue;
+                if (!properties.programEnabled(name, optionValues)) continue;
+                String vertexSource = archive.expand(vertexPath).source();
+                String fragmentSource = archive.expand(fragmentPath).source();
+                for (var option : ShaderOptions.discover(vertexSource)) options.putIfAbsent(option.name(), option);
+                for (var option : ShaderOptions.discover(fragmentSource)) options.putIfAbsent(option.name(), option);
+                world.put(name, new WorldProgram(name, ShaderOptions.apply(vertexSource, optionValues),
+                    ShaderOptions.apply(fragmentSource, optionValues)));
+            }
             var declared = new ArrayList<ShaderOption>();
             for (var option : options.values()) declared.add(option.asSlider(properties.sliders().contains(option.name())));
             return new PreparedShaderPack(path.getFileName().toString(), passes, buffers.build(), textures,
-                order(declared, properties), properties, dimension);
+                order(declared, properties), properties, dimension, world);
         }
     }
 

@@ -1,6 +1,7 @@
 package dev.kernel.fabric.verification;
 
 import dev.kernel.fabric.shader.*;
+import dev.kernel.fabric.shader.KernelWorldShaders;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.worldselection.*;
@@ -113,7 +114,47 @@ public final class ShaderProbe {
             captured = false;
             GuiProbe.capture(minecraft, "kernel-shader-world.png", ignored -> captured = true); next(8); return;
         }
-        if (stage == 8 && captured) { KernelShaders.disable(); next(9); return; }
+        if (stage == 8 && captured) {
+            // The world stage is opt-in while it is incomplete, so by default this probe
+            // finishes exactly as it did before it existed.
+            if (!Boolean.getBoolean(dev.kernel.fabric.shader.pack.PreparedShaderPack.WORLD_STAGE_PROPERTY)) {
+                KernelShaders.disable(); next(9); return;
+            }
+            // A world program that ignores every input and writes one colour, so the pixel read back is
+            // evidence the pack's own program ran, not Minecraft's.
+            Path world = KernelShaders.directory().resolve("world-stage-probe.zip");
+            zip(world, java.util.Map.of(
+                "shaders/gbuffers_terrain.vsh", """
+                    #version 120
+                    void main() { gl_Position = ftransform(); }
+                    """,
+                "shaders/gbuffers_terrain.fsh", """
+                    #version 120
+                    void main() { gl_FragData[0] = vec4(0.0, 1.0, 0.0, 1.0); }
+                    """,
+                "shaders/final.fsh", """
+                    #version 120
+                    uniform sampler2D colortex0;
+                    varying vec2 texcoord;
+                    void main() { gl_FragColor = texture2D(colortex0, texcoord); }
+                    """));
+            minecraft.player.setXRot(90.0f);
+            KernelShaders.select("world-stage-probe.zip"); next(10); return;
+        }
+        if (stage == 10 && !KernelShaders.busy()) {
+            if (KernelShaders.failed()) throw new AssertionError("World-stage pack was refused: " + KernelShaders.message());
+            if (!KernelWorldShaders.replaced().containsKey("terrain"))
+                throw new AssertionError("Terrain was not substituted: " + KernelWorldShaders.replaced());
+            next(11); return;
+        }
+        if (stage == 11 && elapsed > 2_000_000_000L) {
+            if (KernelWorldShaders.substituted() == 0)
+                throw new AssertionError("No core shader stage was compiled from the pack: " + KernelWorldShaders.replaced());
+            System.out.println("Kernel world stage: " + KernelWorldShaders.substituted() + " substituted stages, replacing " + KernelWorldShaders.replaced());
+            worldStagePixel(minecraft);
+            Files.deleteIfExists(KernelShaders.directory().resolve("world-stage-probe.zip"));
+            KernelShaders.disable(); next(9); return;
+        }
         if (stage == 9 && !KernelShaders.busy()) {
             ChunkUniformProbe.verifyComplete();
             SectionBufferGlChecks.verifyWorld(minecraft);
@@ -126,8 +167,32 @@ public final class ShaderProbe {
         }
     }
     private static void zip(Path path, String fragment) throws Exception {
+        zip(path, java.util.Map.of("shaders/final.fsh", fragment));
+    }
+    private static void zip(Path path, java.util.Map<String, String> files) throws Exception {
         try (var output = new ZipOutputStream(Files.newOutputStream(path))) {
-            output.putNextEntry(new ZipEntry("shaders/final.fsh")); output.write(fragment.getBytes(java.nio.charset.StandardCharsets.UTF_8)); output.closeEntry();
+            for (var entry : files.entrySet()) {
+                output.putNextEntry(new ZipEntry(entry.getKey()));
+                output.write(entry.getValue().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                output.closeEntry();
+            }
+        }
+    }
+
+    /** Reads the centre pixel, which the probe aims straight down at terrain before calling this. */
+    private static void worldStagePixel(Minecraft minecraft) {
+        //? if >=26.2 {
+        var target = minecraft.gameRenderer.mainRenderTarget();
+        //? } else {
+        /*var target = minecraft.getMainRenderTarget();
+        *///? }
+        try (var stack = MemoryStack.stackPush()) {
+            var pixel = stack.malloc(4);
+            GL33C.glReadPixels(target.width / 2, target.height / 2, 1, 1, GL33C.GL_RGBA, GL33C.GL_UNSIGNED_BYTE, pixel);
+            int red = pixel.get(0) & 255, green = pixel.get(1) & 255, blue = pixel.get(2) & 255;
+            System.out.println("Kernel world-stage pixel: " + red + "," + green + "," + blue);
+            if (green < 250 || red > 5 || blue > 5)
+                throw new AssertionError("Terrain was not drawn by the pack's own program: " + red + "," + green + "," + blue);
         }
     }
     private static void beginWorld(Minecraft minecraft) {

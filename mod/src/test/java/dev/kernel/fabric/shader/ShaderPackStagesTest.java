@@ -15,6 +15,17 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ShaderPackStagesTest {
     @TempDir Path temporary;
+
+    /** Runs work with the incomplete world stage opted into, restoring the property afterwards. */
+    private static void withWorldStage(org.junit.jupiter.api.function.Executable work) throws Throwable {
+        String previous = System.getProperty(PreparedShaderPack.WORLD_STAGE_PROPERTY);
+        System.setProperty(PreparedShaderPack.WORLD_STAGE_PROPERTY, "true");
+        try { work.execute(); }
+        finally {
+            if (previous == null) System.clearProperty(PreparedShaderPack.WORLD_STAGE_PROPERTY);
+            else System.setProperty(PreparedShaderPack.WORLD_STAGE_PROPERTY, previous);
+        }
+    }
     private static final String TRIVIAL = "#version 330 core\nout vec4 c;\nvoid main() { c = vec4(1.0); }\n";
 
     private Path zip(String name, Map<String, String> files) throws Exception {
@@ -110,7 +121,7 @@ class ShaderPackStagesTest {
             PreparedShaderPack.read(path).passes().stream().map(PreparedShaderPack.Pass::name).toList());
     }
 
-    @Test void packsThatDrawWorldGeometryAreRejectedAndSayWhichStagesTheyNeed() throws Exception {
+    @Test void packsNeedingStagesKernelDoesNotRunAreRejectedAndSayWhichOnes() throws Exception {
         Path path = zip("world.zip", Map.of(
             "shaders/gbuffers_terrain.vsh", TRIVIAL,
             "shaders/gbuffers_terrain.fsh", TRIVIAL,
@@ -118,8 +129,38 @@ class ShaderPackStagesTest {
             "shaders/composite.fsh", TRIVIAL,
             "shaders/final.fsh", TRIVIAL));
         var failure = assertThrows(java.io.IOException.class, () -> PreparedShaderPack.read(path));
-        assertTrue(failure.getMessage().contains("gbuffers_terrain.fsh"), failure.getMessage());
-        assertTrue(failure.getMessage().contains("does not render yet"), failure.getMessage());
+        assertTrue(failure.getMessage().contains("shadow.vsh"), failure.getMessage());
+        assertTrue(failure.getMessage().contains("does not run"), failure.getMessage());
+    }
+
+    @Test void worldProgramsAreKeptOnlyWhenThePackShipsBothStages() throws Throwable { withWorldStage(() -> {
+        Path path = zip("gbuffers.zip", Map.of(
+            "shaders/gbuffers_terrain.vsh", TRIVIAL,
+            "shaders/gbuffers_terrain.fsh", TRIVIAL,
+            "shaders/gbuffers_basic.fsh", TRIVIAL,
+            "shaders/final.fsh", TRIVIAL));
+        var pack = PreparedShaderPack.read(path);
+        // Replacing one half of a Minecraft program pair would leave the varyings disagreeing.
+        assertEquals(java.util.Set.of("gbuffers_terrain"), pack.worldPrograms().keySet());
+        assertEquals("gbuffers_terrain", pack.worldPrograms().get("gbuffers_terrain").name());
+        assertTrue(pack.worldPrograms().get("gbuffers_terrain").vertex().contains("void main"));
+    });
+    }
+
+    @Test void aProgramThePackDisablesIsNotOfferedAsAWorldReplacement() throws Throwable { withWorldStage(() -> {
+        Path path = zip("gbuffers-off.zip", Map.of(
+            "shaders/shaders.properties", "program.gbuffers_terrain.enabled = false\n",
+            "shaders/gbuffers_terrain.vsh", TRIVIAL,
+            "shaders/gbuffers_terrain.fsh", TRIVIAL,
+            "shaders/final.fsh", TRIVIAL));
+        assertTrue(PreparedShaderPack.read(path).worldPrograms().isEmpty());
+    });
+    }
+
+    @Test void aPackWithNoWorldProgramsReplacesNothing() throws Throwable { withWorldStage(() -> {
+        Path path = zip("post-only.zip", Map.of("shaders/final.fsh", TRIVIAL));
+        assertTrue(PreparedShaderPack.read(path).worldPrograms().isEmpty());
+    });
     }
 
     @Test void aPackWithNoSupportedProgramsIsRejected() throws Exception {

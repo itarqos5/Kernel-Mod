@@ -148,10 +148,22 @@ pack produces are the pixels it asked for. Packs needing more stay refused by na
   colour output, and vertex normals on a version that no longer supplies them. Unit tested against
   original fixtures shaped like a core program; no Minecraft shader source is copied into this repository.
 
-- **A2, substitution — not implemented.** The `ShaderManager.getShader` hook that returns the translated
-  program, accepting `gbuffers_*` in pack preparation, and clearing the compiled-pipeline cache when the
-  selected pack changes. Until this lands, nothing above reaches the screen and Kernel still refuses
-  world packs by name. This is the part that needs a graphics device to develop against.
+- **A2, substitution — implemented, opt-in, and not yet correct.** The hook targets
+  `ShaderManager$CompilationCache.getShaderSource`, not `ShaderManager.getShader`: pipeline compilation is
+  handed a source supplier bound to the cache, and `getShader` is only a public convenience that changes
+  what callers read but not what the device compiles. Hooking the wrong one substituted nothing, which is
+  what the GPU probe caught.
+
+  On 1.21.5 the probe now shows six core shader stages compiled from a pack, so a translated program does
+  compile and link inside a real Minecraft pipeline on a real driver. What it draws is still wrong: a
+  `gbuffers_terrain` writing a constant green produces magenta in `colortex0`. The final pass is not at
+  fault — making it output a constant produces that constant — so the defect is in the world translation
+  or in how its output reaches the colour target.
+
+  Because of that, a pack shipping `gbuffers_*` is still refused by default, exactly as before. Set
+  `-Dkernel.worldShaders=true` to opt into the incomplete path; the shader probe exercises the world stage
+  only under the same property. Accepting a pack and drawing it wrongly is worse than declining it with a
+  reason, so this stays off until the pixels are right.
 
 **Stage B — shadows.** Item 5 and its uniforms.
 

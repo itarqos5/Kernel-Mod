@@ -191,6 +191,7 @@ public final class KernelShaders {
         // releases any pipeline built before the device was known and then stays out of the frame.
         if (!ShaderBackend.supported()) {
             if (pipeline != null) { pipeline.close(); pipeline = null; active = ""; options = List.of(); }
+            if (KernelWorldShaders.active()) { KernelWorldShaders.adopt(null); clearPipelineCache(); }
             PENDING.set(null);
             return;
         }
@@ -219,6 +220,10 @@ public final class KernelShaders {
                 properties = request.pack == null ? ShaderProperties.empty() : request.pack.properties();
                 preparedDimension = request.pack == null ? PreparedShaderPack.OVERWORLD : request.pack.dimension();
                 if (request.pack == null) optionValues = ShaderOptionConfig.empty();
+                // Pipelines compiled from the previous source are cached by the backend, so adopting new
+                // world programs without discarding them would keep drawing with the old ones.
+                KernelWorldShaders.adopt(request.pack);
+                clearPipelineCache();
                 if (old != null) old.close();
                 String selected = active;
                 if (request.persist) {
@@ -306,6 +311,22 @@ public final class KernelShaders {
             pipeline.render(colorTexture(minecraft), target.width, target.height, world);
         } catch (IOException | RuntimeException failure) { renderingFailed(failure); }
     }
+    /**
+     * Discards the backend's compiled pipelines so substituted world programs are recompiled.
+     *
+     * <p>Only the render thread may call this. A backend that cannot discard them is not a reason to
+     * abandon the pack: the post-processing passes are unaffected, and the world simply keeps the
+     * programs it already compiled.
+     */
+    private static void clearPipelineCache() {
+        //? if >=1.21.5 {
+        try { com.mojang.blaze3d.systems.RenderSystem.getDevice().clearPipelineCache(); }
+        catch (RuntimeException unavailable) {
+            LoggerFactory.getLogger("Kernel").debug("Could not discard compiled pipelines", unavailable);
+        }
+        //? }
+    }
+
     private static void renderingFailed(Exception failure) {
         if (pipeline != null) pipeline.close(); pipeline = null; active = "";
         fail("Shaders disabled after a rendering error: " + failure.getMessage());
