@@ -81,9 +81,10 @@ public final class ShaderScreen extends Screen {
         var categories = List.of("video", "graphics", "optimizations", "other", "shaders");
         for (int i = 0; i < categories.size(); i++) {
             String category = categories.get(i);
-            addRenderableWidget(new KernelButton(left, toolbarY + i * 26, sidebar, 24,
+            var tab = addRenderableWidget(new KernelButton(left, toolbarY + i * 26, sidebar, 24,
                 KernelTranslations.text("kernel.video.tab." + category), button -> { if (!category.equals("shaders")) parent.showCategory(category); },
                 () -> category.equals("shaders"), false));
+            if (category.equals("shaders") && !ShaderBackend.supported()) tab.active = false;
         }
 
         addToolbar(listX, toolbarY, listWidth + scrollbar + 4);

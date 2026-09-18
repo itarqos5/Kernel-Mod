@@ -163,6 +163,10 @@ Implemented:
   replace individual programs and rebuild the pipeline on a dimension change. A pack shipping `gbuffers_*`, `shadow*`
   or `prepare*` is refused by name rather than rendered from stages Kernel does not run. See `docs/SHADERS.md`.
 
+- Shader packs require the OpenGL backend. On 26.2, the first target that can select a Vulkan device,
+  the Shaders page is closed and its tab reports why, and any pipeline built before the device was known
+  is released. Kernel names the one backend it cannot host rather than allow-listing unfamiliar names.
+
 - Shader world-time/day, native moon phase and interpolated rain/thunder uniforms use one immutable
   snapshot per world render, captured only for programs that request them. Legacy clock arithmetic is
   retained across 26.x's clock API; camera environment attributes supply moon phases on newer targets.

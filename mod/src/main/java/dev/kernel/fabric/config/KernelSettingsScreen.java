@@ -198,7 +198,7 @@ public final class KernelSettingsScreen extends Screen {
 
         for (int i = 0; i < TABS.size(); i++) {
             String category = TABS.get(i);
-            addRenderableWidget(new KernelButton(left, listTop + i * 26, sidebar, 24, tr("tab." + category), button -> {
+            var button = addRenderableWidget(new KernelButton(left, listTop + i * 26, sidebar, 24, tr("tab." + category), pressed -> {
                 if (category.equals("shaders")) {
                     //? if >=26.2 {
                     minecraft.gui.setScreen(new dev.kernel.fabric.shader.ShaderScreen(this));
@@ -207,6 +207,13 @@ public final class KernelSettingsScreen extends Screen {
                     *///? }
                 } else { tab = category; scroll = 0; rebuildWidgets(); }
             }, () -> tab.equals(category), false));
+            // Shader packs are written for OpenGL and have no Vulkan form, so the page is closed rather
+            // than opened onto a renderer that could never run anything listed there.
+            if (category.equals("shaders") && !dev.kernel.fabric.shader.ShaderBackend.supported()) {
+                button.active = false;
+                button.setTooltip(Tooltip.create(KernelTranslations.text("kernel.shaders.backend",
+                    dev.kernel.fabric.shader.ShaderBackend.name())));
+            }
         }
         KernelButton recommend = addRenderableWidget(new KernelButton(left, actionsY, sidebar, 22, tr("recommended"), button -> {
             var preset = KernelHardwareSettings.recommendation();

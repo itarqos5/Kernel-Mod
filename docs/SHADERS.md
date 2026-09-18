@@ -19,6 +19,15 @@ are not extracted. Network and archive preparation run on a daemon worker. Cance
 an in-progress network read can take up to its 20-second timeout to return. Temporary files are removed.
 Downloads stop after five minutes of transfer, and archive/source/entry limits bound resource use.
 
+## Graphics backends
+
+Shader packs require the OpenGL backend. The Iris/OptiFine format has no Vulkan form, so on a Vulkan
+device the Shaders page is closed and its tab reports why, rather than listing packs that could never
+run. 26.2 is the first target that can select a Vulkan device; every earlier target has none to select.
+Kernel names the one backend it cannot host rather than allow-listing backend names it has not seen, so
+an OpenGL device reporting an unfamiliar name keeps working. The backend is read once the graphics device
+exists and is not treated as an answer before then.
+
 ## Current rendering contract
 
 This is an original, limited **post-processing** renderer. It reads the Iris/OptiFine pack format, but it

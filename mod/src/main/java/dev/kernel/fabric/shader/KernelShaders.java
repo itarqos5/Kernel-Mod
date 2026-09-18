@@ -187,6 +187,13 @@ public final class KernelShaders {
 
     /** Invoked from the native rendering thread before drawing. */
     public static void beginFrame() {
+        // The backend is only safe to ask about on this thread. A backend that cannot host shader packs
+        // releases any pipeline built before the device was known and then stays out of the frame.
+        if (!ShaderBackend.supported()) {
+            if (pipeline != null) { pipeline.close(); pipeline = null; active = ""; options = List.of(); }
+            PENDING.set(null);
+            return;
+        }
         Object world = Minecraft.getInstance().level;
         if (historyWorld != world) {
             if (pipeline != null) pipeline.resetHistory();

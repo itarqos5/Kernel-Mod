@@ -163,6 +163,9 @@ Implemented:
 
 - Iris/OptiFine pack ingestion: pack-declared options in the Iris `#define` and `const //[a b c]` syntax are discovered, listed under Pack options in the order the pack's own `shaders.properties` screens name, and applied by rewriting the declaring line so a shipped-enabled option can be turned off. Values are stored per pack in `config/kernel-shaders/`, validated against the pack's declarations at compile time and saved before recompiling. `world0`, `world-1` and `world1` dimension folders replace individual programs and rebuild the pipeline on entering a dimension. This reads the pack format; it does not render the world stages that format describes. See [pack options and dimension folders](docs/SHADERS.md#pack-options).
 
+- Shader packs require the OpenGL backend. On 26.2 a Vulkan device closes the Shaders page and the tab
+  reports why, because the Iris/OptiFine format has no Vulkan form and nothing listed there could run.
+
 - Shader world-time/day, native moon phase and interpolated rain/thunder uniforms share one snapshot
   across a frame's passes, captured only for packs that request those inputs. See [shader inputs](docs/SHADERS.md).
 

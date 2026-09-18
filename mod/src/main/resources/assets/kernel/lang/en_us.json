@@ -47,6 +47,8 @@
   "kernel.settings.title": "Kernel renderer",
   "kernel.settings.value": "%s: %s",
   "kernel.shaders.active": "Active: %s",
+  "kernel.shaders.backend": "Shader packs are written for OpenGL. This game is running on %s, so there is nothing Kernel could load here.",
+  "kernel.shaders.backend_status": "Shaders are unavailable on this graphics backend",
   "kernel.shaders.cancel": "Cancel job",
   "kernel.shaders.disable": "Shaders off",
   "kernel.shaders.empty": "Drop a shader ZIP to install it",
