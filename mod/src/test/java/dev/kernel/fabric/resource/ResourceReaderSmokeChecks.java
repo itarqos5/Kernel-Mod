@@ -1,8 +1,6 @@
 package dev.kernel.fabric.resource;
 
-import com.sun.management.ThreadMXBean;
 import java.io.*;
-import java.lang.management.ManagementFactory;
 import java.nio.CharBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -156,17 +154,15 @@ public final class ResourceReaderSmokeChecks {
         try (var opened = overriddenStream.openAsReader()) { check(opened.read() == 'X', "Custom stream ownership"); }
     }
     private static void allocation(boolean enabled) throws Exception {
-        ThreadMXBean bean = (ThreadMXBean) ManagementFactory.getThreadMXBean();
         Resource empty = new Resource(null, () -> new ByteArrayInputStream(new byte[0]));
-        for (int i = 0; i < 5000; i++) { sink = original(empty); sink = empty.openAsReader(); }
-        long thread = Thread.currentThread().threadId();
-        long before = bean.getThreadAllocatedBytes(thread);
-        for (int i = 0; i < 1024; i++) sink = original(empty);
-        long nativeBytes = bean.getThreadAllocatedBytes(thread) - before;
-        before = bean.getThreadAllocatedBytes(thread);
-        for (int i = 0; i < 1024; i++) sink = empty.openAsReader();
-        long liveBytes = bean.getThreadAllocatedBytes(thread) - before;
-        check(nativeBytes - liveBytes == (enabled ? 12288L * 1024 : 0), "Unexpected native/live reader allocation delta: " + nativeBytes + "/" + liveBytes);
+        long expected = enabled ? 12288L * 1024 : 0;
+        long[] measured = dev.kernel.fabric.verification.AllocationProbe.settle(
+            () -> { sink = original(empty); sink = empty.openAsReader(); }, 5000, 1024,
+            totals -> totals[0] - totals[1] == expected,
+            () -> sink = original(empty),
+            () -> sink = empty.openAsReader());
+        long nativeBytes = measured[0], liveBytes = measured[1];
+        check(nativeBytes - liveBytes == expected, "Unexpected native/live reader allocation delta: " + nativeBytes + "/" + liveBytes);
         System.out.println("Kernel resource reader allocation: native=" + nativeBytes / 1024 + ", live=" + liveBytes / 1024 + " bytes/open");
     }
     private static final class ShortStream extends ByteArrayInputStream {

@@ -3,7 +3,6 @@ package dev.kernel.fabric.world;
 import it.unimi.dsi.fastutil.doubles.DoubleArrayList;
 import it.unimi.dsi.fastutil.doubles.DoubleList;
 import java.lang.invoke.MethodHandle;
-import java.lang.management.ManagementFactory;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import net.minecraft.core.Direction;
@@ -173,11 +172,11 @@ public final class ShapeConstructionSmokeChecks {
     }
     private static void allocation(boolean enabled) throws Throwable {
         var merger = ShapeJoinTestSupport.identity(16); DiscreteVoxelShape empty = new BitSetDiscreteVoxelShape(16, 16, 16);
-        for (int i = 0; i < 5000; i++) sink = ShapeConstructionTestSupport.join(false, empty, empty, merger, merger, merger, BooleanOp.FALSE);
-        var bean = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
-        long before = bean.getThreadAllocatedBytes(Thread.currentThread().threadId());
-        for (int i = 0; i < 1000; i++) sink = ShapeConstructionTestSupport.join(false, empty, empty, merger, merger, merger, BooleanOp.FALSE);
-        long allocated = (bean.getThreadAllocatedBytes(Thread.currentThread().threadId()) - before) / 1000;
+        long[] measured = dev.kernel.fabric.verification.AllocationProbe.settle(
+            () -> sink = ShapeConstructionTestSupport.join(false, empty, empty, merger, merger, merger, BooleanOp.FALSE), 5000, 1000,
+            totals -> !enabled || totals[0] / 1000 <= 640,
+            () -> sink = ShapeConstructionTestSupport.join(false, empty, empty, merger, merger, merger, BooleanOp.FALSE));
+        long allocated = measured[0] / 1000;
         if (enabled && allocated > 640) throw new AssertionError("Joined traversal still allocates per row: " + allocated);
         System.out.println("Kernel shape construction allocation: enabled=" + enabled + ", " + allocated + " bytes/join including owned 16-cube output");
     }

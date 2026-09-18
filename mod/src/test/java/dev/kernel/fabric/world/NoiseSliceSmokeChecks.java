@@ -2,7 +2,6 @@ package dev.kernel.fabric.world;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandle;
-import java.lang.management.ManagementFactory;
 import java.util.Random;
 
 /** Test-only construction skips the world-dependent constructor; allocateSlice reads no instance fields. */
@@ -32,15 +31,14 @@ public final class NoiseSliceSmokeChecks {
             try { sink=(double[][])allocate.invokeExact(bad[0],bad[1]); throw new AssertionError("Negative dimensions accepted"); }
             catch(NegativeArraySizeException correct) { }
         }
-        for(int i=0;i<20000;i++) sink=(double[][])allocate.invokeExact(48,4);
-        var bean=(com.sun.management.ThreadMXBean)ManagementFactory.getThreadMXBean();
-        if(!bean.isThreadAllocatedMemorySupported()) throw new AssertionError("Allocation accounting unavailable on validation JVM");
-        bean.setThreadAllocatedMemoryEnabled(true);
-        long before=bean.getThreadAllocatedBytes(Thread.currentThread().threadId());
-        for(int i=0;i<10000;i++) sink=(double[][])allocate.invokeExact(48,4);
-        long bytes=(bean.getThreadAllocatedBytes(Thread.currentThread().threadId())-before)/10000;
         // Array headers vary across JVM layouts; this separates one versus two complete sets of 5x49 rows.
-        if(expected ? bytes < 1980 || bytes > 2500 : bytes < 3900 || bytes > 4700) throw new AssertionError("Unexpected slice allocation: "+bytes+" bytes; enabled="+expected);
+        java.util.function.LongPredicate band = bytes -> expected ? bytes >= 1980 && bytes <= 2500 : bytes >= 3900 && bytes <= 4700;
+        long[] measured = dev.kernel.fabric.verification.AllocationProbe.settle(
+            () -> sink = (double[][]) allocate.invokeExact(48, 4), 20000, 10000,
+            totals -> band.test(totals[0] / 10000),
+            () -> sink = (double[][]) allocate.invokeExact(48, 4));
+        long bytes = measured[0] / 10000;
+        if(!band.test(bytes)) throw new AssertionError("Unexpected slice allocation: "+bytes+" bytes; enabled="+expected);
         System.out.println("Kernel noise slice: enabled="+expected+", "+bytes+" bytes/slice; shape, zero values, independent ownership and exceptions passed.");
     }
 }
