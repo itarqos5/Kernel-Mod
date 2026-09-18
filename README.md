@@ -166,6 +166,12 @@ Implemented:
 - Shader packs require the OpenGL backend. On 26.2 a Vulkan device closes the Shaders page and the tab
   reports why, because the Iris/OptiFine format has no Vulkan form and nothing listed there could run.
 
+- World-stage groundwork for Iris-format packs, which does not yet reach the screen: the core-shader to
+  Iris-program mapping with its fallback chain, and a translation layer that reads the shader environment
+  out of the Minecraft program being replaced rather than assuming it per version. The substitution hook
+  is not implemented, so packs shipping world stages are still refused by name. See
+  [the world-stage plan](docs/SHADER_WORLD_STAGE.md).
+
 - Shader world-time/day, native moon phase and interpolated rain/thunder uniforms share one snapshot
   across a frame's passes, captured only for packs that request those inputs. See [shader inputs](docs/SHADERS.md).
 
