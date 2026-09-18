@@ -5,6 +5,27 @@ The existing **Options → Video Settings → Kernel video settings** entry is a
 screen stays closed during startup. It uses the approved Kernel icon, translucent dark panels and
 white selection/hover overlays, with Video, Graphics, Optimizations and Other tabs.
 
+## Layout
+
+The screen is a fixed frame around one scrolling list, in the manner of Sodium and VulkanMod rather than
+a page of stacked buttons. A header band carries the Kernel mark and the current tab. The tab column
+stays on the left, with **Recommended** pinned beneath it. The list occupies the centre, grouped under
+section headings — Display, Frame pacing and Distance on the Video tab, Quality, World detail and
+Appearance on Graphics, Renderer, World and generation and Resources on Optimizations, View and Interface
+on Other. Each row carries its label on the left and its control on the right, highlights under the
+cursor, and shows a left accent bar while highlighted.
+
+Beneath the list, a panel names the highlighted setting and explains what it changes, so the explanation
+is readable without holding the cursor still long enough for a tooltip. When nothing is highlighted it
+explains the screen itself. Tooltips remain on the controls for keyboard and narration users. The
+unapplied-changes status sits on the bottom bar beside Cancel, Apply and Done.
+
+The list scrolls by whole entries with the mouse wheel, and a track on its right shows the position and
+the share of the list that is visible. Scrolling by whole entries means no row is ever drawn clipped, on
+any GUI scale or window size; the number of entries that fit is measured against the live viewport, so
+the layout adapts rather than assuming a row count. Only rows inside the viewport exist as widgets, which
+is why the interaction probes walk the list with `scrollBy` rather than looking for a page button.
+
 Video controls include [Frame Sync](FRAME_SYNC.md), fullscreen display modes (resolution and refresh rate together), fullscreen,
 Vsync, framerate, render/simulation distance and entity distance. Exclusive fullscreen uses Minecraft's
 native setting on 26.2. Graphics controls include lighting, clouds, particles, shadows, mipmaps and
@@ -36,7 +57,7 @@ lists; it also uses the world configuration and yields to Lithium.
 It saves `compact_readers=true|false` in `config/kernel-resources.properties` and applies to resource
 loading at startup and during reloads. It does not alter the Knot Client's class caches.
 
-Pages adapt to the GUI height and can be changed with their buttons or the mouse wheel. Native button
+Native button
 and slider input retain keyboard focus and narration. Text has English translation fallbacks and the
 icon is registered as a dynamic texture, so the screen works with bare Fabric Loader without Fabric
 API resource-pack registration. Other resource packs can override translations.
@@ -127,9 +148,11 @@ machine. Speech-engine output, controller integrations, third-party menu replace
 compatibility matrix still require further testing. Mod Menu integration is not implemented. The
 separate [pre-Fabric loading window](BOOTSTRAP_WINDOW.md) keeps settings closed at startup.
 
-The Shaders tab opens the [shader browser and color post-processing controls](SHADERS.md). Shader selections
-apply immediately; returning to the video tabs preserves their uncommitted drafts. Full-world shader packs
-remain unsupported until their rendering stages are implemented.
+The Shaders tab opens the [shader browser, pack options and color post-processing controls](SHADERS.md).
+It uses the same header, tab column, scrolling list and description panel as the video tabs, and switches
+between **Installed packs**, **Pack options** and Modrinth results in place. Shader selections and option
+changes apply immediately; returning to the video tabs preserves their uncommitted drafts. Full-world
+shader packs remain unsupported until their rendering stages are implemented.
 
 The Optimizations tab also exposes independent **Biome offset reuse**, **Noise slice allocation**,
 **End island height reuse** and **Shape query allocation** restart-only controls. All yield ownership to

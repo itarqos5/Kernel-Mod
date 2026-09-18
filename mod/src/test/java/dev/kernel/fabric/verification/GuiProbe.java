@@ -204,16 +204,14 @@ public final class GuiProbe {
         }
     }
     static Button findSetting(Minecraft minecraft, String label) {
-        String nextLabel = KernelTranslations.text("kernel.settings.next").getString();
-        for (int page = 0; page < 32; page++) {
-            var buttons = screen(minecraft).children().stream().filter(Button.class::isInstance).map(Button.class::cast).toList();
-            var setting = buttons.stream().filter(button -> button.getMessage().getString().startsWith(label + ":")).findFirst();
+        // Only rows inside the viewport exist as widgets, so walk the list until it stops moving.
+        for (int step = 0; step < 64; step++) {
+            var setting = screen(minecraft).children().stream().filter(Button.class::isInstance).map(Button.class::cast)
+                .filter(button -> button.getMessage().getString().startsWith(label + ":")).findFirst();
             if (setting.isPresent()) return setting.get();
-            var next = buttons.stream().filter(button -> button.getMessage().getString().equals(nextLabel)).findFirst();
-            if (next.isEmpty() || !next.get().active) break;
-            click(next.get());
+            if (!(screen(minecraft) instanceof dev.kernel.fabric.config.KernelSettingsScreen list) || !list.scrollBy(1)) break;
         }
-        throw new AssertionError("Missing settings control across pages: " + label);
+        throw new AssertionError("Missing settings control anywhere in the list: " + label);
     }
 
     static Button find(Screen screen, String key) {

@@ -37,11 +37,11 @@ final class WorldSettingsProbe {
     }
     private static Button toggle(Minecraft minecraft, String key) {
         String label = KernelTranslations.text("kernel.world." + key).getString() + ":";
-        for (int page = 0; page < 32; page++) {
+        for (int step = 0; step < 64; step++) {
             var found = GuiProbe.screen(minecraft).children().stream().filter(Button.class::isInstance).map(Button.class::cast)
                 .filter(button -> button.getMessage().getString().startsWith(label)).findFirst();
             if (found.isPresent()) return found.get();
-            GuiProbe.click(GuiProbe.find(GuiProbe.screen(minecraft), "kernel.settings.next"));
+            if (!(GuiProbe.screen(minecraft) instanceof dev.kernel.fabric.config.KernelSettingsScreen list) || !list.scrollBy(1)) break;
         }
         throw new AssertionError("Missing world optimization control");
     }

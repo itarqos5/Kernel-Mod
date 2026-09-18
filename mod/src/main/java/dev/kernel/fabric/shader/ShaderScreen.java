@@ -2,11 +2,14 @@ package dev.kernel.fabric.shader;
 
 import dev.kernel.fabric.config.*;
 import dev.kernel.fabric.shader.pack.ModrinthShaders;
+import dev.kernel.fabric.shader.pack.ShaderOption;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
+
 import net.minecraft.network.chat.Component;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -17,96 +20,230 @@ import java.util.concurrent.Executors;
 
 /** Native, keyboard-accessible shader browser. Downloads and imports never execute on the render thread. */
 public final class ShaderScreen extends Screen {
+    /** Which list the main area shows: installed packs, Modrinth results, or the active pack options. */
+    private enum View { PACKS, REMOTE, OPTIONS }
     private final KernelSettingsScreen parent;
     private final ExecutorService searchWorker = Executors.newSingleThreadExecutor(task -> {
         var thread = new Thread(task, "Kernel Modrinth search"); thread.setDaemon(true); return thread;
     });
-    private boolean remote, searching;
+    private View view = View.PACKS;
+    private boolean searching;
     private String query = "", searchError = "";
     private ModrinthShaders.Search results = new ModrinthShaders.Search(List.of(), 0, 0);
     private CompletableFuture<ModrinthShaders.Search> search;
     private EditBox searchBox;
-    private int page, rows = 1;
+    private int scroll, visibleRows = 1, rowCount;
     private long revision = -1;
+    private Component detailTitle = Component.empty();
+    private Component detailText = Component.empty();
 
     public ShaderScreen(KernelSettingsScreen parent) { super(text("title")); this.parent = parent; KernelShaders.refresh(); }
     private static Component text(String key, Object... arguments) { return KernelTranslations.text("kernel.shaders." + key, arguments); }
     private static Component literal(String value) { return Component.literal(value); }
+
+    /** One row of the main list, placed once its position inside the viewport is known. */
+    @FunctionalInterface private interface Placer { void place(int x, int y, int width); }
+    private record Row(Component label, Component description, int height, Placer placer) {}
+
     @Override protected void init() {
-        int total = Math.min(700, width - 24), left = (width - total) / 2;
-        int sidebar = Math.min(104, Math.max(76, total / 5)), x = left + sidebar + 12, w = total - sidebar - 12;
-        rows = Math.max(1, (height - 164) / 30);
-        int count = remote ? results.projects().size() : KernelShaders.installed().size();
-        page = Math.clamp(page, 0, Math.max(0, (count - 1) / rows));
+        int total = Math.min(760, width - 20), left = (width - total) / 2;
+        int sidebar = Math.min(112, Math.max(80, total / 5));
+        int listX = left + sidebar + 10, scrollbar = 4;
+        int listWidth = total - sidebar - 10 - scrollbar - 4;
+        int toolbarY = 56, listTop = 84;
+        int actionsY = height - 28, detailHeight = 46;
+        int detailY = actionsY - 8 - detailHeight, listBottom = detailY - 6;
+
+        var rows = rows();
+        rowCount = rows.size();
+        // Pack rows and option rows differ in height, so measure again from the clamped position.
+        int available = Math.max(24, listBottom - listTop);
+        for (int pass = 0; pass < 2; pass++) {
+            int used = 0, fits = 0;
+            for (int index = Math.min(scroll, Math.max(0, rowCount - 1)); index < rowCount; index++) {
+                if (used + rows.get(index).height() > available) break;
+                used += rows.get(index).height(); fits++;
+            }
+            visibleRows = Math.max(1, fits);
+            scroll = Math.clamp(scroll, 0, Math.max(0, rowCount - visibleRows));
+        }
+
         addRenderableOnly((graphics, mouseX, mouseY, delta) -> {
-            graphics.fill(left - 4, 10, left + total + 4, 40, 0x9008090B);
-            KernelUi.icon(graphics, left + 2, 13, 24);
-            KernelUi.text(graphics, font, literal("K E R N E L"), left + 34, 15, 0xFFF3F4F6);
-            KernelUi.text(graphics, font, text("title"), left + 34, 28, 0xFFAEB3B9);
-            graphics.fill(x, 44, x + w, 45, 0x50FFFFFF);
+            detailTitle = Component.empty(); detailText = Component.empty();
+            graphics.fill(left - 4, 10, left + total + 4, 46, 0x9008090B);
+            graphics.fill(left - 4, 45, left + total + 4, 46, 0x30FFFFFF);
+            KernelUi.icon(graphics, left + 2, 15, 26);
+            KernelUi.text(graphics, font, literal("K E R N E L"), left + 36, 17, 0xFFF3F4F6);
             String active = KernelShaders.active().isEmpty() ? text("off").getString() : KernelShaders.active();
-            KernelUi.text(graphics, font, literal(font.plainSubstrByWidth(text("active", active).getString(), w)), x, 50, 0xFFB8BEC5);
-            String status = !searchError.isEmpty() ? searchError : searching ? text("searching").getString() : KernelShaders.message();
-            KernelUi.text(graphics, font, literal(font.plainSubstrByWidth(status, total)), left, height - 54,
-                KernelShaders.failed() || !searchError.isEmpty() ? 0xFFFF9B9B : 0xFFB8BEC5);
-            KernelUi.text(graphics, font, literal(font.plainSubstrByWidth(text("scope").getString(), total)), left, height - 42, 0xFF989FA8);
-            if (count == 0 && !searching) KernelUi.text(graphics, font, text(remote ? "no_results" : "empty"), x + 4, 100, 0xFFB8BEC5);
+            KernelUi.text(graphics, font, literal(font.plainSubstrByWidth(text("active", active).getString(), total - 44)), left + 36, 31, 0xFFAEB3B9);
         });
+
         var categories = List.of("video", "graphics", "optimizations", "other", "shaders");
         for (int i = 0; i < categories.size(); i++) {
             String category = categories.get(i);
-            addRenderableWidget(new KernelButton(left, 50 + i * 26, sidebar, 24,
+            addRenderableWidget(new KernelButton(left, toolbarY + i * 26, sidebar, 24,
                 KernelTranslations.text("kernel.video.tab." + category), button -> { if (!category.equals("shaders")) parent.showCategory(category); },
                 () -> category.equals("shaders"), false));
         }
-        int toolsY = 66;
-        if (remote) {
-            searchBox = addRenderableWidget(new EditBox(font, x + 2, toolsY + 2, Math.max(30, w - 126), 18, text("query")));
-            searchBox.setMaxLength(200); searchBox.setValue(query); searchBox.setResponder(value -> query = value);
-            var button = addRenderableWidget(new KernelButton(x + w - 120, toolsY, 58, 22, text("search"), ignored -> requestSearch(0)));
-            button.active = !searching;
-            addRenderableWidget(new KernelButton(x + w - 58, toolsY, 58, 22, text("installed"), ignored -> { remote = false; page = 0; rebuildWidgets(); }));
-        } else {
-            addRenderableWidget(new KernelButton(x, toolsY, Math.max(72, w / 2 - 2), 22, text("modrinth"), ignored -> {
-                remote = true; page = 0; rebuildWidgets(); if (results.projects().isEmpty()) requestSearch(0);
-            }));
-            var button = addRenderableWidget(new KernelButton(x + w / 2 + 2, toolsY, w - w / 2 - 2, 22, text("refresh"), ignored -> KernelShaders.refresh()));
-            button.active = !KernelShaders.busy();
-        }
-        for (int row = 0; row < rows && page * rows + row < count; row++) {
-            int index = page * rows + row, y = 94 + row * 30;
-            String title = remote ? results.projects().get(index).title() : KernelShaders.installed().get(index);
-            String subtitle = remote ? results.projects().get(index).description() : title.equals(KernelShaders.active()) ? text("enabled").getString() : text("ready").getString();
+
+        addToolbar(listX, toolbarY, listWidth + scrollbar + 4);
+
+        int y = listTop;
+        for (int index = scroll; index < rowCount && index < scroll + visibleRows; index++) {
+            Row row = rows.get(index);
+            int rowY = y, rowHeight = row.height();
+            Component label = row.label(), description = row.description();
             addRenderableOnly((graphics, mouseX, mouseY, delta) -> {
-                graphics.fill(x, y, x + w, y + 28, 0x9008090B);
-                KernelUi.text(graphics, font, literal(font.plainSubstrByWidth(title, Math.max(20, w - 80))), x + 6, y + 4, 0xFFF3F4F6);
-                KernelUi.text(graphics, font, literal(font.plainSubstrByWidth(subtitle, Math.max(20, w - 80))), x + 6, y + 16, 0xFF989FA8);
+                boolean hovered = mouseX >= listX && mouseX < listX + listWidth && mouseY >= rowY && mouseY < rowY + rowHeight;
+                graphics.fill(listX, rowY, listX + listWidth, rowY + rowHeight - 1, hovered ? 0xC4101216 : 0xAC08090B);
+                if (hovered) {
+                    graphics.fill(listX, rowY, listX + 2, rowY + rowHeight - 1, 0xFFF3F4F6);
+                    detailTitle = label; detailText = description;
+                }
             });
-            boolean isRemote = remote;
-            var project = remote ? results.projects().get(index) : null;
-            var button = addRenderableWidget(new KernelButton(x + w - 68, y + 3, 64, 22, text(remote ? "install" : "enable"), ignored -> {
-                if (isRemote) KernelShaders.install(project); else KernelShaders.select(title);
-            }, () -> title.equals(KernelShaders.active()), false));
-            button.active = !KernelShaders.busy(); button.setTooltip(Tooltip.create(literal(title + "\n" + subtitle)));
+            row.placer().place(listX, rowY, listWidth);
+            y += rowHeight;
         }
-        boolean previousPage = page > 0 || remote && results.offset() > 0;
-        boolean nextPage = (page + 1) * rows < count || remote && results.offset() + results.projects().size() < results.total();
-        var previous = addRenderableWidget(new KernelButton(x, height - 80, 32, 18, KernelTranslations.text("kernel.settings.previous"), ignored -> {
-            if (page > 0) { page--; rebuildWidgets(); } else requestSearch(Math.max(0, results.offset() - 12));
-        }).visual(literal("<"))); previous.active = previousPage && !searching;
-        var next = addRenderableWidget(new KernelButton(x + w - 32, height - 80, 32, 18, KernelTranslations.text("kernel.settings.next"), ignored -> {
-            if ((page + 1) * rows < count) { page++; rebuildWidgets(); } else requestSearch(results.offset() + 12);
-        }).visual(literal(">"))); next.active = nextPage && !searching;
-        var off = addRenderableWidget(new KernelButton(left, height - 28, sidebar, 22, text("disable"), ignored -> KernelShaders.disable()));
+
+        int trackX = listX + listWidth + 4, trackBottom = y;
+        addRenderableOnly((graphics, mouseX, mouseY, delta) -> {
+            if (rowCount > visibleRows) {
+                graphics.fill(trackX, listTop, trackX + scrollbar, trackBottom, 0x40000000);
+                int span = Math.max(1, trackBottom - listTop);
+                int thumb = Math.max(12, span * visibleRows / rowCount);
+                int offset = (span - thumb) * scroll / Math.max(1, rowCount - visibleRows);
+                graphics.fill(trackX, listTop + offset, trackX + scrollbar, listTop + offset + thumb, 0x80FFFFFF);
+            }
+            if (rowCount == 0 && !searching)
+                KernelUi.text(graphics, font, text(view == View.REMOTE ? "no_results" : view == View.OPTIONS ? "no_options" : "empty"), listX + 6, listTop + 8, 0xFFB8BEC5);
+            graphics.fill(listX, detailY, listX + listWidth + scrollbar + 4, detailY + detailHeight, 0x9008090B);
+            boolean idle = detailTitle.getString().isEmpty();
+            KernelUi.text(graphics, font, idle ? text("title") : detailTitle, listX + 6, detailY + 6, 0xFFF3F4F6);
+            String body = idle ? text(view == View.OPTIONS ? "options_hint" : "scope").getString() : detailText.getString();
+            var lines = KernelUi.wrap(font, body, listWidth + scrollbar - 8, 3);
+            for (int line = 0; line < lines.size(); line++)
+                KernelUi.text(graphics, font, literal(lines.get(line)), listX + 6, detailY + 18 + line * 10, 0xFFAEB3B9);
+            String status = !searchError.isEmpty() ? searchError : searching ? text("searching").getString() : KernelShaders.message();
+            KernelUi.text(graphics, font, literal(font.plainSubstrByWidth(status, listWidth - 160)), listX, actionsY + 7,
+                KernelShaders.failed() || !searchError.isEmpty() ? 0xFFFF9B9B : 0xFFB8BEC5);
+        });
+
+        var off = addRenderableWidget(new KernelButton(left, actionsY, sidebar, 22, text("disable"), ignored -> KernelShaders.disable()));
         off.active = !KernelShaders.busy();
-        var cancel = addRenderableWidget(new KernelButton(x, height - 28, 70, 22, text("cancel"), ignored -> KernelShaders.cancel()));
+        int end = left + total, buttonWidth = 74;
+        var cancel = addRenderableWidget(new KernelButton(end - 2 * buttonWidth - 4, actionsY, buttonWidth, 22, text("cancel"), ignored -> KernelShaders.cancel()));
         cancel.active = KernelShaders.busy();
-        var details = addRenderableWidget(new KernelButton(x + 74, height - 28, Math.max(40, w - 148), 22, text("details"), ignored -> {}));
-        String detail = !searchError.isEmpty() ? searchError : KernelShaders.message();
-        details.setTooltip(Tooltip.create(literal(detail.length() > 1200 ? detail.substring(0, 1200) : detail)));
-        addRenderableWidget(new KernelButton(x + w - 70, height - 28, 70, 22, KernelTranslations.text("gui.done"), ignored -> onClose()));
+        addRenderableWidget(new KernelButton(end - buttonWidth, actionsY, buttonWidth, 22, KernelTranslations.text("gui.done"), ignored -> onClose()));
         revision = KernelShaders.revision();
     }
+
+    private void addToolbar(int x, int y, int width) {
+        int third = Math.max(60, (width - 8) / 3);
+        if (view == View.REMOTE) {
+            searchBox = addRenderableWidget(new EditBox(font, x + 2, y + 2, Math.max(30, width - 2 * third - 10), 18, text("query")));
+            searchBox.setMaxLength(200); searchBox.setValue(query); searchBox.setResponder(value -> query = value);
+            var button = addRenderableWidget(new KernelButton(x + width - 2 * third - 4, y, third, 22, text("search"), ignored -> requestSearch(0)));
+            button.active = !searching;
+            addRenderableWidget(new KernelButton(x + width - third, y, third, 22, text("packs"), ignored -> switchTo(View.PACKS)));
+            return;
+        }
+        var packs = addRenderableWidget(new KernelButton(x, y, third, 22, text("packs"), ignored -> switchTo(View.PACKS), () -> view == View.PACKS, false));
+        packs.active = view != View.PACKS;
+        var options = addRenderableWidget(new KernelButton(x + third + 4, y, third, 22, text("options"), ignored -> switchTo(View.OPTIONS), () -> view == View.OPTIONS, false));
+        options.active = !KernelShaders.active().isEmpty();
+        options.setTooltip(Tooltip.create(text("options_hint")));
+        if (view == View.OPTIONS) {
+            var reset = addRenderableWidget(new KernelButton(x + width - third, y, third, 22, text("reset"), ignored -> KernelShaders.resetOptions()));
+            reset.active = !KernelShaders.busy() && KernelShaders.options().stream().anyMatch(KernelShaders::optionChanged);
+        } else {
+            addRenderableWidget(new KernelButton(x + width - third, y, third, 22, text("modrinth"), ignored -> {
+                switchTo(View.REMOTE); if (results.projects().isEmpty()) requestSearch(0);
+            }));
+        }
+    }
+
+    private void switchTo(View next) { view = next; scroll = 0; rebuildWidgets(); }
+
+    private List<Row> rows() {
+        var rows = new ArrayList<Row>();
+        if (view == View.OPTIONS) {
+            for (var option : KernelShaders.options()) rows.add(optionRow(option));
+            return rows;
+        }
+        if (view == View.REMOTE) {
+            for (var project : results.projects()) rows.add(packRow(project.title(), project.description(), project));
+            int shown = results.offset() + results.projects().size();
+            if (shown < results.total()) rows.add(moreRow(shown, results.total()));
+            return rows;
+        }
+        for (String pack : KernelShaders.installed()) {
+            boolean enabled = pack.equals(KernelShaders.active());
+            rows.add(packRow(pack, text(enabled ? "enabled" : "ready").getString(), null));
+        }
+        return rows;
+    }
+
+    /** The last row of a Modrinth result page, which fetches the next page in place. */
+    private Row moreRow(int shown, int total) {
+        Component label = text("more", shown, total);
+        return new Row(label, text("more", shown, total), 30, (x, y, width) -> {
+            var button = addRenderableWidget(new KernelButton(x + 6, y + 3, Math.max(80, width - 12), 22, label,
+                ignored -> requestSearch(shown)));
+            button.active = !searching;
+        });
+    }
+
+    private Row packRow(String title, String subtitle, ModrinthShaders.Project project) {
+        return new Row(literal(title), literal(subtitle), 30, (x, y, width) -> {
+            addRenderableOnly((graphics, mouseX, mouseY, delta) -> {
+                KernelUi.text(graphics, font, literal(font.plainSubstrByWidth(title, Math.max(20, width - 80))), x + 8, y + 5, 0xFFF3F4F6);
+                KernelUi.text(graphics, font, literal(font.plainSubstrByWidth(subtitle, Math.max(20, width - 80))), x + 8, y + 16, 0xFF8A9199);
+            });
+            var button = addRenderableWidget(new KernelButton(x + width - 68, y + 3, 64, 22, text(project != null ? "install" : "enable"), ignored -> {
+                if (project != null) KernelShaders.install(project); else KernelShaders.select(title);
+            }, () -> title.equals(KernelShaders.active()), false));
+            button.active = !KernelShaders.busy();
+            button.setTooltip(Tooltip.create(literal(title + "\n" + subtitle)));
+        });
+    }
+
+    private Row optionRow(ShaderOption option) {
+        String declared = option.comment().isEmpty() ? KernelShaders.properties().description(option.name()) : option.comment();
+        Component description = declared.isEmpty() ? literal(option.name()) : literal(declared);
+        Component label = literal(option.name());
+        return new Row(label, KernelShaders.optionChanged(option)
+            ? Component.empty().append(description).append(" · ").append(text("modified")) : description, 24, (x, y, width) -> {
+            int controls = Math.max(96, width * 40 / 100), controlX = x + width - controls;
+            String current = KernelShaders.optionValue(option);
+            addRenderableOnly((graphics, mouseX, mouseY, delta) -> KernelUi.text(graphics, font,
+                literal(font.plainSubstrByWidth(option.name(), Math.max(10, width - controls - 16))), x + 8, y + 8,
+                KernelShaders.optionChanged(option) ? 0xFFFFE08A : 0xFFF3F4F6));
+            Component narration = Component.empty().append(label).append(": ").append(literal(current));
+            // An option the pack itself marks as a slider gets a position indicator rather than a drag
+            // handle: dragging would recompile the whole pipeline on every intermediate value.
+            if (option.slider() && option.values().size() > 2) {
+                int index = Math.max(0, option.values().indexOf(current));
+                addRenderableOnly((graphics, mouseX, mouseY, delta) -> {
+                    int trackLeft = controlX + 20, trackRight = x + width - 20;
+                    graphics.fill(trackLeft, y + 19, trackRight, y + 20, 0xFF55585B);
+                    graphics.fill(trackLeft, y + 19, trackLeft + (trackRight - trackLeft) * index / (option.values().size() - 1), y + 20, 0xFFF3F4F6);
+                });
+            }
+            var previous = addRenderableWidget(new KernelButton(controlX, y + 1, 18, 22, narration,
+                button -> KernelShaders.setOption(option.name(), option.cycle(current, -1))).visual(literal("<")));
+            previous.active = !KernelShaders.busy();
+            previous.setTooltip(Tooltip.create(description));
+            addRenderableOnly((graphics, mouseX, mouseY, delta) -> {
+                String value = font.plainSubstrByWidth(current, controls - 40);
+                KernelUi.text(graphics, font, literal(value), controlX + (controls - font.width(value)) / 2, y + 8, 0xFFF3F4F6);
+            });
+            var next = addRenderableWidget(new KernelButton(x + width - 18, y + 1, 18, 22, narration,
+                button -> KernelShaders.setOption(option.name(), option.cycle(current, 1))).visual(literal(">")));
+            next.active = !KernelShaders.busy();
+            next.setTooltip(Tooltip.create(description));
+        });
+    }
+
     private void requestSearch(int offset) {
         if (searching || searchWorker.isShutdown()) return;
         searching = true; searchError = ""; String value = query;
@@ -116,11 +253,22 @@ public final class ShaderScreen extends Screen {
         }, searchWorker);
         rebuildWidgets();
     }
+    /** Moves the list by whole rows; false means this end of the list has already been reached. */
+    public boolean scrollBy(int rows) {
+        int next = Math.clamp(scroll + rows, 0, Math.max(0, rowCount - visibleRows));
+        if (next == scroll) return false;
+        scroll = next; rebuildWidgets(); return true;
+    }
+
+    @Override public boolean mouseScrolled(double x, double y, double horizontal, double vertical) {
+        if (scrollBy(-(int) Math.signum(vertical) * 2)) return true;
+        return super.mouseScrolled(x, y, horizontal, vertical);
+    }
     @Override public void tick() {
         super.tick();
         if (searching && search.isDone()) {
             searching = false;
-            try { results = search.join(); page = 0; }
+            try { results = search.join(); scroll = 0; }
             catch (RuntimeException failure) { searchError = failure.getCause() == null ? failure.toString() : failure.getCause().getMessage(); }
             rebuildWidgets();
         } else if (revision != KernelShaders.revision()) rebuildWidgets();

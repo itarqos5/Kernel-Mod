@@ -35,6 +35,34 @@ public final class KernelUi {
 
     private KernelUi() {}
 
+    /**
+     * Splits plain text into lines that fit a width.
+     *
+     * <p>This uses only font measurement so that it behaves the same on every supported version, where
+     * the drawing interfaces differ. Text past {@code maxLines} is dropped with an ellipsis.
+     */
+    public static java.util.List<String> wrap(Font font, String text, int width, int maxLines) {
+        var lines = new java.util.ArrayList<String>();
+        if (width <= 0 || maxLines <= 0) return lines;
+        String remaining = text.strip();
+        while (!remaining.isEmpty() && lines.size() < maxLines) {
+            if (font.width(remaining) <= width) { lines.add(remaining); return lines; }
+            String fitted = font.plainSubstrByWidth(remaining, width);
+            if (fitted.isEmpty()) fitted = remaining.substring(0, 1);
+            int wrap = lines.size() + 1 < maxLines ? fitted.lastIndexOf(' ') : -1;
+            // Only break on a space when one is far enough in that the line is not left nearly empty.
+            int cut = wrap > fitted.length() / 3 ? wrap : fitted.length();
+            if (lines.size() + 1 == maxLines) {
+                String last = font.plainSubstrByWidth(remaining, Math.max(1, width - font.width("…")));
+                lines.add(last + "…");
+                return lines;
+            }
+            lines.add(remaining.substring(0, cut).strip());
+            remaining = remaining.substring(cut).strip();
+        }
+        return lines;
+    }
+
     //? if >=26.1 {
     public static void text(GuiGraphicsExtractor graphics, Font font, Component label, int x, int y, int color) {
         graphics.text(font, label, x, y, color);

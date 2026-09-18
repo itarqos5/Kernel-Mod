@@ -11,12 +11,12 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 /*import net.minecraft.client.gui.GuiGraphics;
 *///? }
 
-final class KernelSlider extends AbstractSliderButton {
+public final class KernelSlider extends AbstractSliderButton {
     private final Supplier<Component> valueText;
     private final Supplier<Component> narration;
     private final DoubleConsumer change;
 
-    KernelSlider(int x, int y, int width, double value, Supplier<Component> valueText, Supplier<Component> narration, DoubleConsumer change) {
+    public KernelSlider(int x, int y, int width, double value, Supplier<Component> valueText, Supplier<Component> narration, DoubleConsumer change) {
         super(x, y, width, 22, narration.get(), value);
         this.valueText = valueText; this.narration = narration; this.change = change;
     }
