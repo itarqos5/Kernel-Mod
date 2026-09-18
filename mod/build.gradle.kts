@@ -150,6 +150,20 @@ tasks {
         into(rootProject.layout.buildDirectory.dir("libs"))
     }
 
+    // Same artifact as buildAndCollect, without the check dependency. The
+    // verification suite forks a JVM per smoke task and re-reads the Minecraft,
+    // Fabric and Mixin classpath from disk each time, which is the dominant cost
+    // on a mechanical disk. Use this while iterating; buildAndCollect stays the
+    // task that validates a target.
+    register<Copy>("assembleAndCollect") {
+        group = "build"
+        description = "Copies this Minecraft version's remapped mod JAR to the root build directory without running checks."
+
+        dependsOn(loomx.modJar, rootProject.tasks.named("prepareArtifacts"))
+        from(loomx.modJar.flatMap { it.archiveFile })
+        into(rootProject.layout.buildDirectory.dir("libs"))
+    }
+
     register<JavaExec>("visibilityBenchmark") {
         group = "verification"
         description = "Compares Kernel's visibility solver with this Minecraft version's vanilla solver."
@@ -378,10 +392,14 @@ tasks {
         systemProperty("fabric.gameMappingNamespace", if (sc.current.parsed >= "26.1") "official" else "named")
         workingDir(layout.buildDirectory.dir("settings-disabled-smoke-game").get().asFile)
         args("--gameDir", workingDir.absolutePath)
+        // Resolve the template during configuration. Calling rootProject.file inside
+        // doFirst would capture the Project in the execution-time action, which the
+        // configuration cache cannot serialize; a File captured here serializes fine.
+        val disabledSettings = rootProject.file("mod/src/test/resources/settings-disabled.properties")
         doFirst {
             val config = workingDir.resolve("config/kernel-renderer.properties")
             config.parentFile.mkdirs()
-            rootProject.file("mod/src/test/resources/settings-disabled.properties").copyTo(config, overwrite = true)
+            disabledSettings.copyTo(config, overwrite = true)
         }
     }
 

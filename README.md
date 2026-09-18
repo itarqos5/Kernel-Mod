@@ -51,6 +51,41 @@ kernel-knot-client-0.1.0.jar
 
 `build` also runs the aggregate `buildAll` task.
 
+### Faster iteration
+
+`buildAll` runs the full verification suite for all nine targets. That suite forks a
+JVM per smoke and benchmark task, and each fork reads the Minecraft, Fabric and Mixin
+classpath back off disk, so verification rather than compilation dominates the wall
+clock. While iterating, `assembleAll` produces the same JARs and skips only the checks:
+
+```powershell
+.\gradlew.bat assembleAll
+```
+
+A single target is faster still, and is usually what you want while working on one
+version:
+
+```powershell
+.\gradlew.bat :mod:26.2:assembleAndCollect
+```
+
+`buildAll` remains the task to run before a build-system or shared-source change lands.
+
+### Build performance on a mechanical disk
+
+This repository enables the Gradle daemon, file-system watching, the build cache and
+the configuration cache. Note that `GRADLE_USER_HOME/gradle.properties` outranks this
+project's `gradle.properties`, so a machine-wide file that disables those settings will
+silently override them; check there first if builds are slower than expected.
+
+`org.gradle.workers.max` is deliberately capped. Nine Stonecutter targets can otherwise
+start nine remap and compile jobs at once, and on a mechanical disk the resulting seek
+contention is slower than a lower fan-out. Raise it on an SSD.
+
+`scripts/exclude-build-paths-from-defender.ps1` excludes build outputs and the Gradle
+cache from Defender real-time scanning, which is a further improvement on Windows. Read
+its notes before running it: it trades antivirus coverage of those directories for speed.
+
 ## Current status
 
 Implemented:

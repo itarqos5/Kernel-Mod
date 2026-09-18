@@ -29,6 +29,21 @@ val buildAll = tasks.register("buildAll") {
     dependsOn(supportedMinecraftVersions.map { ":mod:$it:buildAndCollect" })
 }
 
+// Iteration counterpart to buildAll. buildAll runs check for all nine targets,
+// which forks roughly a hundred JVMs for the smoke and benchmark suite; each one
+// reads the Minecraft, Fabric and Mixin classpath back off disk, so on a
+// mechanical disk the verification suite dominates the wall clock rather than
+// compilation. assembleAll produces the same JARs and skips only verification,
+// so it is for the edit/compile loop. buildAll remains the validation task that
+// AGENTS.md requires before a build-system or shared-source change lands.
+val assembleAll = tasks.register("assembleAll") {
+    group = "build"
+    description = "Builds and collects every variant's JAR without running the verification suite (use buildAll to validate)."
+
+    dependsOn(":knot-client:assembleAndCollect")
+    dependsOn(supportedMinecraftVersions.map { ":mod:$it:assembleAndCollect" })
+}
+
 tasks.named("build") {
     dependsOn(buildAll)
 }

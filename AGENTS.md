@@ -267,6 +267,8 @@ Confirm that `build/libs/` contains one correctly named mod JAR per supported Mi
 
 For a change isolated to one component, a narrower task may be used during iteration, but the final validation should be proportional to the risk and reported honestly.
 
+`assembleAll`, and `:mod:<version>:assembleAndCollect` for a single target, produce the same JARs without running the verification suite. They are for the edit/compile loop only: they prove nothing about correctness, so they never substitute for `buildAll` in the validation above.
+
 ## Compatibility and safety rules
 
 - Preserve Fabric's normal mod lifecycle and allow unrelated mods to load normally.

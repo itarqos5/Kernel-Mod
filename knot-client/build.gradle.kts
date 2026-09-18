@@ -95,4 +95,16 @@ tasks {
         from(jar.flatMap { it.archiveFile })
         into(rootProject.layout.buildDirectory.dir("libs"))
     }
+
+    // Same artifact as buildAndCollect, without the tests and the startup agent
+    // smoke runs. Those fork a JVM per Java toolchain, so they cost far more than
+    // producing the JAR. Use this while iterating; buildAndCollect still validates.
+    register<Copy>("assembleAndCollect") {
+        group = "build"
+        description = "Copies the Kernel Knot Client JAR to the root build directory without running checks."
+
+        dependsOn(jar, rootProject.tasks.named("prepareArtifacts"))
+        from(jar.flatMap { it.archiveFile })
+        into(rootProject.layout.buildDirectory.dir("libs"))
+    }
 }
