@@ -96,7 +96,7 @@ cutout terrain cannot render under those rules. World programs need real attribu
 `gl_Color` and `gl_Normal`; genuine `gl_ModelViewMatrix`, `gl_ProjectionMatrix`, `gl_NormalMatrix` and
 `gl_TextureMatrix` uniforms; and `ftransform()`.
 
-### 3. Extended vertex attributes — partly implemented
+### 3. Extended vertex attributes — implemented for the two Kernel writes
 
 `mc_Entity`, `mc_midTexCoord`, `at_tangent` and `at_midBlock` do not exist in Minecraft's vertex formats.
 Supplying them means writing them during chunk meshing, in the same build and upload path that Kernel's
@@ -110,11 +110,19 @@ and `at_midBlock`, which are the cheapest and cover what these attributes are mo
 `mc_midTexCoord` and `at_tangent` stay refused because they drive normal and parallax mapping, which read
 LabPBR atlases that item 8 has not built, and an input whose partner is missing renders wrongly.
 
-What remains is the writing itself: a thread-local block identity and block origin set by the block
-renderer, a `BufferBuilder` hook filling the new elements for each vertex, and a hook on
-`RenderPipeline.getVertexFormat` so the pipeline carries the extended format. That last one is a single
-point: `RenderType.format()` returns `renderPipeline.getVertexFormat()`, so one hook covers buffer
-creation, GLSL attribute binding and the GL attribute pointers together.
+Chunk meshing writes both. Three things had to agree: the pipeline's format, which decides the attribute
+names a program is linked against; the section buffer's format, which decides what is actually written;
+and the block renderer, which decides the block a vertex belongs to. `RenderType.format()` returns
+`renderPipeline.getVertexFormat()`, so hooking the pipeline covers linking and the GL attribute pointers
+— but the chunk builder names `DefaultVertexFormat.BLOCK` outright in `SectionCompiler.getOrBeginLayer`
+rather than asking the render type, so the section buffer needs its own hook. Without it a program is
+bound to attributes no buffer supplies and reads the zeroes GL substitutes, which is what the probe
+measured before that hook existed. Sections are rebuilt when the demanded set changes, because a section
+is drawn with the format it was built in.
+
+Verified on 1.21.5 by GPU probe: a pack reading both attributes paints only where the identity matches
+the one its own `block.properties` gives the surface block, and the offset to the block centre sweeps a
+block's width and sits half a block below it on a top face.
 
 Three things found in the game's own sources bound this work:
 
@@ -233,9 +241,9 @@ pack produces are the pixels it asked for. Packs needing more stay refused by na
 
 **Stage B — shadows.** Item 5 and its uniforms.
 
-**Stage C — correctness, in progress.** Items 3 and 4. Without these, packs render but their materials
-are wrong. Item 4 is done. Item 3 has its attribute model and vertex format; the writing during chunk
-meshing is what is left, and it is the most invasive change in this document.
+**Stage C — correctness, done for what Kernel can supply.** Items 3 and 4. Item 4 is complete. Item 3
+supplies `mc_Entity` and `at_midBlock`; `mc_midTexCoord` and `at_tangent` wait on the LabPBR atlases of
+item 8, because an input whose partner is missing renders wrongly rather than not at all.
 
 **Stage D — completeness.** Items 6, 7 and 8, and Kernel-owned pipelines with multiple colour targets,
 which lifts the single-output limit Stage A works within.

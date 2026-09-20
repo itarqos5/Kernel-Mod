@@ -186,9 +186,12 @@ Implemented:
   does one array read per block rather than a registry lookup. Entries naming blocks from mods that are
   not installed are ignored rather than refusing the pack.
 
-- The terrain vertex format for a pack's extended attributes, built from the game's own block format and
-  carrying only what the pack declares. Nothing selects it yet: writing those attributes during chunk
-  meshing is the remaining part of this work. See [the world-stage plan](docs/SHADER_WORLD_STAGE.md).
+- Shader pack vertex attributes. Chunk meshing writes `mc_Entity` and `at_midBlock`, so a pack's world
+  programs can tell which block a vertex belongs to and where that block's centre is. The terrain format
+  carries only what a pack declares, and a pack declaring neither leaves Minecraft's own format and its
+  fast vertex path untouched. `mc_midTexCoord` and `at_tangent` are still refused, because they drive
+  normal and parallax mapping against texture atlases Kernel does not supply yet. See
+  [the world-stage plan](docs/SHADER_WORLD_STAGE.md).
 
 - Shader world-time/day, native moon phase and interpolated rain/thunder uniforms share one snapshot
   across a frame's passes, captured only for packs that request those inputs. See [shader inputs](docs/SHADERS.md).

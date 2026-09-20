@@ -189,12 +189,14 @@ Implemented:
   rebuilt when the pack or the registries change. Entries naming absent mod blocks are ignored rather
   than failing the pack. Verified in the game against the real registries.
 
-- The terrain vertex format a pack's extended attributes need is built from the game's own block format,
-  adding only what a pack declares. A pack declaring none receives the game's own format object, so
-  Minecraft's identity comparisons and its fast vertex path are untouched. Scoped to the targets whose
-  world stage runs, because the vertex format API is rewritten twice across the nine and the newer
-  targets already refuse world programs. Nothing selects this format yet: chunk meshing has still to
-  write the elements, which is the remaining part of the shader world stage's correctness work.
+- Shader pack vertex attributes: chunk meshing writes `mc_Entity` and `at_midBlock` on 1.21.5 through
+  1.21.10, so a pack's world programs can tell which block a vertex belongs to and where that block's
+  centre is. The terrain format is built from the game's own block format and carries only what a pack
+  declares; a pack declaring neither leaves the game's own format object in place, so Minecraft's
+  identity comparisons and its fast vertex path are untouched. The pipeline format, the section buffer
+  format and the block renderer are hooked together, because the chunk builder names the block format
+  outright rather than asking the render type. Sections are rebuilt when the demanded set changes.
+  `mc_midTexCoord` and `at_tangent` remain refused pending the LabPBR atlases. Verified by GPU probe.
 
 - Shader world-time/day, native moon phase and interpolated rain/thunder uniforms use one immutable
   snapshot per world render, captured only for programs that request them. Legacy clock arithmetic is
