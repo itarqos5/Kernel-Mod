@@ -6,6 +6,7 @@ Minecraft itself drew. Behind `-Dkernel.worldShaders=true` it also draws world g
 `gbuffers_*`, `shadow*` or `prepare*` is refused by name rather than rendered from stages Kernel does not
 run. See [shader packs](SHADERS.md) for what is supported today.
 
+[Shader support: what works and what does not](SHADER_STATUS.md) summarises where this has got to.
 This document records what remains before Iris-format packs render correctly, and the order to build it.
 It is a plan, not an implementation status. Nothing here should be read as working until the
 implementation sections of `AGENTS.md` and `README.md` say so.

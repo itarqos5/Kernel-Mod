@@ -193,6 +193,10 @@ Implemented:
   normal and parallax mapping against texture atlases Kernel does not supply yet. See
   [the world-stage plan](docs/SHADER_WORLD_STAGE.md).
 
+- Shader support is summarised in [what works and what does not](docs/SHADER_STATUS.md), which is the
+  place to look before assuming a pack will run. No popular pack works yet, because every popular pack
+  needs the shadow pass, which is not implemented.
+
 - Shader sun and moon inputs: `sunPosition`, `moonPosition`, `shadowLightPosition`, `upPosition`,
   `sunAngle` and `shadowAngle`, derived from Minecraft's own sky rendering and rotated into the space a
   pack's programs work in. The shadow matrices are not supplied yet, because they describe a shadow map

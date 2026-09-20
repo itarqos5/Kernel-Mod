@@ -1,5 +1,8 @@
 # Shader packs
 
+[Shader support: what works and what does not](SHADER_STATUS.md) is the one-page summary of how far
+this goes; this file is the reference for the parts that are supported.
+
 Kernel's **Shaders** tab uses the same translucent panels and white highlights as its video settings.
 It lists ZIPs in the game's `shaderpacks` directory. Drop one or more ZIPs onto the screen to import them,
 or choose **Browse Modrinth**, search, and click **Install**. Select **Enable** on an installed pack to

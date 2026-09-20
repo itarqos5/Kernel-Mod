@@ -198,6 +198,10 @@ Implemented:
   outright rather than asking the render type. Sections are rebuilt when the demanded set changes.
   `mc_midTexCoord` and `at_tangent` remain refused pending the LabPBR atlases. Verified by GPU probe.
 
+- Shader support status is kept in `docs/SHADER_STATUS.md`, the one-page summary of what runs, what is
+  opt-in, what is refused and in what order the rest is planned. Update it whenever shader capability
+  changes, alongside this file and `README.md`.
+
 - Shader celestial inputs: `sunPosition`, `moonPosition`, `shadowLightPosition`, `upPosition`,
   `sunAngle` and `shadowAngle`, derived from Minecraft's own sky transform rather than a fixed table, so
   a version that changes how it hangs the sky changes these with it. Directions are rotated by the world
