@@ -21,6 +21,12 @@ public final class ShaderProbe {
     private static boolean advancing;
     private static volatile boolean captured;
     private static int verifiedWorldFrames;
+    /** The last world-stage pixel sampled inside a frame, or null while no such frame has been drawn. */
+    private static volatile int[][] worldStageSample;
+    /** The samples the world-stage assertion is made about, kept across the capture they are paired with. */
+    private static int[][] worldStageResult;
+    /** The world stage is measured over a grid of this many points per axis, not at one pixel. */
+    private static final int GRID = 5;
     private static Path probeSource;
     private static String fixtureName;
     static void frame(Minecraft minecraft, long ready) {
@@ -138,7 +144,11 @@ public final class ShaderProbe {
                     varying vec2 texcoord;
                     void main() { gl_FragColor = texture2D(colortex0, texcoord); }
                     """));
-            minecraft.player.setXRot(90.0f);
+            // An earlier stage cycles the camera through all three of its types and leaves it wherever it
+            // finished. The world stage needs a known camera aimed at the ground, or the frame measured
+            // here is the sky or the inside of the player's own model.
+            minecraft.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
+            minecraft.player.setXRot(90.0f); minecraft.player.xRotO = 90.0f;
             KernelShaders.select("world-stage-probe.zip"); next(10); return;
         }
         if (stage == 10 && !KernelShaders.busy()) {
@@ -151,7 +161,19 @@ public final class ShaderProbe {
             if (KernelWorldShaders.substituted() == 0)
                 throw new AssertionError("No core shader stage was compiled from the pack: " + KernelWorldShaders.replaced());
             System.out.println("Kernel world stage: " + KernelWorldShaders.substituted() + " substituted stages, replacing " + KernelWorldShaders.replaced());
-            worldStagePixel(minecraft);
+            worldStageResult = worldStageSample;
+            if (worldStageResult == null) throw new AssertionError("No world frame was drawn while the pack was active");
+            System.out.println("Kernel world-stage pixels: " + describe(worldStageResult));
+            // Keep the frame the assertion is about. When the pixel is not the one the pack asked for,
+            // the image says whether the pack's program drew the wrong thing or never drew at all.
+            captured = false;
+            GuiProbe.capture(minecraft, "kernel-world-stage.png", ignored -> captured = true); next(12); return;
+        }
+        if (stage == 12 && captured) {
+            // The hand and anything else in view are drawn by programs this pack does not replace, so
+            // require most of the frame rather than all of it.
+            if (packDrawn(worldStageResult) * 5 < worldStageResult.length * 3)
+                throw new AssertionError("Terrain was not drawn by the pack's own program: " + describe(worldStageResult));
             Files.deleteIfExists(KernelShaders.directory().resolve("world-stage-probe.zip"));
             KernelShaders.disable(); next(9); return;
         }
@@ -166,6 +188,17 @@ public final class ShaderProbe {
             stage = 20; minecraft.execute(minecraft::stop);
         }
     }
+    /** How many sampled points the pack's own program wrote. */
+    private static int packDrawn(int[][] samples) {
+        int drawn = 0;
+        for (int[] pixel : samples) if (pixel[1] >= 250 && pixel[0] <= 5 && pixel[2] <= 5) drawn++;
+        return drawn;
+    }
+    private static String describe(int[][] samples) {
+        var text = new StringBuilder(packDrawn(samples) + " of " + samples.length + " points:");
+        for (int[] pixel : samples) text.append(' ').append(pixel[0]).append(',').append(pixel[1]).append(',').append(pixel[2]);
+        return text.toString();
+    }
     private static void zip(Path path, String fragment) throws Exception {
         zip(path, java.util.Map.of("shaders/final.fsh", fragment));
     }
@@ -179,23 +212,49 @@ public final class ShaderProbe {
         }
     }
 
-    /** Reads the centre pixel, which the probe aims straight down at terrain before calling this. */
-    private static void worldStagePixel(Minecraft minecraft) {
+    /**
+     * Reads the pixel the pack's own terrain program should have written.
+     *
+     * <p>Sampled from the main render target's colour texture inside the frame, the way every other
+     * pixel check here is. Once a frame has been presented the back buffer's contents are undefined, so
+     * reading the default framebuffer from the tick path measures whatever the driver left behind rather
+     * than the world that was drawn.
+     */
+    private static int[][] worldStagePixel(Minecraft minecraft) {
         //? if >=26.2 {
         var target = minecraft.gameRenderer.mainRenderTarget();
         //? } else {
         /*var target = minecraft.getMainRenderTarget();
         *///? }
+        //? if >=1.21.5 {
+        int texture = ((GlTexture) target.getColorTexture()).glId();
+        //? } else {
+        /*int texture = target.getColorTextureId();
+        *///? }
+        int read = GL33C.glGetInteger(GL33C.GL_READ_FRAMEBUFFER_BINDING), fbo = GL33C.glGenFramebuffers();
+        int[] stores = {GL33C.GL_PACK_ROW_LENGTH, GL33C.GL_PACK_SKIP_ROWS, GL33C.GL_PACK_SKIP_PIXELS};
+        int[] previous = new int[3];
+        for (int i = 0; i < 3; i++) { previous[i] = GL33C.glGetInteger(stores[i]); GL33C.glPixelStorei(stores[i], 0); }
+        int packBuffer = GL33C.glGetInteger(GL33C.GL_PIXEL_PACK_BUFFER_BINDING);
+        GL33C.glBindBuffer(GL33C.GL_PIXEL_PACK_BUFFER, 0);
         try (var stack = MemoryStack.stackPush()) {
+            GL33C.glBindFramebuffer(GL33C.GL_READ_FRAMEBUFFER, fbo);
+            GL33C.glFramebufferTexture2D(GL33C.GL_READ_FRAMEBUFFER, GL33C.GL_COLOR_ATTACHMENT0, GL33C.GL_TEXTURE_2D, texture, 0);
+            GL33C.glReadBuffer(GL33C.GL_COLOR_ATTACHMENT0);
             var pixel = stack.malloc(4);
-            // Sample away from the screen centre: looking straight down puts the player's own arm there,
-            // and the arm is drawn by a program this pack does not replace.
-            int x = target.width / 4, y = target.height * 3 / 4;
-            GL33C.glReadPixels(x, y, 1, 1, GL33C.GL_RGBA, GL33C.GL_UNSIGNED_BYTE, pixel);
-            int red = pixel.get(0) & 255, green = pixel.get(1) & 255, blue = pixel.get(2) & 255;
-            System.out.println("Kernel world-stage pixel at " + x + "," + y + ": " + red + "," + green + "," + blue);
-            if (green < 250 || red > 5 || blue > 5)
-                throw new AssertionError("Terrain was not drawn by the pack's own program: " + red + "," + green + "," + blue);
+            // Measure the frame rather than a pixel. One pixel of the pack's colour could be a
+            // coincidence, and one pixel of anything else could be the hand or an entity in view.
+            int[][] samples = new int[GRID * GRID][];
+            for (int point = 0; point < samples.length; point++) {
+                int x = target.width * (point % GRID + 1) / (GRID + 1), y = target.height * (point / GRID + 1) / (GRID + 1);
+                GL33C.glReadPixels(x, y, 1, 1, GL33C.GL_RGBA, GL33C.GL_UNSIGNED_BYTE, pixel);
+                samples[point] = new int[]{pixel.get(0) & 255, pixel.get(1) & 255, pixel.get(2) & 255};
+            }
+            return samples;
+        } finally {
+            GL33C.glBindFramebuffer(GL33C.GL_READ_FRAMEBUFFER, read); GL33C.glDeleteFramebuffers(fbo);
+            GL33C.glBindBuffer(GL33C.GL_PIXEL_PACK_BUFFER, packBuffer);
+            for (int i = 0; i < 3; i++) GL33C.glPixelStorei(stores[i], previous[i]);
         }
     }
     private static void beginWorld(Minecraft minecraft) {
@@ -239,7 +298,11 @@ public final class ShaderProbe {
         }
     }
     public static void verifyWorldFrame(net.minecraft.client.DeltaTracker deltaTracker) {
-        if (!Boolean.getBoolean("kernel.guiProbe.shaders") || (stage != 6 && stage != 7)) return;
+        if (!Boolean.getBoolean("kernel.guiProbe.shaders")) return;
+        // The world stage is sampled from this same in-frame hook, because a pixel is only readable
+        // while the frame that drew it is still the target being rendered into.
+        if (stage == 11) { worldStageSample = worldStagePixel(Minecraft.getInstance()); verifiedWorldFrames++; return; }
+        if (stage != 6 && stage != 7) return;
         if (ShaderProjectionWorldChecks.skipInvalidFrame() || ShaderCameraWorldChecks.skipInvalidFrame()) return;
         // The native HUD vignette intentionally darkens the final image afterwards; inspect before that HUD pass.
         assertWorldPixel(Minecraft.getInstance(), deltaTracker);
@@ -247,5 +310,5 @@ public final class ShaderProbe {
         verifiedWorldFrames++;
     }
     public static boolean observingShaderWorld() { return Boolean.getBoolean("kernel.guiProbe.shaders") && stage == 6; }
-    private static void next(int value) { stage = value; changedAt = System.nanoTime(); verifiedWorldFrames = 0; }
+    private static void next(int value) { stage = value; changedAt = System.nanoTime(); verifiedWorldFrames = 0; worldStageSample = null; }
 }
