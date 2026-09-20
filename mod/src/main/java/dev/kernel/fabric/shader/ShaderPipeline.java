@@ -31,7 +31,7 @@ public final class ShaderPipeline implements AutoCloseable {
     private int vao, sampler, mipmapSampler, frame, textureUnits, outputSlots;
     private final long started = System.nanoTime();
     private long lastFrame = started;
-    private boolean closed, usesWorldData;
+    private boolean closed, usesWorldData, celestialInputs;
 
     public ShaderPipeline(PreparedShaderPack pack) throws IOException {
         try (var state = new ShaderGlState()) {
@@ -58,12 +58,17 @@ public final class ShaderPipeline implements AutoCloseable {
                         projectionInputs |= ShaderUniforms.projectionInput(uniform.name);
                         viewInputs |= ShaderUniforms.modelViewInput(uniform.name);
                         cameraInputs |= ShaderUniforms.cameraType(uniform.name) >= 0;
+                        // Where the sun is depends on where the camera looks, so these need the world
+                        // model-view even when a program never names that matrix itself.
+                        if (ShaderUniforms.celestialType(uniform.name) >= 0) { celestialInputs = true; viewInputs |= 1; }
                     }
                     for (var uniform : program.uniforms) if (uniform.buffer >= 0) {
                         sampled |= 1L << uniform.buffer;
                         legacyDepth |= uniform.buffer == 1 && uniform.name.equals("gdepth");
                     }
                 }
+                // Where the sun is is world state, so a program asking for it needs the frame's world inputs.
+                usesWorldData |= celestialInputs;
                 required |= (int) sampled & 0xffff;
                 for (var program : programs) textureUnits = Math.max(textureUnits, program.inputs.length);
                 outputSlots = 1;
@@ -129,6 +134,8 @@ public final class ShaderPipeline implements AutoCloseable {
         if (modelView != null) modelView.prepare(width, height);
         try (var state = new ShaderGlState(Math.max(1, textureUnits), outputSlots)) {
             state.prepare(); targets.begin(sourceTexture, width, height);
+            var celestial = celestialInputs
+                ? ShaderCelestialData.from(world.celestialAngle(), modelView.values("gbufferModelView")) : null;
             long now = System.nanoTime(); float delta = (now - lastFrame) * 1.0e-9f;
             float elapsed = ((now - started) * 1.0e-9f) % 3600.0f; lastFrame = now;
             GL33C.glBindVertexArray(vao); GL33C.glViewport(0, 0, width, height);
@@ -150,7 +157,8 @@ public final class ShaderPipeline implements AutoCloseable {
                     else if (uniform.type == GL33C.GL_FLOAT_MAT4)
                         GL33C.glUniformMatrix4fv(uniform.location, false,
                             (ShaderUniforms.projectionInput(uniform.name) != 0 ? projection : modelView).values(uniform.name));
-                    else if (uniform.type == GL33C.GL_FLOAT_VEC3) GL33C.glUniform3fv(uniform.location, camera.vector(uniform.name));
+                    else if (uniform.type == GL33C.GL_FLOAT_VEC3) GL33C.glUniform3fv(uniform.location,
+                        ShaderUniforms.celestialType(uniform.name) >= 0 ? celestial.vector(uniform.name) : camera.vector(uniform.name));
                     else if (uniform.type == GL33C.GL_INT_VEC3) GL33C.glUniform3iv(uniform.location, camera.integer(uniform.name));
                     else if (uniform.type == GL33C.GL_INT) GL33C.glUniform1i(uniform.location, switch (uniform.name) {
                         case "frameCounter" -> frame; case "worldTime" -> world.worldTime(); case "worldDay" -> world.worldDay();
@@ -161,6 +169,7 @@ public final class ShaderPipeline implements AutoCloseable {
                         case "frameTime" -> delta; case "frameTimeCounter" -> elapsed;
                         case "rainStrength" -> world.rainStrength(); case "thunderStrength" -> world.thunderStrength();
                         case "eyeAltitude" -> camera.altitude();
+                        case "sunAngle", "shadowAngle" -> celestial.angle(uniform.name);
                         default -> throw new AssertionError(uniform.name);
                     });
                 }
@@ -228,7 +237,9 @@ public final class ShaderPipeline implements AutoCloseable {
                         throw new IOException(pass.name() + " requests color mipmaps for an overridden image: " + name);
                     int expectedType = buffer >= 0 ? GL33C.GL_SAMPLER_2D
                         : ShaderUniforms.projectionInput(name) != 0 || ShaderUniforms.modelViewInput(name) != 0 ? GL33C.GL_FLOAT_MAT4
-                        : ShaderUniforms.cameraType(name) >= 0 ? ShaderUniforms.cameraType(name) : ShaderUniforms.scalarType(name);
+                        : ShaderUniforms.cameraType(name) >= 0 ? ShaderUniforms.cameraType(name)
+                        : ShaderUniforms.celestialType(name) >= 0 ? ShaderUniforms.celestialType(name)
+                        : ShaderUniforms.scalarType(name);
                     if (size.get(0) != 1 || type.get(0) != expectedType) {
                         throw new IOException(pass.name() + " requires unsupported uniform: " + name);
                     }

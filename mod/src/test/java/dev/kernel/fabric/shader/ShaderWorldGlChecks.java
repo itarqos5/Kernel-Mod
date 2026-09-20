@@ -61,7 +61,25 @@ public final class ShaderWorldGlChecks {
                     }
                 }
             }
+            // The celestial inputs are accepted with the types the format gives them, and pull in the
+            // frame's world data because where the sun is is world state.
+            String celestial = """
+                #version 330 core
+                uniform vec3 sunPosition, moonPosition, shadowLightPosition, upPosition;
+                uniform float sunAngle, shadowAngle;
+                out vec4 outColor;
+                void main() {
+                    outColor = vec4(normalize(sunPosition + moonPosition + shadowLightPosition + upPosition), sunAngle + shadowAngle);
+                }
+                """;
+            var celestialPass = new PreparedShaderPack.Pass("celestial", ShaderSource.DEFAULT_VERTEX, ShaderSource.translate(celestial, false));
+            try (var pipeline = new ShaderPipeline(new PreparedShaderPack("celestial-input-test", List.of(celestialPass)))) {
+                if (!pipeline.needsWorldData())
+                    throw new AssertionError("Celestial inputs did not ask for the frame's world data");
+            }
             for (String invalid : new String[]{
+                "uniform vec2 sunPosition; void main(){outColor=vec4(sunPosition,0,1);}",
+                "uniform vec3 sunAngle; void main(){outColor=vec4(sunAngle,1);}",
                 "uniform float worldTime; void main(){outColor=vec4(worldTime);}",
                 "uniform int rainStrength; void main(){outColor=vec4(float(rainStrength));}",
                 "uniform int worldDay[2]; void main(){outColor=vec4(float(worldDay[0]+worldDay[1]));}"}) {
@@ -76,7 +94,7 @@ public final class ShaderWorldGlChecks {
             GL33C.glBindBuffer(GL33C.GL_PIXEL_PACK_BUFFER, packBuffer);
             for (int i = 0; i < packNames.length; i++) GL33C.glPixelStorei(packNames[i], packValues[i]);
         }
-        System.out.println("Kernel world shader inputs passed: native pixels, distinct integer bindings, weather, frame updates and missing-input recovery");
+        System.out.println("Kernel world shader inputs passed: native pixels, distinct integer bindings, weather, frame updates, celestial inputs and missing-input recovery");
     }
 
     /** Called with the world's color image bound for reading, before the native HUD changes it. */

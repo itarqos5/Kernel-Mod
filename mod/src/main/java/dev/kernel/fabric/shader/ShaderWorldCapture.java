@@ -26,6 +26,14 @@ final class ShaderWorldCapture {
         //? } else {
         /*int moonPhase = level.getMoonPhase();
         *///? }
-        return ShaderWorldData.from(time, moonPhase, level.getRainLevel(partialTicks), level.getThunderLevel(partialTicks));
+        // The angle the game turns its sky by. Newer targets expose it as a camera environment
+        // attribute, the same way they expose the moon phase, rather than as a query on the level.
+        //? if >=1.21.11 {
+        float celestialAngle = camera.attributeProbe().getValue(net.minecraft.world.attribute.EnvironmentAttributes.SUN_ANGLE, partialTicks);
+        //? } else {
+        /*float celestialAngle = level.getTimeOfDay(partialTicks);
+        *///? }
+        return ShaderWorldData.from(time, moonPhase, level.getRainLevel(partialTicks), level.getThunderLevel(partialTicks),
+            celestialAngle);
     }
 }

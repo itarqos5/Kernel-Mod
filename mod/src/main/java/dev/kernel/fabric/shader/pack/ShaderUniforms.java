@@ -41,6 +41,19 @@ public final class ShaderUniforms {
         };
     }
     public static int scalarType(String name) { return SCALARS.getOrDefault(name, -1); }
+    /**
+     * The type of a celestial input, or -1 when the name is not one.
+     *
+     * <p>These describe where the sun and moon are, in the eye space a program's own normals are in, so
+     * supplying them needs the world model-view even when a program never names that matrix itself.
+     */
+    public static int celestialType(String name) {
+        return switch (name) {
+            case "sunPosition", "moonPosition", "shadowLightPosition", "upPosition" -> GL33C.GL_FLOAT_VEC3;
+            case "sunAngle", "shadowAngle" -> GL33C.GL_FLOAT;
+            default -> -1;
+        };
+    }
     public static int colorBuffer(String name) {
         return switch (name) {
             case "gcolor", "texture" -> 0; case "gdepth" -> 1; case "gnormal" -> 2; case "composite" -> 3;
