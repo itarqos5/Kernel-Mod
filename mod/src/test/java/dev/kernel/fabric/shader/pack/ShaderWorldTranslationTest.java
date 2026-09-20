@@ -11,7 +11,6 @@ class ShaderWorldTranslationTest {
     /** A core vertex program in the older shape: matrices declared locally, a model offset, a normal. */
     private static final String LOCAL_VERTEX = """
         #version 150
-        #moj_import <minecraft:fog.glsl>
         in vec3 Position;
         in vec4 Color;
         in vec2 UV0;
@@ -29,12 +28,14 @@ class ShaderWorldTranslationTest {
             texCoord0 = UV0;
         }
         """;
-    /** The newer shape: matrices behind an import, chunk-relative position, no normal. */
-    private static final String IMPORTED_VERTEX = """
+    /**
+     * The newer shape: chunk-relative position, no normal, and the matrices declared by an included
+     * file. The include is resolved before Kernel sees the source, so they arrive as plain uniforms.
+     */
+    private static final String INLINED_VERTEX = """
         #version 330
-        #moj_import <minecraft:globals.glsl>
-        #moj_import <minecraft:chunksection.glsl>
-        #moj_import <minecraft:projection.glsl>
+        uniform mat4 ModelViewMat;
+        uniform mat4 ProjMat;
         in vec3 Position;
         in vec4 Color;
         in vec2 UV0;
@@ -46,6 +47,17 @@ class ShaderWorldTranslationTest {
             gl_Position = ProjMat * ModelViewMat * vec4(pos, 1.0);
             texCoord0 = UV0;
         }
+        """;
+    /** The newest shape: the matrices live in a uniform block, which the prelude cannot re-emit. */
+    private static final String BLOCK_VERTEX = """
+        #version 330
+        layout(std140) uniform Globals {
+            mat4 ModelViewMat;
+            mat4 ProjMat;
+        };
+        in vec3 Position;
+        out vec2 texCoord0;
+        void main() { gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0); }
         """;
     private static final String FRAGMENT = """
         #version 330
@@ -63,18 +75,23 @@ class ShaderWorldTranslationTest {
         var local = vertexEnvironment(LOCAL_VERTEX);
         assertNotNull(local);
         assertEquals("150", local.version());
-        assertEquals(java.util.List.of("minecraft:fog.glsl"), local.imports());
         assertEquals("Position + ModelOffset", local.position());
         assertTrue(local.hasAttribute("Normal"));
         assertEquals("mat4", local.uniforms().get("ProjMat"));
 
-        var imported = vertexEnvironment(IMPORTED_VERTEX);
-        assertNotNull(imported);
-        assertEquals("330", imported.version());
-        assertEquals("Position + (ChunkPosition - CameraBlockPos) + CameraOffset", imported.position());
-        assertFalse(imported.hasAttribute("Normal"), "this shape supplies no normal");
-        // The matrices arrive through an import, so they are not declared here but are still reachable.
-        assertFalse(imported.uniforms().containsKey("ProjMat"));
+        var inlined = vertexEnvironment(INLINED_VERTEX);
+        assertNotNull(inlined);
+        assertEquals("330", inlined.version());
+        assertEquals("Position + (ChunkPosition - CameraBlockPos) + CameraOffset", inlined.position());
+        assertFalse(inlined.hasAttribute("Normal"), "this shape supplies no normal");
+        assertEquals("mat4", inlined.uniforms().get("ProjMat"), "an included declaration is an ordinary one here");
+    }
+
+    @Test void aProgramWhoseMatricesLiveInAUniformBlockIsRefused() {
+        // The prelude re-emits plain declarations, so it cannot reproduce a block. Substituting anyway
+        // would hand the driver a program referring to names it never declares, and a rejected pipeline
+        // draws nothing at all, where a refusal leaves Minecraft's own program drawing the world.
+        assertNull(vertexEnvironment(BLOCK_VERTEX));
     }
 
     @Test void aProgramWithoutTheMatricesCannotBeDescribed() {
@@ -92,10 +109,10 @@ class ShaderWorldTranslationTest {
         assertTrue(local.contains("(ProjMat * ModelViewMat * kernel_Vertex)"), local);
         assertTrue(local.contains("out vec2 uv;"), "varying becomes out in a vertex program");
 
-        String imported = ShaderWorldTranslation.translate(pack, vertexEnvironment(IMPORTED_VERTEX), true);
-        assertTrue(imported.contains("#define kernel_Vertex vec4(Position + (ChunkPosition - CameraBlockPos) + CameraOffset, 1.0)"), imported);
-        assertTrue(imported.startsWith("#version 330\n"), imported);
-        assertTrue(imported.contains("#moj_import <minecraft:chunksection.glsl>"), "the environment's imports are re-emitted");
+        String inlined = ShaderWorldTranslation.translate(pack, vertexEnvironment(INLINED_VERTEX), true);
+        assertTrue(inlined.contains("#define kernel_Vertex vec4(Position + (ChunkPosition - CameraBlockPos) + CameraOffset, 1.0)"), inlined);
+        assertTrue(inlined.startsWith("#version 330\n"), inlined);
+        assertTrue(inlined.contains("uniform mat4 ProjMat;"), "the matrices the program transforms with are re-emitted");
     }
 
     @Test void theFragmentOutputIsRenamedToTheOneTheVersionDeclares() throws Exception {
@@ -136,7 +153,7 @@ class ShaderWorldTranslationTest {
         String pack = "#version 120\nvarying vec3 n;\nvoid main() { gl_Position = ftransform(); n = gl_Normal; }\n";
         assertTrue(ShaderWorldTranslation.translate(pack, vertexEnvironment(LOCAL_VERTEX), true).contains("n = Normal;"));
         var failure = assertThrows(java.io.IOException.class,
-            () -> ShaderWorldTranslation.translate(pack, vertexEnvironment(IMPORTED_VERTEX), true));
+            () -> ShaderWorldTranslation.translate(pack, vertexEnvironment(INLINED_VERTEX), true));
         assertTrue(failure.getMessage().contains("normals"), failure.getMessage());
     }
 

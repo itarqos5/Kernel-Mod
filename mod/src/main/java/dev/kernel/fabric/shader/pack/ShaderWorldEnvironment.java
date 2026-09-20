@@ -1,6 +1,5 @@
 package dev.kernel.fabric.shader.pack;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -10,21 +9,24 @@ import java.util.regex.Pattern;
 /**
  * The shader environment one Minecraft core program runs in, read from that program's own source.
  *
- * <p>Minecraft's core shaders change shape across the supported targets: 1.21.5 declares its matrices
- * in the program that uses them, later targets move them behind an import, and newer ones reach shared
+ * <p>Minecraft's core shaders change shape across the supported targets: some declare their matrices in
+ * the program that uses them, later ones move them into an included file, and newer ones reach shared
  * state through uniform blocks and rebuild vertex positions from chunk-relative coordinates. Rather than
  * carry a table of those differences, Kernel reads the declarations out of the program it is replacing.
  * A version Kernel has never seen is then handled correctly as long as it keeps the same declaration
  * syntax, and a version that changes that syntax is reported as unusable rather than guessed at.
  *
+ * <p>The source read here is already preprocessed: Minecraft resolves every {@code #moj_import} when it
+ * loads a shader, long before the program is handed to the graphics device. An included declaration is
+ * therefore an ordinary one by the time Kernel sees it, and there is no import left to re-emit.
+ *
  * <p>Nothing here is copied into a Kernel artifact. The parsed declarations are used to re-emit a
  * prelude for the pack's own program at runtime, from the game's own installed files.
  */
-public record ShaderWorldEnvironment(boolean vertex, String version, List<String> imports, Map<String, String> attributes,
+public record ShaderWorldEnvironment(boolean vertex, String version, Map<String, String> attributes,
                                      Map<String, String> uniforms, String position, String fragmentOutput) {
     private static final int MAX_SOURCE = 256 * 1024;
     private static final Pattern VERSION = Pattern.compile("(?m)^[ \\t]*#version[ \\t]+([0-9]+)(?:[ \\t]+\\w+)?[ \\t]*$");
-    private static final Pattern IMPORT = Pattern.compile("(?m)^[ \\t]*#moj_import[ \\t]+<([^>]+)>[ \\t]*$");
     private static final Pattern ATTRIBUTE = Pattern.compile("(?m)^[ \\t]*in[ \\t]+([A-Za-z_][A-Za-z0-9_]*)[ \\t]+([A-Za-z_][A-Za-z0-9_]*)[ \\t]*;");
     private static final Pattern UNIFORM = Pattern.compile("(?m)^[ \\t]*uniform[ \\t]+([A-Za-z_][A-Za-z0-9_]*)[ \\t]+([A-Za-z_][A-Za-z0-9_]*)[ \\t]*;");
     private static final Pattern OUTPUT = Pattern.compile("(?m)^[ \\t]*out[ \\t]+vec4[ \\t]+([A-Za-z_][A-Za-z0-9_]*)[ \\t]*;");
@@ -34,7 +36,6 @@ public record ShaderWorldEnvironment(boolean vertex, String version, List<String
     private static final List<String> REQUIRED = List.of("ProjMat", "ModelViewMat");
 
     public ShaderWorldEnvironment {
-        imports = List.copyOf(imports);
         attributes = Map.copyOf(attributes);
         uniforms = Map.copyOf(uniforms);
     }
@@ -50,15 +51,16 @@ public record ShaderWorldEnvironment(boolean vertex, String version, List<String
         String code = ShaderLexical.maskComments(source, null);
         var version = VERSION.matcher(code);
         if (!version.find()) return null;
-        var imports = new ArrayList<String>();
-        for (Matcher matcher = IMPORT.matcher(code); matcher.find(); ) imports.add(matcher.group(1));
         var attributes = declarations(ATTRIBUTE, code);
         var uniforms = declarations(UNIFORM, code);
-        // Only the vertex stage transforms anything, so only it needs the matrices. They reach the
-        // program through an import on most targets, so look in the whole source rather than only at the
-        // declarations this program makes for itself.
-        if (vertex) for (String required : REQUIRED)
-            if (!uniforms.containsKey(required) && !Pattern.compile("\\b" + required + "\\b").matcher(code).find()) return null;
+        // Only the vertex stage transforms anything, so only it needs the matrices, and the prelude can
+        // only re-emit them as the plain uniform declarations it found. Minecraft resolves every
+        // #moj_import before this source is handed out, so on the targets that declare the matrices in an
+        // included file they are here as plain uniforms. On the targets that moved them into a std140
+        // block they are not, and a program built from those would compile against a name it never
+        // declares: the driver rejects it, which is worse than not substituting at all, because a
+        // rejected pipeline draws nothing while a refusal keeps Minecraft's own program.
+        if (vertex) for (String required : REQUIRED) if (!uniforms.containsKey(required)) return null;
         String fragmentOutput = null;
         if (!vertex) {
             var output = OUTPUT.matcher(code);
@@ -73,7 +75,7 @@ public record ShaderWorldEnvironment(boolean vertex, String version, List<String
             if (found.find()) position = found.group(1);
             if (position.contains("(") != position.contains(")")) return null;
         }
-        return new ShaderWorldEnvironment(vertex, version.group(1), imports, attributes, uniforms, position, fragmentOutput);
+        return new ShaderWorldEnvironment(vertex, version.group(1), attributes, uniforms, position, fragmentOutput);
     }
 
     private static Map<String, String> declarations(Pattern pattern, String code) {
@@ -85,7 +87,7 @@ public record ShaderWorldEnvironment(boolean vertex, String version, List<String
     public boolean hasAttribute(String name) { return attributes.containsKey(name); }
 
     /**
-     * Re-emits the version, imports and declarations a substituted program compiles against.
+     * Re-emits the version and declarations a substituted program compiles against.
      *
      * <p>Only the vertex stage gets the {@code in} declarations. There they are the vertex format's
      * attributes, which a substituted program still receives. In a fragment program they are varyings
@@ -95,7 +97,6 @@ public record ShaderWorldEnvironment(boolean vertex, String version, List<String
      */
     public String prelude() {
         var prelude = new StringBuilder("#version ").append(version).append('\n');
-        for (String name : imports) prelude.append("#moj_import <").append(name).append(">\n");
         if (vertex) for (var attribute : attributes.entrySet())
             prelude.append("in ").append(attribute.getValue()).append(' ').append(attribute.getKey()).append(";\n");
         for (var uniform : uniforms.entrySet())
