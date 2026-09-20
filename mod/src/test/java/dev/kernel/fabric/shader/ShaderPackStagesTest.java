@@ -40,6 +40,26 @@ class ShaderPackStagesTest {
         return path;
     }
 
+    @Test void thePackIdentityMapsAreReadWhereTheFormatPutsThem() throws Exception {
+        Path path = zip("identities.zip", Map.of(
+            "shaders/final.fsh", TRIVIAL,
+            "shaders/block.properties", """
+                block.1=minecraft:stone
+                block.2=minecraft:grass_block:snowy=true
+                """,
+            "shaders/entity.properties", "entity.5=minecraft:creeper\n",
+            "shaders/item.properties", "item.9=minecraft:torch\n"));
+        var pack = PreparedShaderPack.read(path);
+        assertEquals(2, pack.identifiers().blocks().rules().size());
+        assertEquals(1, pack.identifiers().entities().rules().size());
+        assertEquals(9, pack.identifiers().items().rules().get(0).value());
+    }
+
+    @Test void aPackShippingNoIdentityMapsHasEmptyOnes() throws Exception {
+        var pack = PreparedShaderPack.read(zip("plain.zip", Map.of("shaders/final.fsh", TRIVIAL)));
+        assertTrue(pack.identifiers().isEmpty());
+    }
+
     @Test void deferredPassesRunBeforeCompositeAndFinalPasses() throws Exception {
         Path path = zip("ordered.zip", Map.of(
             "shaders/final.fsh", TRIVIAL,

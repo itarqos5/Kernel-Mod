@@ -12,7 +12,8 @@ import java.util.regex.Pattern;
 public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBufferSettings buffers,
                                  java.util.Map<String, ShaderTextureImage> textures, List<ShaderOption> options,
                                  ShaderProperties properties, String dimension,
-                                 java.util.Map<String, WorldProgram> worldPrograms) {
+                                 java.util.Map<String, WorldProgram> worldPrograms,
+                                 ShaderIdentifierMaps identifiers) {
     /** The ordered fullscreen stages Kernel runs, matching the Iris order of deferred before composite. */
     private static final Pattern PASS = Pattern.compile("(?:world-?[0-9]+/)?(?:deferred|composite)(?:[1-9]|[1-9][0-9])?\\.(?:vsh|fsh)"
         + "|(?:world-?[0-9]+/)?final\\.(?:vsh|fsh)");
@@ -35,6 +36,7 @@ public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBuffe
         java.util.Objects.requireNonNull(properties);
         java.util.Objects.requireNonNull(dimension);
         worldPrograms = Map.copyOf(worldPrograms);
+        java.util.Objects.requireNonNull(identifiers);
     }
 
     /**
@@ -55,7 +57,7 @@ public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBuffe
     public PreparedShaderPack(String filename, List<Pass> passes) { this(filename, passes, ShaderBufferSettings.defaults()); }
     public PreparedShaderPack(String filename, List<Pass> passes, ShaderBufferSettings buffers) { this(filename, passes, buffers, java.util.Map.of()); }
     public PreparedShaderPack(String filename, List<Pass> passes, ShaderBufferSettings buffers, java.util.Map<String, ShaderTextureImage> textures) {
-        this(filename, passes, buffers, textures, List.of(), ShaderProperties.empty(), "", Map.of());
+        this(filename, passes, buffers, textures, List.of(), ShaderProperties.empty(), "", Map.of(), ShaderIdentifierMaps.empty());
     }
     public record Pass(String name, String vertex, String fragment, List<Integer> drawTargets, int mipmaps) {
         public Pass {
@@ -124,6 +126,7 @@ public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBuffe
                 }
             }
             var properties = ShaderProperties.read(archive, dimension);
+            var identifiers = ShaderIdentifierMaps.read(archive);
             var textures = PreparedShaderTextures.read(archive);
             var passes = new ArrayList<Pass>();
             var buffers = new ShaderBufferDirectives();
@@ -168,7 +171,7 @@ public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBuffe
             var declared = new ArrayList<ShaderOption>();
             for (var option : options.values()) declared.add(option.asSlider(properties.sliders().contains(option.name())));
             return new PreparedShaderPack(path.getFileName().toString(), passes, buffers.build(), textures,
-                order(declared, properties), properties, dimension, world);
+                order(declared, properties), properties, dimension, world, identifiers);
         }
     }
 
