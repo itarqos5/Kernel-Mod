@@ -31,6 +31,9 @@ public final class ShaderProbe {
     private static String fixtureName;
     static void frame(Minecraft minecraft, long ready) {
         if (stage == 20 || advancing) return;
+        // Hold the camera on the ground for every frame the world stage is measured over, not just the
+        // one that selected the pack.
+        if (stage >= 10 && stage <= 12) aimAtTheGround(minecraft);
         advancing = true;
         try { advance(minecraft, ready); }
         catch (Exception failure) { stage = 20; throw new AssertionError("Shader probe failed", failure); }
@@ -143,18 +146,21 @@ public final class ShaderProbe {
                     uniform sampler2D colortex0;
                     varying vec2 texcoord;
                     void main() { gl_FragColor = texture2D(colortex0, texcoord); }
+                    """,
+                // Named against the real registries, so the identity table is resolved, not just parsed.
+                "shaders/block.properties", """
+                    block.1=minecraft:stone
+                    block.2=minecraft:grass_block:snowy=false
+                    block.3=somemod:absent_block
                     """));
-            // An earlier stage cycles the camera through all three of its types and leaves it wherever it
-            // finished. The world stage needs a known camera aimed at the ground, or the frame measured
-            // here is the sky or the inside of the player's own model.
-            minecraft.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
-            minecraft.player.setXRot(90.0f); minecraft.player.xRotO = 90.0f;
+            aimAtTheGround(minecraft);
             KernelShaders.select("world-stage-probe.zip"); next(10); return;
         }
         if (stage == 10 && !KernelShaders.busy()) {
             if (KernelShaders.failed()) throw new AssertionError("World-stage pack was refused: " + KernelShaders.message());
             if (!KernelWorldShaders.replaced().containsKey("terrain"))
                 throw new AssertionError("Terrain was not substituted: " + KernelWorldShaders.replaced());
+            verifyBlockIdentities();
             next(11); return;
         }
         if (stage == 11 && elapsed > 2_000_000_000L) {
@@ -188,6 +194,37 @@ public final class ShaderProbe {
             stage = 20; minecraft.execute(minecraft::stop);
         }
     }
+    /**
+     * Points the camera straight down at the ground, for every frame the world stage is measured over.
+     *
+     * <p>Applied repeatedly rather than once. An earlier stage cycles the camera through all three of
+     * its types, and the player's own rotation does not stay where a single assignment put it, so a
+     * frame sampled seconds later was finding the sky or the inside of the player's model.
+     */
+    private static void aimAtTheGround(Minecraft minecraft) {
+        minecraft.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
+        if (minecraft.player == null) return;
+        minecraft.player.setXRot(90.0f); minecraft.player.xRotO = 90.0f;
+    }
+
+    /** Checks the pack's block.properties against the real registries, not against parsed rules. */
+    private static void verifyBlockIdentities() {
+        if (!dev.kernel.fabric.shader.KernelBlockIdentities.active())
+            throw new AssertionError("The pack named blocks but no identity table was built");
+        var stone = net.minecraft.world.level.block.Blocks.STONE.defaultBlockState();
+        var grass = net.minecraft.world.level.block.Blocks.GRASS_BLOCK.defaultBlockState();
+        var dirt = net.minecraft.world.level.block.Blocks.DIRT.defaultBlockState();
+        int identity = dev.kernel.fabric.shader.KernelBlockIdentities.identity(stone);
+        if (identity != 1) throw new AssertionError("Stone was not given the identity the pack declared: " + identity);
+        // The default grass block is not snowy, which is the state the pack constrained its rule to.
+        int grassIdentity = dev.kernel.fabric.shader.KernelBlockIdentities.identity(grass);
+        if (grassIdentity != 2) throw new AssertionError("A state-constrained rule did not match: " + grassIdentity);
+        int unnamed = dev.kernel.fabric.shader.KernelBlockIdentities.identity(dirt);
+        if (unnamed != 0) throw new AssertionError("A block the pack never named was given an identity: " + unnamed);
+        System.out.println("Kernel block identities: stone=1, grass_block[snowy=false]=2, unnamed=0, "
+            + "and an entry naming an absent mod block was ignored");
+    }
+
     /** How many sampled points the pack's own program wrote. */
     private static int packDrawn(int[][] samples) {
         int drawn = 0;

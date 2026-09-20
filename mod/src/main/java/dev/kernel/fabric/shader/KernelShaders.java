@@ -191,7 +191,7 @@ public final class KernelShaders {
         // releases any pipeline built before the device was known and then stays out of the frame.
         if (!ShaderBackend.supported()) {
             if (pipeline != null) { pipeline.close(); pipeline = null; active = ""; options = List.of(); }
-            if (KernelWorldShaders.active()) { KernelWorldShaders.adopt(null); clearPipelineCache(); }
+            if (KernelWorldShaders.active()) { KernelWorldShaders.adopt(null); KernelBlockIdentities.adopt(null); clearPipelineCache(); }
             PENDING.set(null);
             return;
         }
@@ -199,6 +199,9 @@ public final class KernelShaders {
         if (historyWorld != world) {
             if (pipeline != null) pipeline.resetHistory();
             historyWorld = world;
+            // A world loaded with different data packs rebuilds the block registry, and identities
+            // resolved against the previous one would name whatever now occupies those ids.
+            KernelBlockIdentities.refresh();
         }
         // A pack may replace whole programs per dimension, so entering one rebuilds the active pipeline.
         if (pipeline != null && !active.isEmpty() && !busy && !currentDimension().equals(preparedDimension)) {
@@ -223,6 +226,9 @@ public final class KernelShaders {
                 // Pipelines compiled from the previous source are cached by the backend, so adopting new
                 // world programs without discarding them would keep drawing with the old ones.
                 KernelWorldShaders.adopt(request.pack);
+                // Resolve the pack's block identities against the registries now, so the chunk builder
+                // never resolves anything while meshing.
+                KernelBlockIdentities.adopt(request.pack == null ? null : request.pack.identifiers().blocks());
                 clearPipelineCache();
                 if (old != null) old.close();
                 String selected = active;
