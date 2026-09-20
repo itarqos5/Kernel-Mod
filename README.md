@@ -193,6 +193,11 @@ Implemented:
   normal and parallax mapping against texture atlases Kernel does not supply yet. See
   [the world-stage plan](docs/SHADER_WORLD_STAGE.md).
 
+- Shader sun and moon inputs: `sunPosition`, `moonPosition`, `shadowLightPosition`, `upPosition`,
+  `sunAngle` and `shadowAngle`, derived from Minecraft's own sky rendering and rotated into the space a
+  pack's programs work in. The shadow matrices are not supplied yet, because they describe a shadow map
+  Kernel does not render.
+
 - Shader world-time/day, native moon phase and interpolated rain/thunder uniforms share one snapshot
   across a frame's passes, captured only for packs that request those inputs. See [shader inputs](docs/SHADERS.md).
 

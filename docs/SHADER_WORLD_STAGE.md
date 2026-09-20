@@ -165,8 +165,13 @@ Kernel supplies roughly twenty-five of the format's uniforms: the projection and
 their inverses and previous-frame copies, the camera position variants, `eyeAltitude`, view size, frame
 counters, world time and day, moon phase, rain and thunder, and `depthtex0`.
 
-Still missing, and load-bearing for real packs: `sunPosition`, `moonPosition`, `shadowLightPosition`,
-`upPosition`, `sunAngle`, `shadowAngle`, `shadowModelView` and `shadowProjection` with their inverses,
+`sunPosition`, `moonPosition`, `shadowLightPosition`, `upPosition`, `sunAngle` and `shadowAngle` are
+supplied, derived from Minecraft's own sky transform rather than from a convention Kernel invented, and
+rotated into the space a program's own normals are in. A program naming one pulls in the world model-view
+and the frame's world inputs even when it names neither itself.
+
+Still missing, and load-bearing for real packs: `shadowModelView` and `shadowProjection` with their
+inverses, which wait on the shadow pass because they describe a shadow map that is not rendered yet,
 `skyColor`, `fogColor`, `fogStart`, `fogEnd`, `fogDensity`, `isEyeInWater`, `blindness`, `nightVision`,
 `darknessFactor`, `screenBrightness`, `eyeBrightness` and its smoothed form, `centerDepthSmooth`,
 `atlasSize`, `entityId`, `entityColor`, `heldItemId`, `heldBlockLightValue`, `wetness` and `hideGUI`.

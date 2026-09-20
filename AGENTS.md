@@ -198,6 +198,14 @@ Implemented:
   outright rather than asking the render type. Sections are rebuilt when the demanded set changes.
   `mc_midTexCoord` and `at_tangent` remain refused pending the LabPBR atlases. Verified by GPU probe.
 
+- Shader celestial inputs: `sunPosition`, `moonPosition`, `shadowLightPosition`, `upPosition`,
+  `sunAngle` and `shadowAngle`, derived from Minecraft's own sky transform rather than a fixed table, so
+  a version that changes how it hangs the sky changes these with it. Directions are rotated by the world
+  model-view into the space a program's normals are in, and the day's angle is captured once per frame
+  with the other world inputs so every pass agrees. The game measures the day from noon and the format
+  from sunrise; `shadowAngle` restarts when the moon takes over. `shadowModelView` and
+  `shadowProjection` are not supplied, because they describe a shadow map Kernel does not render.
+
 - Shader world-time/day, native moon phase and interpolated rain/thunder uniforms use one immutable
   snapshot per world render, captured only for programs that request them. Legacy clock arithmetic is
   retained across 26.x's clock API; camera environment attributes supply moon phases on newer targets.
