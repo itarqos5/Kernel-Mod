@@ -96,17 +96,53 @@ cutout terrain cannot render under those rules. World programs need real attribu
 `gl_Color` and `gl_Normal`; genuine `gl_ModelViewMatrix`, `gl_ProjectionMatrix`, `gl_NormalMatrix` and
 `gl_TextureMatrix` uniforms; and `ftransform()`.
 
-### 3. Extended vertex attributes
+### 3. Extended vertex attributes — partly implemented
 
 `mc_Entity`, `mc_midTexCoord`, `at_tangent` and `at_midBlock` do not exist in Minecraft's vertex formats.
 Supplying them means writing them during chunk meshing, in the same build and upload path that Kernel's
 section scheduling, quad sorting and visibility work already own. This is the most invasive item here and
 the one most likely to disturb existing behaviour.
 
-### 4. Identifier maps
+`ShaderWorldAttributes` models the five individually, so a refusal names the attribute it is refusing
+over and the set a vertex program declares can be asked for. `KernelVertexFormats` builds the terrain
+format for a demanded set, derived from the game's own block format. Kernel intends to supply `mc_Entity`
+and `at_midBlock`, which are the cheapest and cover what these attributes are mostly used for;
+`mc_midTexCoord` and `at_tangent` stay refused because they drive normal and parallax mapping, which read
+LabPBR atlases that item 8 has not built, and an input whose partner is missing renders wrongly.
+
+What remains is the writing itself: a thread-local block identity and block origin set by the block
+renderer, a `BufferBuilder` hook filling the new elements for each vertex, and a hook on
+`RenderPipeline.getVertexFormat` so the pipeline carries the extended format. That last one is a single
+point: `RenderType.format()` returns `renderPipeline.getVertexFormat()`, so one hook covers buffer
+creation, GLSL attribute binding and the GL attribute pointers together.
+
+Three things found in the game's own sources bound this work:
+
+- A `GENERIC` element binds unnormalised, so a `SHORT` carrying a block identity arrives in GLSL as that
+  exact value and needs no conversion in the pack's program.
+- `BufferBuilder` throws when a vertex leaves an element of its format unwritten, so extending the format
+  fails loudly rather than uploading uninitialised memory.
+- Minecraft's fast bulk-vertex path is chosen by comparing the format by reference against
+  `DefaultVertexFormat.BLOCK`, so an extended format gives that path up. Terrain meshing is therefore
+  slower while such a pack is active, which is why the format is extended only by what a pack declares
+  and why a pack declaring nothing gets the game's own format object back rather than a copy of it.
+
+### 4. Identifier maps — implemented
 
 `block.properties`, `entity.properties` and `item.properties` map game identifiers to the numeric values
-packs read from `mc_Entity.x`. These are registry-backed and have to be rebuilt on resource reload.
+packs read from `mc_Entity.x`. All three are read where the format puts them, including namespaced
+entries and the state constraints that confine a rule to particular block states.
+
+Parsing is kept apart from resolution. `ShaderIdentifierRules` touches no registry, so a pack's maps are
+read while it is prepared, off the render thread and without a world. `KernelBlockIdentities` then
+resolves them against the registries of the moment into a flat table indexed by block state id, because
+a section build runs on worker threads for every block it visits and cannot afford a registry lookup, a
+string comparison or an allocation. The table is rebuilt rather than patched whenever the pack or the
+registries change, since a world loaded with different data packs rebuilds the block registry and a
+stale table would name whatever now occupies those ids.
+
+An entry naming something this game does not have is kept rather than rejected, because packs routinely
+list blocks from mods that are not installed. Verified in the game against the real registries.
 
 ### 5. The shadow pass
 
@@ -197,7 +233,9 @@ pack produces are the pixels it asked for. Packs needing more stay refused by na
 
 **Stage B — shadows.** Item 5 and its uniforms.
 
-**Stage C — correctness.** Items 3 and 4. Without these, packs render but their materials are wrong.
+**Stage C — correctness, in progress.** Items 3 and 4. Without these, packs render but their materials
+are wrong. Item 4 is done. Item 3 has its attribute model and vertex format; the writing during chunk
+meshing is what is left, and it is the most invasive change in this document.
 
 **Stage D — completeness.** Items 6, 7 and 8, and Kernel-owned pipelines with multiple colour targets,
 which lifts the single-output limit Stage A works within.

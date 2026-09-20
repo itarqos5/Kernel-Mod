@@ -179,6 +179,17 @@ Implemented:
   `gbuffers_*` is still refused by name, because a partly rendered pack is worse than a declined one.
   See [the world-stage plan](docs/SHADER_WORLD_STAGE.md).
 
+- Shader pack identity maps. A pack's `block.properties`, `entity.properties` and `item.properties` give
+  blocks, entities and items the numeric identities its programs read from `mc_Entity`. Kernel reads all
+  three, including namespaced entries and the state constraints that confine a rule to particular block
+  states, and resolves a pack's block map against the live registries into a flat table so chunk meshing
+  does one array read per block rather than a registry lookup. Entries naming blocks from mods that are
+  not installed are ignored rather than refusing the pack.
+
+- The terrain vertex format for a pack's extended attributes, built from the game's own block format and
+  carrying only what the pack declares. Nothing selects it yet: writing those attributes during chunk
+  meshing is the remaining part of this work. See [the world-stage plan](docs/SHADER_WORLD_STAGE.md).
+
 - Shader world-time/day, native moon phase and interpolated rain/thunder uniforms share one snapshot
   across a frame's passes, captured only for packs that request those inputs. See [shader inputs](docs/SHADERS.md).
 

@@ -182,6 +182,20 @@ Implemented:
   without the property a pack shipping `gbuffers_*` is still refused by name. See
   `docs/SHADER_WORLD_STAGE.md`.
 
+- Shader pack identity maps: `block.properties`, `entity.properties` and `item.properties` are read
+  where the Iris format puts them, including namespaced entries and state constraints. A pack's block
+  map is resolved against the live registries into a flat table indexed by block state id, so chunk
+  meshing does one array read rather than a registry lookup and an allocation per block. The table is
+  rebuilt when the pack or the registries change. Entries naming absent mod blocks are ignored rather
+  than failing the pack. Verified in the game against the real registries.
+
+- The terrain vertex format a pack's extended attributes need is built from the game's own block format,
+  adding only what a pack declares. A pack declaring none receives the game's own format object, so
+  Minecraft's identity comparisons and its fast vertex path are untouched. Scoped to the targets whose
+  world stage runs, because the vertex format API is rewritten twice across the nine and the newer
+  targets already refuse world programs. Nothing selects this format yet: chunk meshing has still to
+  write the elements, which is the remaining part of the shader world stage's correctness work.
+
 - Shader world-time/day, native moon phase and interpolated rain/thunder uniforms use one immutable
   snapshot per world render, captured only for programs that request them. Legacy clock arithmetic is
   retained across 26.x's clock API; camera environment attributes supply moon phases on newer targets.
