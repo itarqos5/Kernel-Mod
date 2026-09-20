@@ -19,8 +19,6 @@ import java.util.regex.Pattern;
 public final class ShaderWorldTranslation {
     /** Writes past the first colour buffer, which a Minecraft pipeline has nowhere to put. */
     private static final Pattern MULTI_OUTPUT = Pattern.compile("\\bgl_FragData\\s*\\[\\s*[1-7]\\s*\\]");
-    /** Pack inputs that only exist once Kernel writes extra vertex attributes during chunk meshing. */
-    private static final Pattern UNSUPPORTED_ATTRIBUTE = Pattern.compile("\\b(?:mc_Entity|mc_midTexCoord|at_tangent|at_midBlock|at_velocity)\\b");
     /** Stages Kernel does not run, so their samplers would read images that were never rendered. */
     private static final Pattern UNSUPPORTED_SAMPLER = Pattern.compile("\\b(?:shadowtex[01]|shadowcolor[01]|shadow|watershadow|depthtex[12]|colortex(?:[1-9]|1[0-5]))\\b");
 
@@ -37,8 +35,9 @@ public final class ShaderWorldTranslation {
     public static String translate(String packSource, ShaderWorldEnvironment environment, boolean vertex) throws IOException {
         if (environment == null) throw new IOException("Kernel cannot describe this version's shader environment");
         String code = ShaderLexical.maskComments(packSource, null);
-        if (UNSUPPORTED_ATTRIBUTE.matcher(code).find())
-            throw new IOException("This program reads vertex attributes Kernel does not write yet");
+        var missing = ShaderWorldAttributes.unsupportedIn(code);
+        if (!missing.isEmpty())
+            throw new IOException("This program reads vertex attributes Kernel does not write: " + ShaderWorldAttributes.names(missing));
         if (UNSUPPORTED_SAMPLER.matcher(code).find())
             throw new IOException("This program samples a stage Kernel does not render yet");
         if (!vertex && MULTI_OUTPUT.matcher(code).find())
