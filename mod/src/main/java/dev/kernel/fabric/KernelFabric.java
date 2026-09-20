@@ -20,6 +20,9 @@ public final class KernelFabric implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        // Vertex element ids are global and permanent, so they are claimed once here rather than when a
+        // pack is loaded. A pack decides which elements a format uses, never which ones exist.
+        dev.kernel.fabric.render.KernelVertexFormats.register();
         dev.kernel.fabric.shader.KernelShaders.initialize();
         for (RendererFeature feature : RendererFeature.values()) {
             if (KernelRendererSettings.supported(feature)) LOGGER.info("Kernel renderer {}: {}", feature.key(), KernelRendererSettings.enabled(feature) ? "enabled" : "disabled");

@@ -50,7 +50,7 @@ public final class KernelVertexFormats {
      * response to a pack. A pack changes which elements a format uses, never which ones exist.
      */
     public static synchronized void register() {
-        //? if <=1.21.10 {
+        //? if >1.21.4 && <=1.21.10 {
         /*if (!ELEMENTS.isEmpty()) return;
         ELEMENTS.put(ShaderWorldAttributes.MC_ENTITY, claim(VertexFormatElement.Type.SHORT, ENTITY_COUNT));
         ELEMENTS.put(ShaderWorldAttributes.AT_MID_BLOCK, claim(VertexFormatElement.Type.BYTE, MID_BLOCK_COUNT));
@@ -81,7 +81,7 @@ public final class KernelVertexFormats {
     }
 
     private static VertexFormat build(Set<ShaderWorldAttributes> wanted) {
-        //? if >=1.21.11 {
+        //? if >=1.21.11 || <=1.21.4 {
         // No element is ever registered on these targets, so nothing reaches this.
         return DefaultVertexFormat.BLOCK;
         //? } else {
@@ -109,7 +109,7 @@ public final class KernelVertexFormats {
         *///? }
     }
 
-    //? if <=1.21.10 {
+    //? if >1.21.4 && <=1.21.10 {
     /*private static VertexFormatElement claim(VertexFormatElement.Type type, int count) {
         for (int id = 0; id < VertexFormatElement.MAX_COUNT; id++) {
             if (VertexFormatElement.byId(id) != null) continue;

@@ -138,7 +138,7 @@ class ShaderWorldTranslationTest {
         var vertex = vertexEnvironment(LOCAL_VERTEX);
         var fragment = ShaderWorldEnvironment.parse(FRAGMENT, false);
         assertThrows(java.io.IOException.class, () -> ShaderWorldTranslation.translate(
-            "#version 120\nattribute vec4 mc_Entity;\nvoid main() { gl_Position = ftransform(); }\n", vertex, true));
+            "#version 120\nattribute vec4 at_tangent;\nvoid main() { gl_Position = ftransform(); }\n", vertex, true));
         assertThrows(java.io.IOException.class, () -> ShaderWorldTranslation.translate(
             "#version 120\nuniform sampler2D shadowtex0;\nvoid main() { gl_FragColor = vec4(1.0); }\n", fragment, false));
         assertThrows(java.io.IOException.class, () -> ShaderWorldTranslation.translate(
@@ -147,6 +147,21 @@ class ShaderWorldTranslationTest {
             "#version 120\n#extension GL_ARB_shader_texture_lod : enable\nvoid main() { gl_FragColor = vec4(1.0); }\n", fragment, false));
         assertThrows(java.io.IOException.class, () -> ShaderWorldTranslation.translate(
             "#version 120\nvoid main() { gl_Position = ftransform(); }\n", null, true));
+    }
+
+    @Test void theAttributesKernelWritesAreAcceptedAndDeclaredInTheModernSpelling() throws Exception {
+        var vertex = vertexEnvironment(LOCAL_VERTEX);
+        String translated = ShaderWorldTranslation.translate("""
+            #version 120
+            attribute vec2 mc_Entity;
+            attribute vec3 at_midBlock;
+            varying float id;
+            void main() { gl_Position = ftransform(); id = mc_Entity.x + at_midBlock.y; }
+            """, vertex, true);
+        // The legacy keyword does not compile on the versions Kernel substitutes on.
+        assertFalse(translated.contains("attribute vec2 mc_Entity;"), translated);
+        assertTrue(translated.contains("in vec2 mc_Entity;"), translated);
+        assertTrue(translated.contains("in vec3 at_midBlock;"), translated);
     }
 
     @Test void normalsAreRefusedRatherThanFakedWhenTheVersionStoppedSupplyingThem() throws Exception {

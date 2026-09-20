@@ -11,13 +11,12 @@ import java.util.regex.Pattern;
  * section is meshed. That costs memory and upload bandwidth on every terrain vertex in the world, so
  * Kernel writes only the ones a pack's own programs actually declare rather than all of them always.
  *
- * <p>None are supplied yet, so a program declaring any of them is still refused; what has changed is
- * that the refusal now names which one. {@link #MC_ENTITY} and {@link #AT_MID_BLOCK} are the two Kernel
- * is adding, because they are the cheapest to produce and store and they cover what these attributes are
- * mostly used for: the identity a pack's {@code block.properties} gives a block, and the offset from a
- * vertex to the centre of its block that waving foliage is built on.
+ * <p>{@link #MC_ENTITY} and {@link #AT_MID_BLOCK} are written during chunk meshing: the identity a
+ * pack's {@code block.properties} gives a block, and the offset from a vertex to the centre of its
+ * block that waving foliage is built on. They are the cheapest of the five to produce and store, and
+ * they cover what these attributes are mostly used for.
  *
- * <p>The other two stay refused by intent rather than for lack of room. {@link #MC_MID_TEX_COORD} and
+ * <p>The other three stay refused by intent rather than for lack of room. {@link #MC_MID_TEX_COORD} and
  * {@link #AT_TANGENT} exist to drive normal and parallax mapping, which read the LabPBR normal and
  * specular atlases; Kernel does not supply those atlases, so a program given these would light itself
  * from textures that are not there. Supplying an input whose partner is missing produces a pack that
@@ -25,9 +24,9 @@ import java.util.regex.Pattern;
  */
 public enum ShaderWorldAttributes {
     /** The pack's own identity for the block a vertex belongs to, from {@code block.properties}. */
-    MC_ENTITY("mc_Entity", false),
+    MC_ENTITY("mc_Entity", true),
     /** The offset from a vertex to the centre of its block, in sixty-fourths of a block. */
-    AT_MID_BLOCK("at_midBlock", false),
+    AT_MID_BLOCK("at_midBlock", true),
     /** The texture coordinate at the centre of a quad's sprite, for parallax mapping. */
     MC_MID_TEX_COORD("mc_midTexCoord", false),
     /** The surface tangent and its handedness, for normal mapping. */

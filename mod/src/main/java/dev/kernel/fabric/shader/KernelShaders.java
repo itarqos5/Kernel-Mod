@@ -191,7 +191,13 @@ public final class KernelShaders {
         // releases any pipeline built before the device was known and then stays out of the frame.
         if (!ShaderBackend.supported()) {
             if (pipeline != null) { pipeline.close(); pipeline = null; active = ""; options = List.of(); }
-            if (KernelWorldShaders.active()) { KernelWorldShaders.adopt(null); KernelBlockIdentities.adopt(null); clearPipelineCache(); }
+            if (KernelWorldShaders.active()) {
+                boolean extended = !KernelWorldShaders.demanded().isEmpty();
+                KernelWorldShaders.adopt(null);
+                KernelBlockIdentities.adopt(null);
+                clearPipelineCache();
+                if (extended) rebuildSections();
+            }
             PENDING.set(null);
             return;
         }
@@ -225,11 +231,13 @@ public final class KernelShaders {
                 if (request.pack == null) optionValues = ShaderOptionConfig.empty();
                 // Pipelines compiled from the previous source are cached by the backend, so adopting new
                 // world programs without discarding them would keep drawing with the old ones.
+                var previousAttributes = KernelWorldShaders.demanded();
                 KernelWorldShaders.adopt(request.pack);
                 // Resolve the pack's block identities against the registries now, so the chunk builder
                 // never resolves anything while meshing.
                 KernelBlockIdentities.adopt(request.pack == null ? null : request.pack.identifiers().blocks());
                 clearPipelineCache();
+                if (!previousAttributes.equals(KernelWorldShaders.demanded())) rebuildSections();
                 if (old != null) old.close();
                 String selected = active;
                 if (request.persist) {
@@ -324,6 +332,25 @@ public final class KernelShaders {
      * abandon the pack: the post-processing passes are unaffected, and the world simply keeps the
      * programs it already compiled.
      */
+    /**
+     * Rebuilds every chunk section after the vertex attributes a pack needs have changed.
+     *
+     * <p>A section is drawn with the vertex format it was built with, not with the one its pipeline
+     * declares: the mesh carries its own layout and sets up the attribute pointers from that. So a
+     * section meshed before a pack was adopted supplies nothing for the pack's extra attributes however
+     * the pipeline is bound, and the program reads the zeroes GL substitutes for an attribute no buffer
+     * provides. Discarding those meshes is what makes the pack's own inputs arrive.
+     *
+     * <p>This is expensive and deliberately rare: it runs when the set of attributes changes, which is
+     * when a pack is adopted or dropped, not when one is merely recompiled for a dimension.
+     */
+    private static void rebuildSections() {
+        //? if <=1.21.10 {
+        /*var minecraft = Minecraft.getInstance();
+        if (minecraft.levelRenderer != null) minecraft.levelRenderer.allChanged();
+        *///? }
+    }
+
     private static void clearPipelineCache() {
         //? if >=1.21.5 {
         try { com.mojang.blaze3d.systems.RenderSystem.getDevice().clearPipelineCache(); }

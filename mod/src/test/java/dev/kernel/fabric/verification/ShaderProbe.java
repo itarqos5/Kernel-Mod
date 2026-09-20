@@ -133,13 +133,30 @@ public final class ShaderProbe {
             // evidence the pack's own program ran, not Minecraft's.
             Path world = KernelShaders.directory().resolve("world-stage-probe.zip");
             zip(world, java.util.Map.of(
+                // Reads the identity the pack's own block.properties gave the block, and the offset to
+                // that block's centre, so the pixel is evidence of the whole chain: the map was parsed,
+                // resolved against the registries, recorded per block while meshing, written into an
+                // extended vertex format, and bound to the name the pack declared.
                 "shaders/gbuffers_terrain.vsh", """
                     #version 120
-                    void main() { gl_Position = ftransform(); }
+                    attribute vec2 mc_Entity;
+                    attribute vec3 at_midBlock;
+                    varying float identity;
+                    varying vec3 midBlock;
+                    void main() { gl_Position = ftransform(); identity = mc_Entity.x; midBlock = at_midBlock; }
                     """,
                 "shaders/gbuffers_terrain.fsh", """
                     #version 120
-                    void main() { gl_FragData[0] = vec4(0.0, 1.0, 0.0, 1.0); }
+                    varying float identity;
+                    varying vec3 midBlock;
+                    void main() {
+                        // The superflat's surface is grass_block, which this pack's block.properties
+                        // gives the identity 2; a vertex sits within its own block, so the offset to
+                        // that block's centre cannot exceed a block in sixty-fourths.
+                        bool named = identity > 1.5 && identity < 2.5;
+                        bool inside = all(lessThan(abs(midBlock), vec3(64.5)));
+                        gl_FragData[0] = named && inside ? vec4(0.0, 1.0, 0.0, 1.0) : vec4(1.0, 0.0, 0.0, 1.0);
+                    }
                     """,
                 "shaders/final.fsh", """
                     #version 120
@@ -223,6 +240,27 @@ public final class ShaderProbe {
         if (unnamed != 0) throw new AssertionError("A block the pack never named was given an identity: " + unnamed);
         System.out.println("Kernel block identities: stone=1, grass_block[snowy=false]=2, unnamed=0, "
             + "and an entry naming an absent mod block was ignored");
+        verifyExtendedFormat();
+    }
+
+    /** Checks that the attributes the pack declared were taken up and the terrain format carries them. */
+    private static void verifyExtendedFormat() {
+        var demanded = KernelWorldShaders.demanded();
+        for (var attribute : new dev.kernel.fabric.shader.pack.ShaderWorldAttributes[]{
+                dev.kernel.fabric.shader.pack.ShaderWorldAttributes.MC_ENTITY,
+                dev.kernel.fabric.shader.pack.ShaderWorldAttributes.AT_MID_BLOCK})
+            if (!demanded.contains(attribute))
+                throw new AssertionError("The pack declared " + attribute.glslName() + " but it was not demanded: " + demanded);
+        var vanilla = com.mojang.blaze3d.vertex.DefaultVertexFormat.BLOCK;
+        var terrain = KernelWorldShaders.vertexFormat(vanilla);
+        if (terrain == vanilla || terrain.getVertexSize() <= vanilla.getVertexSize())
+            throw new AssertionError("The terrain format was not extended: " + terrain.getVertexSize() + " bytes");
+        // A pipeline drawing with any other format must be left exactly as it was.
+        var other = com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION;
+        if (KernelWorldShaders.vertexFormat(other) != other)
+            throw new AssertionError("A format that is not Minecraft's block format was changed");
+        System.out.println("Kernel terrain vertex format: " + vanilla.getVertexSize() + " bytes extended to "
+            + terrain.getVertexSize() + " for " + demanded);
     }
 
     /** How many sampled points the pack's own program wrote. */

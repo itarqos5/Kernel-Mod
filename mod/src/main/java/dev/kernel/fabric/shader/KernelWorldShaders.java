@@ -34,6 +34,8 @@ public final class KernelWorldShaders {
     }
 
     private static final String CORE = "core/";
+    /** The extended vertex attributes the active pack's world programs declare. */
+    private static volatile java.util.Set<dev.kernel.fabric.shader.pack.ShaderWorldAttributes> attributes = java.util.Set.of();
     private static volatile Map<String, PreparedShaderPack.WorldProgram> programs = Map.of();
     private static volatile Map<String, String> coreShaders = Map.of();
     private static final Map<String, Decision> DECISIONS = new ConcurrentHashMap<>();
@@ -51,6 +53,22 @@ public final class KernelWorldShaders {
     /** How many core shader stages have actually been compiled from the pack since it was adopted. */
     public static int substituted() { return SUBSTITUTED.get(); }
 
+    /** The extended vertex attributes the active pack declares, for diagnostics and the probe. */
+    public static java.util.Set<dev.kernel.fabric.shader.pack.ShaderWorldAttributes> demanded() { return attributes; }
+
+    /**
+     * The vertex format a pipeline should draw with, extended when the active pack needs it.
+     *
+     * <p>Asked on every draw that sets a pipeline, so it does no more than read one field and compare
+     * one reference. Only a pipeline already using Minecraft's block format is changed, which is the
+     * terrain pipelines and nothing else, and any other pipeline gets its own format straight back.
+     */
+    public static com.mojang.blaze3d.vertex.VertexFormat vertexFormat(com.mojang.blaze3d.vertex.VertexFormat original) {
+        var demanded = attributes;
+        if (demanded.isEmpty() || original != com.mojang.blaze3d.vertex.DefaultVertexFormat.BLOCK) return original;
+        return dev.kernel.fabric.render.KernelVertexFormats.terrain(demanded);
+    }
+
     /**
      * Adopts the world programs of a newly compiled pack, or clears them when shaders are switched off.
      *
@@ -64,10 +82,17 @@ public final class KernelWorldShaders {
         if (pack == null || pack.worldPrograms().isEmpty()) {
             programs = Map.of();
             coreShaders = Map.of();
+            attributes = java.util.Set.of();
             return;
         }
         programs = pack.worldPrograms();
         coreShaders = ShaderWorldPrograms.resolveAll(pack.worldPrograms().keySet());
+        // Decide what the vertex format has to carry before any section is meshed with it, so a section
+        // cannot be built half in one format and half in another.
+        var demanded = java.util.EnumSet.noneOf(dev.kernel.fabric.shader.pack.ShaderWorldAttributes.class);
+        for (var program : programs.values())
+            demanded.addAll(dev.kernel.fabric.shader.pack.ShaderWorldAttributes.declaredIn(program.vertex()));
+        attributes = demanded;
     }
 
     /**

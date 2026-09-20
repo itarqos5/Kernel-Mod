@@ -51,6 +51,9 @@ public final class ShaderWorldTranslation {
         // Strip the pack's own version directive; the surrounding environment owns it.
         source = source.replaceAll("(?m)^[ \\t]*#version[ \\t]+[0-9]+(?:[ \\t]+\\w+)?[ \\t]*$", "");
         source = token(source, "varying", vertex ? "out" : "in");
+        // A pack declares the extended attributes in the legacy spelling, which the versions Kernel
+        // substitutes on no longer accept. Only in the vertex stage: nothing else has attributes.
+        if (vertex) source = token(source, "attribute", "in");
         // Rename the pack's samplers before texture2D becomes the builtin texture(). A pack sampler is
         // commonly called "texture", and renaming it afterwards would rewrite the builtin calls too.
         source = sampler(source, code, environment, "texture", "Sampler0");
