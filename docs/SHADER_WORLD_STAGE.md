@@ -1,9 +1,10 @@
 # Shader world stages
 
 Kernel's shader renderer runs a pack's `deferred`, `composite` and `final` passes over the image
-Minecraft itself drew. It does not draw world geometry with the pack's own programs, so a pack that
-ships `gbuffers_*`, `shadow*` or `prepare*` is refused by name rather than rendered from stages Kernel
-does not run. See [shader packs](SHADERS.md) for what is supported today.
+Minecraft itself drew. Behind `-Dkernel.worldShaders=true` it also draws world geometry with a pack's own
+`gbuffers` programs, verified so far on 1.21.5; by default it does not, and a pack that ships
+`gbuffers_*`, `shadow*` or `prepare*` is refused by name rather than rendered from stages Kernel does not
+run. See [shader packs](SHADERS.md) for what is supported today.
 
 This document records what remains before Iris-format packs render correctly, and the order to build it.
 It is a plan, not an implementation status. Nothing here should be read as working until the
@@ -23,13 +24,24 @@ So one adapter covers eight of the nine targets and 1.21.4 needs its own. 26.2 a
 Vulkan backend (`VulkanRenderPipeline`); Kernel's post-processing is raw OpenGL and already refuses other
 backends with an explicit error.
 
-On 1.21.5 and later the backend compiles a pipeline through
-`GpuDevice.precompilePipeline(RenderPipeline, …)`, where the second argument supplies GLSL source for a
-shader identifier. The source itself is resolved by `ShaderManager.getShader(identifier, type)`, whose
-shape is identical from 1.21.5 through 26.2 — only the `ResourceLocation` to `Identifier` rename at
-1.21.11 differs. That single method is the substitution point: when the game asks for the source of a
-core shader Kernel has a pack replacement for, Kernel can return the translated pack program instead of
-building and managing its own pipelines.
+On 1.21.5 and later the backend compiles a pipeline two ways, and both have to be covered:
+
+- `GpuDevice.precompilePipeline(RenderPipeline, …)`, used by `ShaderManager.apply` to build every static
+  pipeline at a resource reload, is handed a source supplier bound to `CompilationCache::getShaderSource`.
+- `getOrCompilePipeline`, used lazily the first time a pipeline is drawn with, uses the device's own
+  `defaultShaderSource`. Minecraft constructs the device with `getShaderManager().getShader(…)` for that,
+  and `ShaderManager.getShader` delegates straight to the same `compilationCache.getShaderSource`.
+
+So `ShaderManager$CompilationCache.getShaderSource` is the one substitution point that both paths pass
+through, and it is where Kernel hooks. `ShaderManager.getShader` is only a public convenience: hooking it
+changes what other callers read without covering the precompile path. Its shape is identical from 1.21.5
+through 26.2 — only the `ResourceLocation` to `Identifier` rename at 1.21.11 differs.
+
+Pipelines are cached per `RenderPipeline` and shader modules per identifier, type and `ShaderDefines`
+together, so one core shader is compiled once per distinct set of defines: `core/terrain` becomes three
+modules per stage, shared across the five terrain pipelines. `clearPipelineCache()` empties both caches
+and closes the GL programs, and `GlRenderPass.setPipeline` recompiles on the next draw, so clearing it
+when a pack is adopted is sufficient to re-reach every pipeline.
 
 Vanilla's own shader environment is not constant across those eight targets, which matters because a
 substituted program has to compile in it:
@@ -41,11 +53,19 @@ substituted program has to compile in it:
 - Attributes move too. On 1.21.5 terrain supplies `Normal`; on 26.2 it does not, and vertex positions are
   chunk-relative, reconstructed as `Position + (ChunkPosition - CameraBlockPos) + CameraOffset`.
 
-Kernel does not have to reimplement any of that. `#moj_import` is resolved by the same preprocessor that
-runs on whatever source `getShader` returns, so a translated program can open with the exact import lines
-vanilla's own program for that version uses and inherit its uniform environment. What Kernel supplies per
-version is the short prelude — which imports to emit, which attributes exist, and how to rebuild a world
-position from them — rather than a whole uniform system.
+Kernel does not carry a table of those differences; it reads them out of the program it is replacing.
+That works because `ShaderManager.loadShader` runs the GLSL preprocessor when it *loads* a shader, so the
+source handed out later has every `#moj_import` already resolved. A declaration that vanilla wrote in an
+included file is an ordinary declaration by the time Kernel sees it, and re-emitting it needs no
+knowledge of where it came from. What Kernel supplies per version is the short prelude — which attributes
+exist, which uniforms to redeclare, and how to rebuild a world position from them.
+
+It also bounds the approach. A prelude of plain declarations cannot reproduce a `std140` uniform block,
+so on the targets that moved the shared matrices into one, a substituted program would refer to names it
+never declares and the driver would reject it — and a rejected pipeline draws nothing, where a refusal
+leaves Minecraft drawing the world. `ShaderWorldEnvironment` therefore requires `ProjMat` and
+`ModelViewMat` to be present as plain uniforms and refuses otherwise, which confines the world stage to
+the targets that declare them that way until the prelude understands blocks.
 
 Two further consequences follow from substituting source rather than pipelines, and they bound what
 source substitution alone can ever do:
@@ -60,7 +80,7 @@ Compiled pipelines are cached, so changing or disabling a pack has to clear that
 
 ## What is missing
 
-### 1. Program substitution
+### 1. Program substitution — implemented
 
 Map each vanilla render type to the Iris program that replaces it — solid and cutout to
 `gbuffers_terrain`, translucent to `gbuffers_water`, and so on for entities, block entities, the sky,
@@ -68,11 +88,11 @@ clouds, weather and the hand — and resolve the Iris fallback chain when a pack
 program, so `gbuffers_terrain` falls back through `gbuffers_textured_lit` and `gbuffers_textured` to
 `gbuffers_basic`.
 
-### 2. World GLSL translation
+### 2. World GLSL translation — implemented
 
-`ShaderSource` is a fullscreen adapter today. It rewrites `gl_Vertex` into a hardcoded triangle and
-rejects `discard` and `gl_FragDepth` outright, which cutout terrain cannot render without. World
-programs need real attribute binding for `gl_Vertex`, `gl_MultiTexCoord0`, the lightmap coordinates,
+`ShaderSource` remains the fullscreen adapter, which rewrites `gl_Vertex` into a hardcoded triangle and
+rejects `discard` and `gl_FragDepth` outright. `ShaderWorldTranslation` is the world counterpart, because
+cutout terrain cannot render under those rules. World programs need real attribute binding for `gl_Vertex`, `gl_MultiTexCoord0`, the lightmap coordinates,
 `gl_Color` and `gl_Normal`; genuine `gl_ModelViewMatrix`, `gl_ProjectionMatrix`, `gl_NormalMatrix` and
 `gl_TextureMatrix` uniforms; and `ftransform()`.
 
@@ -125,8 +145,8 @@ is released. See the note under stage E.
 
 ## Order of work
 
-**Stage A — first pixels.** Program substitution and world GLSL translation through
-`ShaderManager.getShader`, on 1.21.5 and later, on the OpenGL backend. Deliberately limited to programs
+**Stage A — first pixels, reached.** Program substitution and world GLSL translation through
+`ShaderManager$CompilationCache.getShaderSource`, on 1.21.5 and later, on the OpenGL backend. Deliberately limited to programs
 that need only one colour output and only inputs the vanilla pipeline already supplies, so the pixels a
 pack produces are the pixels it asked for. Packs needing more stay refused by name. It splits in two:
 
@@ -148,32 +168,32 @@ pack produces are the pixels it asked for. Packs needing more stay refused by na
   colour output, and vertex normals on a version that no longer supplies them. Unit tested against
   original fixtures shaped like a core program; no Minecraft shader source is copied into this repository.
 
-- **A2, substitution — implemented, opt-in, and not yet correct.** The hook targets
-  `ShaderManager$CompilationCache.getShaderSource`, not `ShaderManager.getShader`: pipeline compilation is
-  handed a source supplier bound to the cache, and `getShader` is only a public convenience that changes
-  what callers read but not what the device compiles. Hooking the wrong one substituted nothing, which is
-  what the GPU probe caught.
+- **A2, substitution — implemented, opt-in, and reaching the screen.** The hook targets
+  `ShaderManager$CompilationCache.getShaderSource` for the reasons given above. A decision is made for a
+  whole program rather than a stage, because a vertex and fragment pair have to agree about their
+  varyings, and a program Kernel cannot translate falls back to Minecraft's own source unchanged.
 
-  On 1.21.5 the probe shows six core shader stages compiled from a pack, and the translated source is
-  correct: dumping it with `-Dkernel.worldShaders.dump=true` yields a valid, self-consistent pair whose
-  vertex stage transforms by the version's own position expression and whose fragment stage writes the
-  output name that version declares.
+  Verified on 1.21.5 by the GPU probe. A pack whose `gbuffers_terrain` ignores every input and writes one
+  colour produces six substituted stages — three `ShaderDefines` variants of `core/terrain` times two
+  stages — and every one of the five terrain pipelines links it: `solid`, `cutout`, `cutout_mipped`,
+  `translucent` and `tripwire` each log that the program does not use the samplers the pipeline declares,
+  which is exactly what a constant-colour fragment program does. 22 of 25 points sampled across the frame
+  are the pack's colour; the remainder are the hand, which this pack does not replace.
 
-  It is also genuinely compiled. Feeding deliberately invalid GLSL makes the driver reject it and
-  Minecraft report `Couldn't compile pipeline minecraft:pipeline/cutout`, `cutout_mipped`, `translucent`
-  and `tripwire`, each naming `minecraft:core/terrain`.
+  Three earlier readings of this said the opposite and were all measurement faults, which is worth
+  recording so the next one is recognised sooner. The probe read pixels from the tick path, where the
+  presented back buffer's contents are undefined; then from `height * 3 / 4`, which is the *upper*
+  quarter because `glReadPixels` measures from the bottom, and so sampled the sky; then from a camera
+  whose type an earlier stage had left on third person, putting the sample inside the player's own model.
+  A truncated log read during the first of these produced a confident diagnosis of a pipeline
+  invalidation defect that does not exist. The probe now pins the camera, measures a grid rather than a
+  pixel, and saves the frame the assertion is made about.
 
-  What that list does not contain is `solid`, and the visible surface of a superflat world is drawn in the
-  solid layer. The pack's program therefore reaches four terrain pipelines and not the one on screen, so
-  the world still renders as Minecraft drew it. The remaining defect is **invalidation, not translation**:
-  clearing the graphics device's pipeline cache when a pack is adopted does not cause every already
-  compiled terrain pipeline to be rebuilt from the new source. The next step is to force a complete
-  shader rebuild on pack change rather than relying on that cache alone.
-
-  Because of that, a pack shipping `gbuffers_*` is still refused by default, exactly as before. Set
-  `-Dkernel.worldShaders=true` to opt into the incomplete path; the shader probe exercises the world stage
-  only under the same property. Accepting a pack and drawing it wrongly is worse than declining it with a
-  reason, so this stays off until the pixels are right.
+  A pack shipping `gbuffers_*` is still refused by default. Set `-Dkernel.worldShaders=true` to opt in;
+  the shader probe exercises the world stage only under the same property. What is missing is not the
+  substitution but the rest of the format — shadows, the extended attributes, the identifier maps and
+  more than one colour output — and a real pack needing any of those is refused and drawn by Minecraft.
+  A partly rendered pack is worse than a declined one, so this stays off until Stage C.
 
 **Stage B — shadows.** Item 5 and its uniforms.
 

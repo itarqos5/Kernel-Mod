@@ -167,13 +167,20 @@ Implemented:
   the Shaders page is closed and its tab reports why, and any pipeline built before the device was known
   is released. Kernel names the one backend it cannot host rather than allow-listing unfamiliar names.
 
-- World-stage groundwork for Iris-format packs, not yet reaching the screen. `ShaderWorldPrograms` maps
-  the vanilla core shaders Kernel will substitute to the Iris program replacing each and resolves the
-  Iris fallback chain. `ShaderWorldEnvironment` reads the version, imports, attributes, uniforms, output
-  name and world-space position expression out of the Minecraft program being replaced, so the prelude is
-  correct on versions nobody has read; `ShaderWorldTranslation` binds a pack's legacy names to it and
-  refuses rather than approximates. The `ShaderManager.getShader` substitution hook is not implemented, so
-  packs shipping world stages are still refused by name. See `docs/SHADER_WORLD_STAGE.md`.
+- World geometry drawn by an Iris-format pack's own `gbuffers` programs, opt-in behind
+  `-Dkernel.worldShaders=true`. `ShaderWorldPrograms` maps the vanilla core shaders Kernel will
+  substitute to the Iris program replacing each and resolves the Iris fallback chain.
+  `ShaderWorldEnvironment` reads the version, attributes, uniforms, output name and world-space position
+  expression out of the Minecraft program being replaced, so the prelude is correct on versions nobody
+  has read; it refuses a program whose matrices live in a uniform block, which a prelude of plain
+  declarations cannot reproduce. `ShaderWorldTranslation` binds a pack's legacy names to that environment
+  and refuses rather than approximates. Substitution hooks `ShaderManager$CompilationCache.getShaderSource`,
+  which is where both the precompile and the lazy pipeline-compilation paths resolve source; a decision is
+  made per whole program, never per stage, and a refusal keeps Minecraft's own source. Verified on 1.21.5
+  by GPU probe: a pack drawing constant colour reaches all five terrain pipelines and covers the frame.
+  Shadows, extended vertex attributes, identifier maps and additional colour outputs remain absent, so
+  without the property a pack shipping `gbuffers_*` is still refused by name. See
+  `docs/SHADER_WORLD_STAGE.md`.
 
 - Shader world-time/day, native moon phase and interpolated rain/thunder uniforms use one immutable
   snapshot per world render, captured only for programs that request them. Legacy clock arithmetic is
