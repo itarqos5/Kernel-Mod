@@ -46,13 +46,13 @@ public final class ShaderScreen extends Screen {
     private record Row(Component label, Component description, int height, Placer placer) {}
 
     @Override protected void init() {
-        int total = Math.min(760, width - 20), left = (width - total) / 2;
-        int sidebar = Math.min(112, Math.max(80, total / 5));
-        int listX = left + sidebar + 10, scrollbar = 4;
-        int listWidth = total - sidebar - 10 - scrollbar - 4;
-        int toolbarY = 56, listTop = 84;
-        int actionsY = height - 28, detailHeight = 46;
-        int detailY = actionsY - 8 - detailHeight, listBottom = detailY - 6;
+        KernelLayout layout = KernelLayout.of(width, height);
+        int total = layout.width(), left = layout.left();
+        int listX = left, scrollbar = layout.trackWidth();
+        int listWidth = layout.listWidth();
+        int toolbarY = layout.contentTop(), listTop = toolbarY + 28;
+        int actionsY = layout.actionsY(), listBottom = layout.contentBottom();
+        int detailX = layout.detailX(), detailWidth = layout.detailWidth();
 
         var rows = rows();
         rowCount = rows.size();
@@ -70,24 +70,26 @@ public final class ShaderScreen extends Screen {
 
         addRenderableOnly((graphics, mouseX, mouseY, delta) -> {
             detailTitle = Component.empty(); detailText = Component.empty();
-            graphics.fill(left - 4, 10, left + total + 4, 46, 0x9008090B);
-            graphics.fill(left - 4, 45, left + total + 4, 46, 0x30FFFFFF);
-            KernelUi.icon(graphics, left + 2, 15, 26);
-            KernelUi.text(graphics, font, literal("K E R N E L"), left + 36, 17, 0xFFF3F4F6);
+            graphics.fill(left - 4, layout.headerTop(), left + total + 4, layout.headerBottom(), 0x9008090B);
+            graphics.fill(left - 4, layout.headerBottom() - 1, left + total + 4, layout.headerBottom(), 0x30FFFFFF);
+            KernelUi.icon(graphics, left + 2, layout.headerTop() + 4, 26);
+            KernelUi.text(graphics, font, literal("K E R N E L"), left + 36, layout.headerTop() + 7, 0xFFF3F4F6);
             String active = KernelShaders.active().isEmpty() ? text("off").getString() : KernelShaders.active();
-            KernelUi.text(graphics, font, literal(font.plainSubstrByWidth(text("active", active).getString(), total - 44)), left + 36, 31, 0xFFAEB3B9);
+            KernelUi.text(graphics, font, literal(font.plainSubstrByWidth(text("active", active).getString(), total - 44)),
+                left + 36, layout.headerTop() + 21, 0xFFAEB3B9);
         });
 
         var categories = List.of("video", "graphics", "optimizations", "other", "shaders");
         for (int i = 0; i < categories.size(); i++) {
             String category = categories.get(i);
-            var tab = addRenderableWidget(new KernelButton(left, toolbarY + i * 26, sidebar, 24,
+            var tab = addRenderableWidget(new KernelButton(layout.tabX(i, categories.size()), layout.tabTop(),
+                layout.tabWidth(i, categories.size()), layout.tabHeight(),
                 KernelTranslations.text("kernel.video.tab." + category), button -> { if (!category.equals("shaders")) parent.showCategory(category); },
-                () -> category.equals("shaders"), false));
+                () -> category.equals("shaders"), false).tab());
             if (category.equals("shaders") && !ShaderBackend.supported()) tab.active = false;
         }
 
-        addToolbar(listX, toolbarY, listWidth + scrollbar + 4);
+        addToolbar(listX, toolbarY, listWidth + scrollbar);
 
         int y = listTop;
         for (int index = scroll; index < rowCount && index < scroll + visibleRows; index++) {
@@ -106,35 +108,46 @@ public final class ShaderScreen extends Screen {
             y += rowHeight;
         }
 
-        int trackX = listX + listWidth + 4, trackBottom = y;
+        int trackX = layout.trackX();
+        int offWidth = Math.clamp(font.width(text("disable")) + 12, 56, 110);
+        int buttonWidth = layout.buttonWidth(2), end = layout.right();
         addRenderableOnly((graphics, mouseX, mouseY, delta) -> {
             if (rowCount > visibleRows) {
-                graphics.fill(trackX, listTop, trackX + scrollbar, trackBottom, 0x40000000);
-                int span = Math.max(1, trackBottom - listTop);
+                graphics.fill(trackX, listTop, trackX + scrollbar, listBottom, 0x40000000);
+                int span = Math.max(1, listBottom - listTop);
                 int thumb = Math.max(12, span * visibleRows / rowCount);
                 int offset = (span - thumb) * scroll / Math.max(1, rowCount - visibleRows);
                 graphics.fill(trackX, listTop + offset, trackX + scrollbar, listTop + offset + thumb, 0x80FFFFFF);
             }
             if (rowCount == 0 && !searching)
                 KernelUi.text(graphics, font, text(view == View.REMOTE ? "no_results" : view == View.OPTIONS ? "no_options" : "empty"), listX + 6, listTop + 8, 0xFFB8BEC5);
-            graphics.fill(listX, detailY, listX + listWidth + scrollbar + 4, detailY + detailHeight, 0x9008090B);
+            graphics.fill(detailX, toolbarY, detailX + detailWidth, listBottom, 0x9008090B);
+            graphics.fill(detailX, toolbarY, detailX + 1, listBottom, 0x20FFFFFF);
             boolean idle = detailTitle.getString().isEmpty();
-            KernelUi.text(graphics, font, idle ? text("title") : detailTitle, listX + 6, detailY + 6, 0xFFF3F4F6);
-            String body = idle ? text(view == View.OPTIONS ? "options_hint" : "scope").getString() : detailText.getString();
-            var lines = KernelUi.wrap(font, body, listWidth + scrollbar - 8, 3);
-            for (int line = 0; line < lines.size(); line++)
-                KernelUi.text(graphics, font, literal(lines.get(line)), listX + 6, detailY + 18 + line * 10, 0xFFAEB3B9);
+            var title = KernelUi.wrap(font, (idle ? text("title") : detailTitle).getString(), detailWidth - 12, 2);
+            for (int line = 0; line < title.size(); line++)
+                KernelUi.text(graphics, font, literal(title.get(line)), detailX + 6, toolbarY + 7 + line * 10, 0xFFF3F4F6);
+            int bodyTop = toolbarY + 9 + title.size() * 10;
+            // What the background worker is doing closes the panel, where there is room for the whole
+            // sentence: a download or a compilation failure has more to say than an action bar can hold.
             String status = !searchError.isEmpty() ? searchError : searching ? text("searching").getString() : KernelShaders.message();
-            KernelUi.text(graphics, font, literal(font.plainSubstrByWidth(status, listWidth - 160)), listX, actionsY + 7,
-                KernelShaders.failed() || !searchError.isEmpty() ? 0xFFFF9B9B : 0xFFB8BEC5);
+            var footer = KernelUi.wrap(font, status, detailWidth - 12, 4);
+            int footerTop = listBottom - 6 - footer.size() * 10;
+            String body = idle ? text(view == View.OPTIONS ? "options_hint" : "scope").getString() : detailText.getString();
+            var lines = KernelUi.wrap(font, body, detailWidth - 12, Math.max(1, (footerTop - bodyTop - 4) / 10));
+            for (int line = 0; line < lines.size(); line++)
+                KernelUi.text(graphics, font, literal(lines.get(line)), detailX + 6, bodyTop + line * 10, 0xFFAEB3B9);
+            graphics.fill(detailX + 6, footerTop - 4, detailX + detailWidth - 6, footerTop - 3, 0x20FFFFFF);
+            for (int line = 0; line < footer.size(); line++)
+                KernelUi.text(graphics, font, literal(footer.get(line)), detailX + 6, footerTop + line * 10,
+                    KernelShaders.failed() || !searchError.isEmpty() ? 0xFFFF9B9B : 0xFFB8BEC5);
         });
 
-        var off = addRenderableWidget(new KernelButton(left, actionsY, sidebar, 22, text("disable"), ignored -> KernelShaders.disable()));
+        var off = addRenderableWidget(new KernelButton(left, actionsY, offWidth, layout.actionHeight(), text("disable"), ignored -> KernelShaders.disable()));
         off.active = !KernelShaders.busy();
-        int end = left + total, buttonWidth = 74;
-        var cancel = addRenderableWidget(new KernelButton(end - 2 * buttonWidth - 4, actionsY, buttonWidth, 22, text("cancel"), ignored -> KernelShaders.cancel()));
+        var cancel = addRenderableWidget(new KernelButton(end - 2 * buttonWidth - 4, actionsY, buttonWidth, layout.actionHeight(), text("cancel"), ignored -> KernelShaders.cancel()));
         cancel.active = KernelShaders.busy();
-        addRenderableWidget(new KernelButton(end - buttonWidth, actionsY, buttonWidth, 22, KernelTranslations.text("gui.done"), ignored -> onClose()));
+        addRenderableWidget(new KernelButton(end - buttonWidth, actionsY, buttonWidth, layout.actionHeight(), KernelTranslations.text("gui.done"), ignored -> onClose()));
         revision = KernelShaders.revision();
     }
 

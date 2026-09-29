@@ -156,17 +156,15 @@ public final class KernelSettingsScreen extends Screen {
 
     @Override protected void init() {
         if (settings.isEmpty()) createSettings();
-        int totalWidth = Math.min(760, width - 20);
-        int left = (width - totalWidth) / 2;
-        int sidebar = Math.min(112, Math.max(80, totalWidth / 5));
-        int listX = left + sidebar + 10;
-        int scrollbarWidth = 4;
-        int listWidth = totalWidth - sidebar - 10 - scrollbarWidth - 4;
-        int listTop = 56;
-        int actionsY = height - 28;
-        int detailHeight = 46;
-        int detailY = actionsY - 8 - detailHeight;
-        int listBottom = detailY - 6;
+        KernelLayout layout = KernelLayout.of(width, height);
+        int totalWidth = layout.width();
+        int left = layout.left();
+        int listX = left;
+        int scrollbarWidth = layout.trackWidth();
+        int listWidth = layout.listWidth();
+        int listTop = layout.contentTop();
+        int actionsY = layout.actionsY();
+        int listBottom = layout.contentBottom();
 
         var entries = entries();
         entryCount = entries.size();
@@ -189,16 +187,17 @@ public final class KernelSettingsScreen extends Screen {
             // Renderables draw in the order they were added, so clearing here lets the rows below
             // claim the detail panel for this frame and lets it empty again once the cursor leaves.
             detailTitle = Component.empty(); detailText = Component.empty();
-            graphics.fill(left - 4, 10, left + totalWidth + 4, 46, 0x9008090B);
-            graphics.fill(left - 4, 45, left + totalWidth + 4, 46, 0x30FFFFFF);
-            KernelUi.icon(graphics, left + 2, 15, 26);
-            KernelUi.text(graphics, font, Component.literal("K E R N E L"), left + 36, 17, 0xFFF3F4F6);
-            KernelUi.text(graphics, font, tr("tab." + tab), left + 36, 31, 0xFFAEB3B9);
+            graphics.fill(left - 4, layout.headerTop(), left + totalWidth + 4, layout.headerBottom(), 0x9008090B);
+            graphics.fill(left - 4, layout.headerBottom() - 1, left + totalWidth + 4, layout.headerBottom(), 0x30FFFFFF);
+            KernelUi.icon(graphics, left + 2, layout.headerTop() + 4, 26);
+            KernelUi.text(graphics, font, Component.literal("K E R N E L"), left + 36, layout.headerTop() + 7, 0xFFF3F4F6);
+            KernelUi.text(graphics, font, tr("tab." + tab), left + 36, layout.headerTop() + 21, 0xFFAEB3B9);
         });
 
         for (int i = 0; i < TABS.size(); i++) {
             String category = TABS.get(i);
-            var button = addRenderableWidget(new KernelButton(left, listTop + i * 26, sidebar, 24, tr("tab." + category), pressed -> {
+            var button = addRenderableWidget(new KernelButton(layout.tabX(i, TABS.size()), layout.tabTop(),
+                layout.tabWidth(i, TABS.size()), layout.tabHeight(), tr("tab." + category), pressed -> {
                 if (category.equals("shaders")) {
                     //? if >=26.2 {
                     minecraft.gui.setScreen(new dev.kernel.fabric.shader.ShaderScreen(this));
@@ -206,7 +205,7 @@ public final class KernelSettingsScreen extends Screen {
                     /*minecraft.setScreen(new dev.kernel.fabric.shader.ShaderScreen(this));
                     *///? }
                 } else { tab = category; scroll = 0; rebuildWidgets(); }
-            }, () -> tab.equals(category), false));
+            }, () -> tab.equals(category), false).tab());
             // Shader packs are written for OpenGL and have no Vulkan form, so the page is closed rather
             // than opened onto a renderer that could never run anything listed there.
             if (category.equals("shaders") && !dev.kernel.fabric.shader.ShaderBackend.supported()) {
@@ -215,7 +214,8 @@ public final class KernelSettingsScreen extends Screen {
                     dev.kernel.fabric.shader.ShaderBackend.name())));
             }
         }
-        KernelButton recommend = addRenderableWidget(new KernelButton(left, actionsY, sidebar, 22, tr("recommended"), button -> {
+        int recommendWidth = Math.clamp(font.width(tr("recommended")) + 12, 56, 96);
+        KernelButton recommend = addRenderableWidget(new KernelButton(left, actionsY, recommendWidth, layout.actionHeight(), tr("recommended"), button -> {
             var preset = KernelHardwareSettings.recommendation();
             distance.value = preset.renderDistance(); simulation.value = preset.simulationDistance();
             clouds.value = preset.detailedClouds() ? CloudStatus.FANCY : CloudStatus.FAST;
@@ -250,36 +250,50 @@ public final class KernelSettingsScreen extends Screen {
             y += entry.height();
         }
 
-        int trackX = listX + listWidth + 4;
-        int trackBottom = y;
+        int trackX = layout.trackX();
+        int detailX = layout.detailX(), detailWidth = layout.detailWidth();
+        int buttonWidth = layout.buttonWidth(3), end = layout.right();
         addRenderableOnly((graphics, mouseX, mouseY, delta) -> {
             if (entryCount > visibleEntries) {
-                graphics.fill(trackX, listTop, trackX + scrollbarWidth, trackBottom, 0x40000000);
-                int span = Math.max(1, trackBottom - listTop);
+                graphics.fill(trackX, listTop, trackX + scrollbarWidth, listBottom, 0x40000000);
+                int span = Math.max(1, listBottom - listTop);
                 int thumb = Math.max(12, span * visibleEntries / entryCount);
                 int offset = (span - thumb) * scroll / Math.max(1, entryCount - visibleEntries);
                 graphics.fill(trackX, listTop + offset, trackX + scrollbarWidth, listTop + offset + thumb, 0x80FFFFFF);
             }
-            graphics.fill(listX, detailY, listX + listWidth + scrollbarWidth + 4, detailY + detailHeight, 0x9008090B);
-            Component title = detailTitle.getString().isEmpty() ? tr("detail.idle") : detailTitle;
-            KernelUi.text(graphics, font, title, listX + 6, detailY + 6, 0xFFF3F4F6);
-            String body = detailTitle.getString().isEmpty() ? tr("detail.hint").getString() : detailText.getString();
-            var lines = KernelUi.wrap(font, body, listWidth + scrollbarWidth - 8, 3);
-            for (int line = 0; line < lines.size(); line++)
-                KernelUi.text(graphics, font, Component.literal(lines.get(line)), listX + 6, detailY + 18 + line * 10, 0xFFAEB3B9);
+            // The description stands beside the list rather than under it, so it can run to as many
+            // lines as the body is tall without taking rows away from the list.
+            graphics.fill(detailX, listTop, detailX + detailWidth, listBottom, 0x9008090B);
+            graphics.fill(detailX, listTop, detailX + 1, listBottom, 0x20FFFFFF);
+            boolean idle = detailTitle.getString().isEmpty();
+            var title = KernelUi.wrap(font, (idle ? tr("detail.idle") : detailTitle).getString(), detailWidth - 12, 2);
+            for (int line = 0; line < title.size(); line++)
+                KernelUi.text(graphics, font, Component.literal(title.get(line)), detailX + 6, listTop + 7 + line * 10, 0xFFF3F4F6);
+            int bodyTop = listTop + 9 + title.size() * 10;
+            // The panel closes with what Apply would do next, and with the device string on the tab that
+            // reports it. Both are measured before the description, so the description gives way to them
+            // rather than pushing them off the bottom of a short window.
             String status = KernelTranslations.text(saveFailed ? "kernel.settings.save_failed" : restartRequired()
                 ? "kernel.settings.restart" : hasChanges() ? "kernel.settings.pending" : "kernel.settings.applied").getString();
-            KernelUi.text(graphics, font, Component.literal(font.plainSubstrByWidth(status, listWidth - 250)),
-                listX, actionsY + 7, saveFailed ? 0xFFFF9B9B : 0xFFB8BEC5);
-            if (tab.equals("other"))
-                KernelUi.text(graphics, font, Component.literal(font.plainSubstrByWidth(KernelHardwareSettings.renderer(), listWidth - 250)),
-                    listX, actionsY - 4, 0xFF8A9199);
+            var footer = KernelUi.wrap(font, status, detailWidth - 12, 3);
+            boolean device = tab.equals("other");
+            int footerTop = listBottom - 6 - footer.size() * 10;
+            var lines = KernelUi.wrap(font, idle ? tr("detail.hint").getString() : detailText.getString(),
+                detailWidth - 12, Math.max(1, (footerTop - bodyTop - (device ? 16 : 4)) / 10));
+            for (int line = 0; line < lines.size(); line++)
+                KernelUi.text(graphics, font, Component.literal(lines.get(line)), detailX + 6, bodyTop + line * 10, 0xFFAEB3B9);
+            if (device) KernelUi.text(graphics, font,
+                Component.literal(font.plainSubstrByWidth(KernelHardwareSettings.renderer(), detailWidth - 12)),
+                detailX + 6, footerTop - 12, 0xFF8A9199);
+            graphics.fill(detailX + 6, footerTop - 4, detailX + detailWidth - 6, footerTop - 3, 0x20FFFFFF);
+            for (int line = 0; line < footer.size(); line++)
+                KernelUi.text(graphics, font, Component.literal(footer.get(line)), detailX + 6, footerTop + line * 10,
+                    saveFailed ? 0xFFFF9B9B : restartRequired() || hasChanges() ? 0xFFFFE08A : 0xFFB8BEC5);
         });
 
-        int buttonWidth = Math.min(80, Math.max(56, (listWidth - 8) / 3)), end = left + totalWidth;
-        addRenderableWidget(new KernelButton(end - 3 * buttonWidth - 8, actionsY, buttonWidth, 22, CommonComponents.GUI_CANCEL, button -> onClose()));
-        addRenderableWidget(new KernelButton(end - 2 * buttonWidth - 4, actionsY, buttonWidth, 22, KernelTranslations.text("kernel.settings.apply"), button -> apply(false)));
-        addRenderableWidget(new KernelButton(end - buttonWidth, actionsY, buttonWidth, 22, CommonComponents.GUI_DONE, button -> apply(true)));
+        addRenderableWidget(new KernelButton(end - 3 * buttonWidth - 8, actionsY, buttonWidth, layout.actionHeight(), CommonComponents.GUI_CANCEL, button -> onClose()));
+        addRenderableWidget(new KernelButton(end - 2 * buttonWidth - 4, actionsY, buttonWidth, layout.actionHeight(), KernelTranslations.text("kernel.settings.apply"), button -> apply(false)));
+        addRenderableWidget(new KernelButton(end - buttonWidth, actionsY, buttonWidth, layout.actionHeight(), CommonComponents.GUI_DONE, button -> apply(true)));
     }
 
     private Entry settingEntry(VideoSetting<?> setting) {

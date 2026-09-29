@@ -15,6 +15,7 @@ public final class KernelButton extends Button {
     private final BooleanSupplier selected;
     private final boolean icon;
     private Component visualLabel;
+    private boolean tab;
 
     public KernelButton(int x, int y, int width, int height, Component label, OnPress action) {
         this(x, y, width, height, label, action, () -> false, false);
@@ -26,6 +27,14 @@ public final class KernelButton extends Button {
     }
 
     public KernelButton visual(Component label) { visualLabel = label; return this; }
+
+    /**
+     * Marks this button as one of the tabs along the top of the frame.
+     *
+     * <p>A tab carries its accent along the edge it shares with the page below it rather than down its
+     * left side, so the selected tab reads as the top of the body instead of as one more list row.
+     */
+    public KernelButton tab() { tab = true; return this; }
 
     //? if >=26.1 {
     @Override protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
@@ -39,7 +48,8 @@ public final class KernelButton extends Button {
         if (icon) KernelUi.icon(graphics, x + 2, y + 2, Math.min(w, h) - 4);
         if (active && (isHoveredOrFocused() || selected.getAsBoolean())) {
             graphics.fill(x, y, x + w, y + h, isHoveredOrFocused() ? 0x38FFFFFF : 0x20FFFFFF);
-            graphics.fill(x, y, x + 2, y + h, 0xFFF3F4F6);
+            if (tab) graphics.fill(x, y + h - 2, x + w, y + h, 0xFFF3F4F6);
+            else graphics.fill(x, y, x + 2, y + h, 0xFFF3F4F6);
         }
         if (isFocused()) {
             graphics.fill(x, y, x + w, y + 1, 0xFFEEEEEE);

@@ -7,18 +7,26 @@ white selection/hover overlays, with Video, Graphics, Optimizations and Other ta
 
 ## Layout
 
-The screen is a fixed frame around one scrolling list, in the manner of Sodium and VulkanMod rather than
-a page of stacked buttons. A header band carries the Kernel mark and the current tab. The tab column
-stays on the left, with **Recommended** pinned beneath it. The list occupies the centre, grouped under
-section headings — Display, Frame pacing and Distance on the Video tab, Quality, World detail and
-Appearance on Graphics, Renderer, World and generation and Resources on Optimizations, View and Interface
-on Other. Each row carries its label on the left and its control on the right, highlights under the
-cursor, and shows a left accent bar while highlighted.
+The screen is a fixed frame around one scrolling list, in the manner of VulkanMod rather than a page of
+stacked buttons. A header band carries the Kernel mark and the current tab. The tabs run in a row
+directly beneath it, each one underlined while it is the open page, so the selected tab reads as the top
+of the body rather than as one more list row. The list fills the left of the body, grouped under section
+headings — Display, Frame pacing and Distance on the Video tab, Quality, World detail and Appearance on
+Graphics, Renderer, World and generation and Resources on Optimizations, View and Interface on Other.
+Each row carries its label on the left and its control on the right, highlights under the cursor, and
+shows a left accent bar while highlighted.
 
-Beneath the list, a panel names the highlighted setting and explains what it changes, so the explanation
-is readable without holding the cursor still long enough for a tooltip. When nothing is highlighted it
-explains the screen itself. Tooltips remain on the controls for keyboard and narration users. The
-unapplied-changes status sits on the bottom bar beside Cancel, Apply and Done.
+Down the whole right-hand side, an information panel names the highlighted setting and explains what it
+changes, so the explanation is readable without holding the cursor still long enough for a tooltip. When
+nothing is highlighted it explains the screen itself. Standing beside the list rather than under it, the
+panel can run to as many lines as the body is tall without taking rows away from the list. Its footer
+carries what Apply would do next — saved, unapplied, restart-required or failed — in full rather than
+truncated, and the active GPU closes the panel on the Other tab. Tooltips remain on the controls for
+keyboard and narration users.
+
+The action bar along the bottom holds **Recommended** on the left and Cancel, Apply and Done on the
+right. `KernelLayout` computes this geometry from the window size alone and both the video tabs and the
+shader browser lay themselves out with it, which is what keeps the two pages looking like one screen.
 
 The list scrolls by whole entries with the mouse wheel, and a track on its right shows the position and
 the share of the list that is visible. Scrolling by whole entries means no row is ever drawn clipped, on
@@ -149,7 +157,7 @@ compatibility matrix still require further testing. Mod Menu integration is not 
 separate [pre-Fabric loading window](BOOTSTRAP_WINDOW.md) keeps settings closed at startup.
 
 The Shaders tab opens the [shader browser, pack options and color post-processing controls](SHADERS.md).
-It uses the same header, tab column, scrolling list and description panel as the video tabs, and switches
+It uses the same header, tab row, scrolling list and information panel as the video tabs, and switches
 between **Installed packs**, **Pack options** and Modrinth results in place. Shader selections and option
 changes apply immediately; returning to the video tabs preserves their uncommitted drafts. Full-world
 shader packs remain unsupported until their rendering stages are implemented.
