@@ -171,11 +171,21 @@ public final class ShaderProbe {
                     #version 120
                     void main() { gl_FragData[0] = vec4(1.0); }
                     """,
+                // Reads the shadow map and both of its matrices, so the pass has to compile, link and
+                // bind them. They are folded into alpha, which the colour assertion does not look at,
+                // so this stays a plumbing check and does not weaken the terrain one.
                 "shaders/final.fsh", """
                     #version 120
                     uniform sampler2D colortex0;
+                    uniform sampler2D shadowtex0;
+                    uniform mat4 shadowModelView;
+                    uniform mat4 shadowProjection;
                     varying vec2 texcoord;
-                    void main() { gl_FragColor = texture2D(colortex0, texcoord); }
+                    void main() {
+                        float depth = texture2D(shadowtex0, texcoord).r;
+                        vec4 lightSpace = shadowProjection * shadowModelView * vec4(0.5, 0.5, 0.5, 1.0);
+                        gl_FragColor = vec4(texture2D(colortex0, texcoord).rgb, depth * 0.5 + lightSpace.z * 0.5);
+                    }
                     """,
                 // Named against the real registries, so the identity table is resolved, not just parsed.
                 "shaders/block.properties", """

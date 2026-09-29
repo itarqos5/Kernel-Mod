@@ -14,6 +14,30 @@ public final class ShaderUniforms {
         Map.entry("rainStrength", GL33C.GL_FLOAT), Map.entry("thunderStrength", GL33C.GL_FLOAT));
     private ShaderUniforms() {}
     public static boolean isDepthInput(String name) { return name.equals("depthtex0") || name.equals("gdepthtex"); }
+
+    /**
+     * Whether a name samples the shadow map.
+     *
+     * <p>All four names resolve to the same image. The format distinguishes {@code shadowtex0} from
+     * {@code shadowtex1} by whether translucent casters are included, and Kernel's shadow pass draws
+     * only the solid and cutout layers, so the two are genuinely the same depth here rather than
+     * approximated as the same.
+     */
+    public static boolean isShadowInput(String name) {
+        return switch (name) {
+            case "shadowtex0", "shadowtex1", "shadow", "watershadow" -> true;
+            default -> false;
+        };
+    }
+
+    /** Which shadow matrix a name asks for, as a bit, or zero when the name is not one. */
+    public static int shadowMatrix(String name) {
+        return switch (name) {
+            case "shadowModelView" -> 1; case "shadowModelViewInverse" -> 2;
+            case "shadowProjection" -> 4; case "shadowProjectionInverse" -> 8;
+            default -> 0;
+        };
+    }
     public static int projectionInput(String name) {
         return switch (name) {
             case "gbufferProjection" -> 1; case "gbufferProjectionInverse" -> 2; case "gbufferPreviousProjection" -> 4;

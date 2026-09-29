@@ -28,7 +28,10 @@ public final class ShaderPipeline implements AutoCloseable {
     private ShaderMatrixState projection, modelView;
     private ShaderCameraState camera;
     private static final int DEPTH_INPUT = 48;
-    private int vao, sampler, mipmapSampler, frame, textureUnits, outputSlots;
+    private static final int SHADOW_INPUT = 49;
+    private int vao, sampler, mipmapSampler, shadowSampler, frame, textureUnits, outputSlots;
+    /** Which shadow matrices the compiled programs ask for, as the bits ShaderUniforms names. */
+    private int shadowMatrices;
     private final long started = System.nanoTime();
     private long lastFrame = started;
     private boolean closed, usesWorldData, celestialInputs, usesViewerData;
@@ -80,6 +83,17 @@ public final class ShaderPipeline implements AutoCloseable {
                     throw new IOException("This shader exceeds the graphics device's texture/output limits");
                 images = new ShaderCustomTextures(uniqueImages, sampled);
                 if ((sampled & (1L << DEPTH_INPUT)) != 0) depth = new ShaderDepthTarget();
+                for (var program : programs) for (var uniform : program.uniforms)
+                    if (uniform.buffer < 0) shadowMatrices |= ShaderUniforms.shadowMatrix(uniform.name);
+                boolean shadowSampled = (sampled & (1L << SHADOW_INPUT)) != 0;
+                // A pack reading the shadow map from a game that cannot render one would sample an
+                // empty texture and light itself from nothing, which looks like a broken pack rather
+                // than an unsupported one. Refusing names the reason instead.
+                if ((shadowSampled || shadowMatrices != 0) && !KernelShadowPass.supported())
+                    throw new IOException("This pack needs a shadow map, which Kernel does not render on this Minecraft version");
+                if ((shadowSampled || shadowMatrices != 0) && !pack.casts())
+                    throw new IOException("This pack reads the shadow map but ships no shadow program");
+                if (shadowSampled) shadowSampler = shadowSamplerHandle();
                 if (projectionInputs != 0) projection = new ShaderMatrixState(ShaderMatrixState.Kind.PROJECTION, projectionInputs);
                 if (viewInputs != 0) modelView = new ShaderMatrixState(ShaderMatrixState.Kind.MODEL_VIEW, viewInputs);
                 if (cameraInputs || viewInputs != 0) camera = new ShaderCameraState();
@@ -136,6 +150,16 @@ public final class ShaderPipeline implements AutoCloseable {
             if (modelView != null) modelView.discardHistory();
         }
         int depthTexture = depth == null ? 0 : depth.texture(width, height);
+        int shadowTexture = shadowSampler == 0 ? 0 : KernelShadowPass.depthTexture();
+        float[] shadowView = null, shadowViewInverse = null, shadowProjection = null, shadowProjectionInverse = null;
+        if (shadowMatrices != 0) {
+            var view = KernelShadowPass.modelView();
+            var projected = KernelShadowPass.projectionMatrix();
+            if ((shadowMatrices & 1) != 0) shadowView = view.get(new float[16]);
+            if ((shadowMatrices & 2) != 0) shadowViewInverse = view.invert(new org.joml.Matrix4f()).get(new float[16]);
+            if ((shadowMatrices & 4) != 0) shadowProjection = projected.get(new float[16]);
+            if ((shadowMatrices & 8) != 0) shadowProjectionInverse = projected.invert(new org.joml.Matrix4f()).get(new float[16]);
+        }
         if (projection != null) projection.prepare(width, height);
         if (modelView != null) modelView.prepare(width, height);
         try (var state = new ShaderGlState(Math.max(1, textureUnits), outputSlots)) {
@@ -154,15 +178,23 @@ public final class ShaderPipeline implements AutoCloseable {
                     int input = program.inputs[unit];
                     GL33C.glActiveTexture(GL33C.GL_TEXTURE0 + unit);
                     GL33C.glBindTexture(GL33C.GL_TEXTURE_2D, input == DEPTH_INPUT ? depthTexture
+                        : input == SHADOW_INPUT ? shadowTexture
                         : input < 16 ? targets.texture(input) : images.texture(input - 16));
-                    GL33C.glBindSampler(unit, input == DEPTH_INPUT ? depth.sampler() : input >= 16 ? images.sampler(input - 16)
+                    GL33C.glBindSampler(unit, input == DEPTH_INPUT ? depth.sampler()
+                        : input == SHADOW_INPUT ? shadowSampler
+                        : input >= 16 ? images.sampler(input - 16)
                         : (program.mipmaps & (1 << input)) == 0 ? sampler : mipmapSampler);
                 }
                 for (var uniform : program.uniforms) {
                     if (uniform.buffer >= 0) GL33C.glUniform1i(uniform.location, uniform.unit);
                     else if (uniform.type == GL33C.GL_FLOAT_MAT4)
-                        GL33C.glUniformMatrix4fv(uniform.location, false,
-                            (ShaderUniforms.projectionInput(uniform.name) != 0 ? projection : modelView).values(uniform.name));
+                        GL33C.glUniformMatrix4fv(uniform.location, false, switch (uniform.name) {
+                            case "shadowModelView" -> shadowView;
+                            case "shadowModelViewInverse" -> shadowViewInverse;
+                            case "shadowProjection" -> shadowProjection;
+                            case "shadowProjectionInverse" -> shadowProjectionInverse;
+                            default -> (ShaderUniforms.projectionInput(uniform.name) != 0 ? projection : modelView).values(uniform.name);
+                        });
                     else if (uniform.type == GL33C.GL_FLOAT_VEC3) GL33C.glUniform3fv(uniform.location,
                         ShaderUniforms.viewerType(uniform.name) >= 0 ? viewer.vector(uniform.name)
                         : ShaderUniforms.celestialType(uniform.name) >= 0 ? celestial.vector(uniform.name) : camera.vector(uniform.name));
@@ -243,12 +275,14 @@ public final class ShaderPipeline implements AutoCloseable {
                     int color = ShaderUniforms.colorBuffer(name);
                     int buffer = imageBindings.getOrDefault(color >= 0 ? "colortex" + color : name, color);
                     if (ShaderUniforms.isDepthInput(name)) buffer = DEPTH_INPUT;
+                    if (ShaderUniforms.isShadowInput(name)) buffer = SHADOW_INPUT;
                     if (buffer >= 16 && color >= 0 && (pass.mipmaps() & (1 << color)) != 0)
                         throw new IOException(pass.name() + " requests color mipmaps for an overridden image: " + name);
                     int expectedType = buffer >= 0 ? GL33C.GL_SAMPLER_2D
                         : ShaderUniforms.projectionInput(name) != 0 || ShaderUniforms.modelViewInput(name) != 0 ? GL33C.GL_FLOAT_MAT4
                         : ShaderUniforms.cameraType(name) >= 0 ? ShaderUniforms.cameraType(name)
                         : ShaderUniforms.celestialType(name) >= 0 ? ShaderUniforms.celestialType(name)
+                        : ShaderUniforms.shadowMatrix(name) != 0 ? GL33C.GL_FLOAT_MAT4
                         : ShaderUniforms.viewerType(name) >= 0 ? ShaderUniforms.viewerType(name)
                         : ShaderUniforms.scalarType(name);
                     if (size.get(0) != 1 || type.get(0) != expectedType) {
@@ -275,6 +309,24 @@ public final class ShaderPipeline implements AutoCloseable {
             return shader;
         } catch (IOException | RuntimeException failure) { GL33C.glDeleteShader(shader); throw failure; }
     }
+    /**
+     * The sampler the shadow map is read through.
+     *
+     * <p>Nearest and clamped, because the map holds depth rather than colour: filtering depth averages
+     * distances that are not on the same surface, and wrapping would shadow one edge of the map with
+     * geometry from the other. Hardware comparison filtering, which the format exposes as
+     * {@code shadowHardwareFiltering}, is not set up here.
+     */
+    private static int shadowSamplerHandle() {
+        int handle = GL33C.glGenSamplers();
+        GL33C.glSamplerParameteri(handle, GL33C.GL_TEXTURE_MIN_FILTER, GL33C.GL_NEAREST);
+        GL33C.glSamplerParameteri(handle, GL33C.GL_TEXTURE_MAG_FILTER, GL33C.GL_NEAREST);
+        GL33C.glSamplerParameteri(handle, GL33C.GL_TEXTURE_WRAP_S, GL33C.GL_CLAMP_TO_EDGE);
+        GL33C.glSamplerParameteri(handle, GL33C.GL_TEXTURE_WRAP_T, GL33C.GL_CLAMP_TO_EDGE);
+        GL33C.glSamplerParameteri(handle, GL33C.GL_TEXTURE_COMPARE_MODE, GL33C.GL_NONE);
+        return handle;
+    }
+
     private static int sampler(boolean mipmaps) {
         int sampler = GL33C.glGenSamplers();
         GL33C.glSamplerParameteri(sampler, GL33C.GL_TEXTURE_MIN_FILTER, mipmaps ? GL33C.GL_LINEAR_MIPMAP_LINEAR : GL33C.GL_LINEAR);
@@ -293,6 +345,7 @@ public final class ShaderPipeline implements AutoCloseable {
         if (vao != 0) GL33C.glDeleteVertexArrays(vao);
         if (sampler != 0) GL33C.glDeleteSamplers(sampler);
         if (mipmapSampler != 0) GL33C.glDeleteSamplers(mipmapSampler);
-        vao = sampler = mipmapSampler = 0;
+        if (shadowSampler != 0) GL33C.glDeleteSamplers(shadowSampler);
+        vao = sampler = mipmapSampler = shadowSampler = 0;
     }
 }

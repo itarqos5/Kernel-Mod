@@ -49,6 +49,9 @@ public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBuffe
      * stages are always present: a program supplying only one would replace half of a Minecraft program
      * pair and leave the varyings of the two halves disagreeing.
      */
+    /** True when this pack ships the shadow program, which is what makes it cast. */
+    public boolean casts() { return worldPrograms.containsKey(ShaderWorldPrograms.SHADOW); }
+
     public record WorldProgram(String name, String vertex, String fragment) {
         public WorldProgram {
             java.util.Objects.requireNonNull(name);

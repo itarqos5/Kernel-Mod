@@ -40,6 +40,21 @@ public final class KernelShadowPass {
 
     private KernelShadowPass() {}
 
+    /**
+     * True on the targets whose terrain draw the shadow pass can reuse.
+     *
+     * <p>A pack that reads the shadow map is refused elsewhere rather than handed an empty texture,
+     * because lighting a world from a map that was never rendered looks like a broken pack instead of
+     * an unsupported one.
+     */
+    public static boolean supported() {
+        //? if >=1.21.5 && <1.21.6 {
+        /*return true;
+        *///? } else {
+        return false;
+        //? }
+    }
+
     //? if >=1.21.5 && <1.21.6 {
     /*/^* True while the shadow pass owns the pipeline and the render target. ^/
     private static boolean active;

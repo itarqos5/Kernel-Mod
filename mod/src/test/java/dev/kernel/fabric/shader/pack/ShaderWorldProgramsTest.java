@@ -9,11 +9,22 @@ import static org.junit.jupiter.api.Assertions.*;
 class ShaderWorldProgramsTest {
     @Test void everyChainEndsAtTheRootProgram() {
         for (String program : ShaderWorldPrograms.names()) {
+            // The shadow program stands outside the gbuffers tree: it substitutes for no core shader
+            // and falling back to one that draws the camera's view would render the shadow map from
+            // the wrong program rather than leave it unrendered.
+            if (program.equals(ShaderWorldPrograms.SHADOW)) continue;
             var chain = ShaderWorldPrograms.chain(program);
             assertEquals(program, chain.getFirst(), program);
             assertEquals("gbuffers_basic", chain.getLast(), program + " chain: " + chain);
             assertEquals(chain.size(), Set.copyOf(chain).size(), "a chain must not repeat a program: " + chain);
         }
+    }
+
+    @Test void theShadowProgramStandsOnItsOwn() {
+        assertEquals(List.of(ShaderWorldPrograms.SHADOW), ShaderWorldPrograms.chain(ShaderWorldPrograms.SHADOW));
+        assertTrue(ShaderWorldPrograms.names().contains(ShaderWorldPrograms.SHADOW));
+        assertFalse(ShaderWorldPrograms.coreShaders().containsValue(ShaderWorldPrograms.SHADOW),
+            "the shadow program replaces no core shader; the define selects it");
     }
 
     @Test void terrainFallsBackThroughTheTexturedProgramsToTheRoot() {
