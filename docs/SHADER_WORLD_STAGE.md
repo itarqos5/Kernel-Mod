@@ -160,30 +160,41 @@ A second full world render from the light direction into `shadowtex0`, `shadowte
 the pack's distortion. This is effectively a second renderer, and it is where packs begin to look like
 themselves.
 
-**Source substitution cannot reach it, and that is settled rather than suspected.** Read from the game
-jars: `ShaderManager$CompilationCache.getShaderSource` takes an identifier and a `ShaderType` and nothing
-else. Defines are applied to the module after the source is resolved, so one core shader identifier has
-exactly one source, however many `ShaderDefines` variants are compiled from it. The shadow pass needs the
-terrain geometry drawn twice from two different pack programs — `gbuffers_terrain` for the camera and
-`shadow` for the light — and substitution has no way to say that. Item 2's Kernel-owned pipelines are
-therefore a prerequisite for shadows, not merely a later improvement, and the two should be planned as
-one piece of work.
+**Source substitution does reach it, through the defines.** An earlier reading of this recorded the
+opposite and was wrong, which is worth keeping visible because the wrong version would have made the
+shadow pass wait on a renderer rewrite it does not need. What is true is only half of it:
+`ShaderManager$CompilationCache.getShaderSource` takes an identifier and a `ShaderType` and nothing else,
+so one core shader identifier yields one *source string*. But the compiled module is cached under
+`(identifier, type, ShaderDefines)`, and `GlDevice.compileShader` runs
+`GlslPreprocessor.injectDefines(source, defines)` on whatever the source provider returned, after it
+returned it. One source string therefore becomes as many different programs as there are define sets
+compiled from it.
 
-Kernel-owned pipelines need not mean Kernel-shipped GLSL, which matters because this repository
-deliberately keeps copies of Minecraft's shader source out of it. `GpuDevice.precompilePipeline` has a
-public overload taking a `BiFunction<Identifier, ShaderType, String>` source provider, and
-`RenderPipeline.builder` is public on 1.21.5 through 26.2. So Kernel can build its own pipeline against
-its own identifier and hand the compiler a program it generated at runtime from the pack's `shadow`
-source and the `ShaderWorldEnvironment` it already parses out of Minecraft's terrain program — the same
-way the camera-pass substitution gets its prelude right without a per-version table.
+So Kernel can return a source carrying both of the pack's programs behind `#ifdef`, the pack's
+`gbuffers_terrain` in one branch and its `shadow` in the other, and select between them with a define.
+`RenderPipeline.builder()` and `withShaderDefine` are public from 1.21.5 through 26.2, so the shadow draw
+uses a pipeline Kernel builds that names the same `minecraft:core/terrain` and adds one flag. Minecraft's
+own terrain pipelines compile the same string without that flag and take the other branch, so their
+behaviour is unchanged. Verified against the jars on 1.21.5, 1.21.10 and 26.2; only the
+`ResourceLocation` to `Identifier` rename differs.
 
-Two consequences to design around. Compiled pipelines live in the device's cache, and
-`clearPipelineCache()` — which Kernel already calls whenever a pack is adopted — drops the precompiled
-entry; the lazy `getOrCompilePipeline` path that then runs uses the device's *default* source provider,
-which cannot resolve a Kernel identifier. A Kernel-owned pipeline therefore has to be re-precompiled
-after every cache clear rather than compiled once. And the shadow pass has to reach the built section
-meshes, which means an accessor onto the section render dispatcher's visible list per target, because
-that list is not public.
+Two things follow that are better than the wrong version suggested. Kernel does not need
+`precompilePipeline` or a source provider of its own: a Kernel-built pipeline resolves its source through
+the device's `defaultShaderSource`, which is `ShaderManager.getShader`, which is the compilation cache
+Kernel already hooks. And because nothing is precompiled out of band, `clearPipelineCache()` needs no
+special handling — the next draw recompiles through the same path. No GLSL is shipped either way, which
+matters because this repository deliberately keeps copies of Minecraft's shader source out of it.
+
+Building a `RenderPipeline` for the shadow draw does mean Kernel owns that pipeline's vertex format,
+culling, depth state and colour targets, which is what the pass needs anyway. It is a builder call rather
+than a replacement for Minecraft's pipeline system, so it is not the item 2 milestone; item 2 is about
+lifting the single-colour-output limit for the *camera* programs, and it remains separate.
+
+What genuinely remains for the shadow pass, none of it architectural: the shadow framebuffer and its
+depth textures at `shadowMapResolution`, the light-space matrices honouring `shadowDistance`, reaching
+the built section meshes to draw them a second time — which needs an accessor onto the section render
+dispatcher's visible list per target, because that list is not public — and binding `shadowtex0` and
+`shadowtex1` while supplying `shadowModelView` and `shadowProjection`.
 
 ### 6. The remaining uniforms
 
@@ -204,8 +215,9 @@ of that enum. They share one snapshot per world render with the world and celest
 
 Still missing, and load-bearing for real packs: `shadowModelView` and `shadowProjection` with their
 inverses, which wait on the shadow pass because they describe a shadow map that is not rendered yet,
-`fogColor`, `fogStart`, `fogEnd` and `fogDensity`, which wait on a frame capture because the fog renderer
-is restructured several times across the supported range, `eyeBrightnessSmooth` and `wetness`, which wait
+`fogColor`, `fogStart`, `fogEnd` and `fogDensity`, where the distances are the obstacle: from 1.21.6 the
+game keeps an environmental pair and a render-distance pair in `FogData` where the format names one pair,
+and collapsing them would be a guess about which the pack meant, `eyeBrightnessSmooth` and `wetness`, which wait
 on the half-lives a pack declares, and `centerDepthSmooth`, `atlasSize`, `entityId`, `entityColor`,
 `heldItemId`, `heldBlockLightValue` and `hideGUI`.
 

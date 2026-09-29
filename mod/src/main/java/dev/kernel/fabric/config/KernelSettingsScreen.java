@@ -276,15 +276,16 @@ public final class KernelSettingsScreen extends Screen {
             String status = KernelTranslations.text(saveFailed ? "kernel.settings.save_failed" : restartRequired()
                 ? "kernel.settings.restart" : hasChanges() ? "kernel.settings.pending" : "kernel.settings.applied").getString();
             var footer = KernelUi.wrap(font, status, detailWidth - 12, 3);
-            boolean device = tab.equals("other");
+            var device = tab.equals("other")
+                ? KernelUi.wrap(font, KernelHardwareSettings.renderer(), detailWidth - 12, 2) : List.<String>of();
             int footerTop = listBottom - 6 - footer.size() * 10;
+            int deviceTop = footerTop - 4 - device.size() * 10;
             var lines = KernelUi.wrap(font, idle ? tr("detail.hint").getString() : detailText.getString(),
-                detailWidth - 12, Math.max(1, (footerTop - bodyTop - (device ? 16 : 4)) / 10));
+                detailWidth - 12, Math.max(1, (deviceTop - bodyTop - 4) / 10));
             for (int line = 0; line < lines.size(); line++)
                 KernelUi.text(graphics, font, Component.literal(lines.get(line)), detailX + 6, bodyTop + line * 10, 0xFFAEB3B9);
-            if (device) KernelUi.text(graphics, font,
-                Component.literal(font.plainSubstrByWidth(KernelHardwareSettings.renderer(), detailWidth - 12)),
-                detailX + 6, footerTop - 12, 0xFF8A9199);
+            for (int line = 0; line < device.size(); line++)
+                KernelUi.text(graphics, font, Component.literal(device.get(line)), detailX + 6, deviceTop + line * 10, 0xFF8A9199);
             graphics.fill(detailX + 6, footerTop - 4, detailX + detailWidth - 6, footerTop - 3, 0x20FFFFFF);
             for (int line = 0; line < footer.size(); line++)
                 KernelUi.text(graphics, font, Component.literal(footer.get(line)), detailX + 6, footerTop + line * 10,

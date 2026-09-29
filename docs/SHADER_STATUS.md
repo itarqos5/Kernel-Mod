@@ -54,7 +54,7 @@ a real pack would still be missing.
 | More than one colour output | A substituted program inherits Minecraft's pipeline, which declares one target. Lifting this needs Kernel-owned pipelines. |
 | `prepare` and `shadowcomp` stages | Refused by name. |
 | `blend.*`, `alphaTest.*`, `flip.*`, `size.buffer.*` | Properties that change how a pass draws; refused rather than honoured approximately. |
-| Remaining uniforms | `fogColor`, `fogStart`, `fogEnd`, `fogDensity`, `eyeBrightnessSmooth`, `centerDepthSmooth`, `atlasSize`, `entityId`, `entityColor`, `heldItemId`, `wetness` and `hideGUI` among others. The smoothed ones wait on the half-lives a pack declares; the fog family waits on a frame capture, because the fog renderer is restructured several times across the supported range. |
+| Remaining uniforms | `fogColor`, `fogStart`, `fogEnd`, `fogDensity`, `eyeBrightnessSmooth`, `centerDepthSmooth`, `atlasSize`, `entityId`, `entityColor`, `heldItemId`, `wetness` and `hideGUI` among others. The smoothed ones wait on the half-lives a pack declares; the fog family waits on a decision about its distances, because from 1.21.6 the game keeps two overlapping fog ranges where the format names one. |
 | 1.21.4 | Resolves core shaders through a different program system; no world stage at all. |
 | 1.21.11, 26.1.2, 26.2 | Declare their shared matrices in a `std140` uniform block, which a prelude of plain declarations cannot reproduce. World programs are refused there rather than compiled against names they never declare. |
 | Vulkan on 26.2 | The Shaders page is closed. The Iris format has no Vulkan form, so nothing could be listed there even in principle. |
@@ -68,15 +68,15 @@ built so far verified rather than assumed.
 
 ## Order of the remaining work
 
-1. **The shadow pass, together with Kernel-owned pipelines.** Shadow framebuffer at
-   `shadowMapResolution`, light-space matrices honouring `shadowDistance`, the terrain meshes drawn a
-   second time with the pack's `shadow` programs, and `shadowtex0`/`shadowtex1` bound as samplers. Then
-   `shadowModelView` and `shadowProjection` follow. These are one piece of work rather than two:
-   `getShaderSource` takes an identifier and a stage and nothing else, so one core shader has exactly one
-   source and substitution cannot draw the same geometry from two different pack programs.
+1. **The shadow pass.** Shadow framebuffer at `shadowMapResolution`, light-space matrices honouring
+   `shadowDistance`, the terrain meshes drawn a second time with the pack's `shadow` programs, and
+   `shadowtex0`/`shadowtex1` bound as samplers. Then `shadowModelView` and `shadowProjection` follow.
+   It does not wait on item 2: a compiled shader module is cached under its defines as well as its
+   identifier, so one substituted source can carry both the pack's `gbuffers_terrain` and its `shadow`
+   behind `#ifdef` and a pipeline Kernel builds selects between them with one flag.
    `docs/SHADER_WORLD_STAGE.md` records the route, which needs no shipped GLSL.
-2. **Kernel-owned pipelines.** Also lift the single-colour-output limit that source substitution works
-   within, which is what the format's `gbuffers` model actually assumes.
+2. **Kernel-owned pipelines.** Lift the single-colour-output limit that source substitution works
+   within, which is what the format's `gbuffers` model actually assumes. Independent of item 1.
 3. **Textures.** The block atlas, lightmap and LabPBR atlases, which unlock `mc_midTexCoord` and
    `at_tangent`.
 4. **The remaining uniforms and the refused properties.**

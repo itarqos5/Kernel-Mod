@@ -31,6 +31,11 @@ class ShaderTextureBindingsTest {
             "customTexture.cameraPosition=a.png", "customTexture.previousCameraPosition=a.png", "customTexture.eyeAltitude=a.png",
             "customTexture.cameraPositionInt=a.png", "customTexture.previousCameraPositionInt=a.png",
             "customTexture.cameraPositionFract=a.png", "customTexture.previousCameraPositionFract=a.png",
+            "customTexture.sunPosition=a.png", "customTexture.moonPosition=a.png", "customTexture.shadowLightPosition=a.png",
+            "customTexture.upPosition=a.png", "customTexture.sunAngle=a.png", "customTexture.shadowAngle=a.png",
+            "customTexture.isEyeInWater=a.png", "customTexture.blindness=a.png", "customTexture.darknessFactor=a.png",
+            "customTexture.nightVision=a.png", "customTexture.screenBrightness=a.png", "customTexture.eyeBrightness=a.png",
+            "customTexture.skyColor=a.png",
             "customTexture.colortex0=a.png", "customTexture.noise=a.raw TEXTURE_3D R8 8 8 8 RED UNSIGNED_BYTE",
             "texture.deferred.colortex0=a.png", "texture.composite.colortex0=minecraft:textures/block/stone.png",
             "texture.composite.colortex0=C:/secret.png", "#if FLAG\ncustomTexture.name=a.png\n#endif", "texture.composite.colortex16=a.png"}) {

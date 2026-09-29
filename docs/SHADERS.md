@@ -212,8 +212,10 @@ else, and these names cannot be replaced by custom PNG sampler bindings.
 `eyeBrightnessSmooth`, `wetness` and `centerDepthSmooth` are **not** supplied. The first two are smoothed
 by half-lives the pack declares, and the third needs a depth readback; supplying an unsmoothed value
 under a smoothed name would be an approximation rather than the input the pack asked for.
-`fogColor`, `fogStart`, `fogEnd` and `fogDensity` are also absent: the fog renderer is restructured
-several times across the supported range, and reading it needs its own frame capture.
+`fogColor`, `fogStart`, `fogEnd` and `fogDensity` are also absent. The distances are the harder half:
+from 1.21.6 the game keeps two overlapping fogs, an environmental pair and a render-distance pair, where
+the format names one `fogStart` and one `fogEnd`. Collapsing two pairs into one would be a guess about
+which the pack meant, so Kernel supplies neither rather than the wrong one.
 
 ### Color formats and history
 
