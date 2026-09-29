@@ -142,6 +142,7 @@ public final class GuiProbe {
                     throw new AssertionError("Save failed to persist the settings or return to its parent");
                 }
                 verifyVideoApply(minecraft, parent);
+                verifyVideoRedirect(minecraft, parent);
                 verifyRendererSetting(minecraft, parent, RendererFeature.FRUSTUM);
                 if (KernelRendererSettings.supported(RendererFeature.SECTION_BUFFERS))
                     verifyRendererSetting(minecraft, parent, RendererFeature.SECTION_BUFFERS);
@@ -210,6 +211,34 @@ public final class GuiProbe {
         } finally {
             minecraft.options.renderDistance().set(original);
         }
+    }
+
+    /**
+     * Checks that Video Settings lands on Kernel, and that Minecraft's own page is still reachable.
+     *
+     * <p>The native page is opened directly rather than through the Options screen's own button, so the
+     * check is about the redirect itself and not about where that screen happens to lay its buttons out.
+     */
+    private static void verifyVideoRedirect(Minecraft minecraft, Screen parent) {
+        show(minecraft, new net.minecraft.client.gui.screens.options.VideoSettingsScreen(parent, minecraft, minecraft.options));
+        if (!(screen(minecraft) instanceof KernelSettingsScreen)) throw new AssertionError("Video Settings did not open Kernel's page");
+        click(find(screen(minecraft), "kernel.video.tab.other"));
+        String label = KernelTranslations.text("kernel.video.native.open").getString();
+        Button open = null;
+        for (int step = 0; step < 64 && open == null; step++) {
+            open = screen(minecraft).children().stream().filter(Button.class::isInstance).map(Button.class::cast)
+                .filter(button -> button.getMessage().getString().equals(label)).findFirst().orElse(null);
+            if (open == null && (!(screen(minecraft) instanceof KernelSettingsScreen list) || !list.scrollBy(1))) break;
+        }
+        if (open == null) throw new AssertionError("Kernel no longer offers Minecraft's own video page");
+        click(open);
+        if (!(screen(minecraft) instanceof net.minecraft.client.gui.screens.options.VideoSettingsScreen))
+            throw new AssertionError("Kernel did not open Minecraft's own video page");
+        // The permission is one opening only, or the redirect would stay off after a single visit.
+        show(minecraft, new net.minecraft.client.gui.screens.options.VideoSettingsScreen(parent, minecraft, minecraft.options));
+        if (!(screen(minecraft) instanceof KernelSettingsScreen))
+            throw new AssertionError("Minecraft's video page opened again without being asked for");
+        show(minecraft, parent);
     }
 
     private static dev.kernel.fabric.config.KernelSlider findSlider(Minecraft minecraft, String label) {

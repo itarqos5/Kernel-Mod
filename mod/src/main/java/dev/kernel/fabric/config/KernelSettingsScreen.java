@@ -55,6 +55,24 @@ public final class KernelSettingsScreen extends Screen {
     private VideoSetting<CloudStatus> clouds;
     private VideoSetting<ParticleStatus> particles;
 
+    /**
+     * One-shot permission for Minecraft's own video screen to open instead of being replaced.
+     *
+     * <p>Video Settings goes straight to Kernel, so the only way back to the game's own page is the row
+     * that offers it. That row sets this, and the redirect consumes it, which keeps the page reachable
+     * without leaving a mode the player can get stuck in.
+     */
+    private static volatile boolean nativeVideoRequested;
+
+    public static void requestNativeVideoSettings() { nativeVideoRequested = true; }
+
+    /** True exactly once per request, so only a deliberately opened native screen survives. */
+    public static boolean claimNativeVideoRequest() {
+        boolean requested = nativeVideoRequested;
+        nativeVideoRequested = false;
+        return requested;
+    }
+
     public KernelSettingsScreen(Screen parent) { super(KernelTranslations.text("kernel.settings.title")); this.parent = parent; }
 
     private void createSettings() {
@@ -155,6 +173,8 @@ public final class KernelSettingsScreen extends Screen {
             if (!setting.tab.equals(tab)) continue;
             sections.computeIfAbsent(setting.section, ignored -> new ArrayList<>()).add(settingEntry(setting));
         }
+        // Closes the Interface group, because it is the way out of Kernel rather than a setting.
+        if (tab.equals("other")) sections.computeIfAbsent("interface", ignored -> new ArrayList<>()).add(nativeVideoEntry());
         for (var section : sections.entrySet()) {
             entries.add(heading(section.getKey()));
             entries.addAll(section.getValue());
@@ -354,6 +374,26 @@ public final class KernelSettingsScreen extends Screen {
             }, () -> pendingFrameSync, false).visual(state));
         button.setTooltip(Tooltip.create(KernelTranslations.text("kernel.frame.description")));
     }
+    private Entry nativeVideoEntry() {
+        return new Entry(KernelTranslations.text("kernel.video.native"), KernelTranslations.text("kernel.video.native.description"),
+            (x, y, width) -> addNativeVideo(x, y, width));
+    }
+    private void addNativeVideo(int x, int y, int width) {
+        Component text = KernelTranslations.text("kernel.video.native");
+        label(text, x, y, width - 80);
+        var button = addRenderableWidget(new KernelButton(x + width - 64, y + 1, 64, 22,
+            KernelTranslations.text("kernel.video.native.open"), pressed -> {
+                requestNativeVideoSettings();
+                var native_ = new net.minecraft.client.gui.screens.options.VideoSettingsScreen(this, minecraft, minecraft.options);
+                //? if >=26.2 {
+                minecraft.gui.setScreen(native_);
+                //? } else {
+                /*minecraft.setScreen(native_);
+                *///? }
+            }));
+        button.setTooltip(Tooltip.create(KernelTranslations.text("kernel.video.native.description")));
+    }
+
 
     private Entry featureEntry(RendererFeature feature) {
         return new Entry(KernelTranslations.text(feature.translationKey()), KernelTranslations.text(feature.translationKey() + ".description"),
