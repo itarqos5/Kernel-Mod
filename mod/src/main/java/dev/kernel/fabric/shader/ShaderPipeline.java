@@ -31,7 +31,7 @@ public final class ShaderPipeline implements AutoCloseable {
     private int vao, sampler, mipmapSampler, frame, textureUnits, outputSlots;
     private final long started = System.nanoTime();
     private long lastFrame = started;
-    private boolean closed, usesWorldData, celestialInputs;
+    private boolean closed, usesWorldData, celestialInputs, usesViewerData;
 
     public ShaderPipeline(PreparedShaderPack pack) throws IOException {
         try (var state = new ShaderGlState()) {
@@ -54,6 +54,7 @@ public final class ShaderPipeline implements AutoCloseable {
                     required |= program.written;
                     mipmaps |= program.mipmaps;
                     for (var uniform : program.uniforms) if (uniform.buffer < 0 && ShaderUniforms.isWorldInput(uniform.name)) usesWorldData = true;
+                    for (var uniform : program.uniforms) if (uniform.buffer < 0 && ShaderUniforms.viewerType(uniform.name) >= 0) usesViewerData = true;
                     for (var uniform : program.uniforms) if (uniform.buffer < 0) {
                         projectionInputs |= ShaderUniforms.projectionInput(uniform.name);
                         viewInputs |= ShaderUniforms.modelViewInput(uniform.name);
@@ -91,6 +92,7 @@ public final class ShaderPipeline implements AutoCloseable {
         }
     }
     public boolean needsWorldData() { return usesWorldData; }
+    public boolean needsViewerData() { return usesViewerData; }
     public boolean needsDepth() { return depth != null; }
     public boolean needsProjection() { return projection != null; }
     public boolean needsView() { return camera != null; }
@@ -118,12 +120,16 @@ public final class ShaderPipeline implements AutoCloseable {
         depth.capture(textures, width, height, reverse, hand);
     }
     public void render(int sourceTexture, int width, int height) throws IOException {
-        render(sourceTexture, width, height, null);
+        render(sourceTexture, width, height, null, null);
     }
     public void render(int sourceTexture, int width, int height, ShaderWorldData world) throws IOException {
+        render(sourceTexture, width, height, world, null);
+    }
+    public void render(int sourceTexture, int width, int height, ShaderWorldData world, ShaderViewerData viewer) throws IOException {
         if (closed) throw new IOException("Shader pipeline is closed");
         if (sourceTexture <= 0 || width <= 0 || height <= 0) return;
         if (usesWorldData && world == null) throw new IOException("This shader requires current world inputs");
+        if (usesViewerData && viewer == null) throw new IOException("This shader requires current viewer inputs");
         if (camera != null && camera.prepare(width, height)) {
             targets.resetHistory();
             if (projection != null) projection.discardHistory();
@@ -158,11 +164,14 @@ public final class ShaderPipeline implements AutoCloseable {
                         GL33C.glUniformMatrix4fv(uniform.location, false,
                             (ShaderUniforms.projectionInput(uniform.name) != 0 ? projection : modelView).values(uniform.name));
                     else if (uniform.type == GL33C.GL_FLOAT_VEC3) GL33C.glUniform3fv(uniform.location,
-                        ShaderUniforms.celestialType(uniform.name) >= 0 ? celestial.vector(uniform.name) : camera.vector(uniform.name));
+                        ShaderUniforms.viewerType(uniform.name) >= 0 ? viewer.vector(uniform.name)
+                        : ShaderUniforms.celestialType(uniform.name) >= 0 ? celestial.vector(uniform.name) : camera.vector(uniform.name));
                     else if (uniform.type == GL33C.GL_INT_VEC3) GL33C.glUniform3iv(uniform.location, camera.integer(uniform.name));
+                    else if (uniform.type == GL33C.GL_INT_VEC2) GL33C.glUniform2iv(uniform.location, viewer.integerVector(uniform.name));
                     else if (uniform.type == GL33C.GL_INT) GL33C.glUniform1i(uniform.location, switch (uniform.name) {
                         case "frameCounter" -> frame; case "worldTime" -> world.worldTime(); case "worldDay" -> world.worldDay();
-                        case "moonPhase" -> world.moonPhase(); default -> throw new AssertionError(uniform.name);
+                        case "moonPhase" -> world.moonPhase(); case "isEyeInWater" -> viewer.integer(uniform.name);
+                        default -> throw new AssertionError(uniform.name);
                     });
                     else GL33C.glUniform1f(uniform.location, switch (uniform.name) {
                         case "viewWidth" -> width; case "viewHeight" -> height; case "aspectRatio" -> (float) width / height;
@@ -170,6 +179,7 @@ public final class ShaderPipeline implements AutoCloseable {
                         case "rainStrength" -> world.rainStrength(); case "thunderStrength" -> world.thunderStrength();
                         case "eyeAltitude" -> camera.altitude();
                         case "sunAngle", "shadowAngle" -> celestial.angle(uniform.name);
+                        case "blindness", "darknessFactor", "nightVision", "screenBrightness" -> viewer.scalar(uniform.name);
                         default -> throw new AssertionError(uniform.name);
                     });
                 }
@@ -239,6 +249,7 @@ public final class ShaderPipeline implements AutoCloseable {
                         : ShaderUniforms.projectionInput(name) != 0 || ShaderUniforms.modelViewInput(name) != 0 ? GL33C.GL_FLOAT_MAT4
                         : ShaderUniforms.cameraType(name) >= 0 ? ShaderUniforms.cameraType(name)
                         : ShaderUniforms.celestialType(name) >= 0 ? ShaderUniforms.celestialType(name)
+                        : ShaderUniforms.viewerType(name) >= 0 ? ShaderUniforms.viewerType(name)
                         : ShaderUniforms.scalarType(name);
                     if (size.get(0) != 1 || type.get(0) != expectedType) {
                         throw new IOException(pass.name() + " requires unsupported uniform: " + name);

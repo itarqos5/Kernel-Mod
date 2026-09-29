@@ -210,6 +210,14 @@ Implemented:
   from sunrise; `shadowAngle` restarts when the moon takes over. `shadowModelView` and
   `shadowProjection` are not supplied, because they describe a shadow map Kernel does not render.
 
+- Shader viewer inputs: `isEyeInWater`, `blindness`, `darknessFactor`, `nightVision`,
+  `screenBrightness`, `eyeBrightness` and `skyColor`, each taken from the rule Minecraft applies for
+  itself rather than a convention Kernel invented. `nightVision` reproduces the light texture's own rule
+  including conduit water vision, and the fluid is resolved by the name of the game's fog type rather
+  than its ordinal, because 1.21.11 added a member in the middle of that enum. They share the frame's
+  snapshot, are refused when declared with the wrong type, and cannot be overridden by custom PNG names.
+  `eyeBrightnessSmooth`, `wetness`, `centerDepthSmooth` and the fog family remain absent.
+
 - Shader world-time/day, native moon phase and interpolated rain/thunder uniforms use one immutable
   snapshot per world render, captured only for programs that request them. Legacy clock arithmetic is
   retained across 26.x's clock API; camera environment attributes supply moon phases on newer targets.

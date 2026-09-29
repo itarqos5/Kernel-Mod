@@ -184,6 +184,37 @@ history or a new origin. Nonfinite cameras or coordinates outside the signed 32-
 that frame native and resume after a valid capture; this range includes Minecraft's normal world border.
 Active uniform types are checked, arrays are rejected, and custom PNG bindings cannot replace these names.
 
+### Viewer inputs
+
+What the world is doing to the player, for the frame being post-processed. Every one follows the rule
+Minecraft applies for itself rather than a convention Kernel invented, so a version that changes the rule
+changes these with it.
+
+| Uniform | Type | Kernel value |
+| --- | --- | --- |
+| `isEyeInWater` | `int` | 0 in air, 1 in water, 2 in lava, 3 in powder snow |
+| `blindness` | `float` | The blend the game fades the blindness effect in and out with |
+| `darknessFactor` | `float` | The same blend for the darkness effect |
+| `nightVision` | `float` | The game's own light-texture rule: the effect's scale, else conduit water vision, else zero |
+| `screenBrightness` | `float` | The brightness setting, 0 to 1 |
+| `eyeBrightness` | `ivec2` | Block and sky light where the camera stands, on the format's 0 to 240 scale |
+| `skyColor` | `vec3` | The sky colour at the camera, from the level through 1.21.10 and from the camera's environment attributes on newer targets |
+
+`isEyeInWater` is resolved by the name of Minecraft's fog type rather than by its ordinal, because 1.21.11
+added a member in the middle of that enum. The format names three fluids, so anything the game grows
+beyond them reads as air.
+
+One immutable snapshot is captured per world render and shared by every pass, so two passes cannot
+disagree about whether the player is underwater. A pack naming none of these costs no capture at all.
+Declaring one with the wrong type is refused rather than fed a value the program would read as something
+else, and these names cannot be replaced by custom PNG sampler bindings.
+
+`eyeBrightnessSmooth`, `wetness` and `centerDepthSmooth` are **not** supplied. The first two are smoothed
+by half-lives the pack declares, and the third needs a depth readback; supplying an unsmoothed value
+under a smoothed name would be an approximation rather than the input the pack asked for.
+`fogColor`, `fogStart`, `fogEnd` and `fogDensity` are also absent: the fog renderer is restructured
+several times across the supported range, and reading it needs its own frame capture.
+
 ### Color formats and history
 
 Supported formats are `R8`, `RG8`, `RGBA8`, `R16`, `RG16`, `RGBA16`, `R16F`, `RG16F`, `RGBA16F`,

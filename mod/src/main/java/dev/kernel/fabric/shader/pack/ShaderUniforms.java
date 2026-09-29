@@ -42,6 +42,21 @@ public final class ShaderUniforms {
     }
     public static int scalarType(String name) { return SCALARS.getOrDefault(name, -1); }
     /**
+     * The type of a viewer input, or -1 when the name is not one.
+     *
+     * <p>These describe what the world is doing to the player: the fluid the eye is in, the effects
+     * dimming or lifting the screen, the brightness setting and the light where the camera stands.
+     */
+    public static int viewerType(String name) {
+        return switch (name) {
+            case "isEyeInWater" -> GL33C.GL_INT;
+            case "blindness", "darknessFactor", "nightVision", "screenBrightness" -> GL33C.GL_FLOAT;
+            case "eyeBrightness" -> GL33C.GL_INT_VEC2;
+            case "skyColor" -> GL33C.GL_FLOAT_VEC3;
+            default -> -1;
+        };
+    }
+    /**
      * The type of a celestial input, or -1 when the name is not one.
      *
      * <p>These describe where the sun and moon are, in the eye space a program's own normals are in, so

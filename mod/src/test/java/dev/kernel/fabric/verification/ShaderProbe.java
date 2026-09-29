@@ -55,6 +55,7 @@ public final class ShaderProbe {
             ShaderProjectionGlChecks.run();
             ShaderCameraGlChecks.run();
             dev.kernel.fabric.shader.ShaderWorldGlChecks.run();
+            dev.kernel.fabric.shader.ShaderViewerGlChecks.run();
             dev.kernel.fabric.shader.ShaderTextureGlChecks.run();
             ShaderGlChecks.run();
             ShaderMultipleTargetsChecks.run();

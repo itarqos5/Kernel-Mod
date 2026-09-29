@@ -320,9 +320,10 @@ public final class KernelShaders {
             /*var target = minecraft.getMainRenderTarget();
             *///? }
             ShaderWorldData world = pipeline.needsWorldData() ? ShaderWorldCapture.capture(minecraft, deltaTracker) : null;
+            ShaderViewerData viewer = pipeline.needsViewerData() ? ShaderWorldCapture.captureViewer(minecraft, deltaTracker) : null;
             if (pipeline.needsDepth() && handDepth)
                 pipeline.captureDepth(new int[]{depthTexture(target)}, target.width, target.height, reverseDepth(), true);
-            pipeline.render(colorTexture(minecraft), target.width, target.height, world);
+            pipeline.render(colorTexture(minecraft), target.width, target.height, world, viewer);
         } catch (IOException | RuntimeException failure) { renderingFailed(failure); }
     }
     /**

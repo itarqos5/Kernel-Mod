@@ -171,11 +171,18 @@ supplied, derived from Minecraft's own sky transform rather than from a conventi
 rotated into the space a program's own normals are in. A program naming one pulls in the world model-view
 and the frame's world inputs even when it names neither itself.
 
+The viewer family is supplied too: `isEyeInWater`, `blindness`, `darknessFactor`, `nightVision`,
+`screenBrightness`, `eyeBrightness` and `skyColor`. Each follows the rule the game applies for itself —
+`nightVision` is the light texture's own rule, conduit power included, and `isEyeInWater` is resolved by
+the name of the game's fog type rather than by its ordinal, because 1.21.11 added a member in the middle
+of that enum. They share one snapshot per world render with the world and celestial inputs.
+
 Still missing, and load-bearing for real packs: `shadowModelView` and `shadowProjection` with their
 inverses, which wait on the shadow pass because they describe a shadow map that is not rendered yet,
-`skyColor`, `fogColor`, `fogStart`, `fogEnd`, `fogDensity`, `isEyeInWater`, `blindness`, `nightVision`,
-`darknessFactor`, `screenBrightness`, `eyeBrightness` and its smoothed form, `centerDepthSmooth`,
-`atlasSize`, `entityId`, `entityColor`, `heldItemId`, `heldBlockLightValue`, `wetness` and `hideGUI`.
+`fogColor`, `fogStart`, `fogEnd` and `fogDensity`, which wait on a frame capture because the fog renderer
+is restructured several times across the supported range, `eyeBrightnessSmooth` and `wetness`, which wait
+on the half-lives a pack declares, and `centerDepthSmooth`, `atlasSize`, `entityId`, `entityColor`,
+`heldItemId`, `heldBlockLightValue` and `hideGUI`.
 
 ### 7. The refused properties
 

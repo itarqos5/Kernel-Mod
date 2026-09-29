@@ -202,6 +202,11 @@ Implemented:
   pack's programs work in. The shadow matrices are not supplied yet, because they describe a shadow map
   Kernel does not render.
 
+- Shader viewer inputs: `isEyeInWater`, `blindness`, `darknessFactor`, `nightVision`,
+  `screenBrightness`, `eyeBrightness` and `skyColor`, each following the rule Minecraft applies for
+  itself, including the light texture's own night-vision rule. Smoothed inputs and the fog family are
+  still absent. See [shader inputs](docs/SHADERS.md).
+
 - Shader world-time/day, native moon phase and interpolated rain/thunder uniforms share one snapshot
   across a frame's passes, captured only for packs that request those inputs. See [shader inputs](docs/SHADERS.md).
 

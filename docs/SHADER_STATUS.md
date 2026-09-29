@@ -19,7 +19,7 @@ It does not render shadows. No popular pack works yet, because every popular pac
 | Identity maps | `block.properties`, `entity.properties`, `item.properties`, resolved against the live registries |
 | Pack textures | Pack-local PNG inputs, named samplers, noise textures, filtering and wrapping metadata |
 | Installation | Modrinth browsing and install, ZIP drag and drop, verified downloads, persistent selection, recovery from a failed pack |
-| Uniforms | Roughly thirty, including the projection, model-view and camera families, world time and weather, `depthtex0`, and the sun and moon positions |
+| Uniforms | Roughly forty, including the projection, model-view and camera families, world time and weather, `depthtex0`, the sun and moon positions, and the viewer family (`isEyeInWater`, `blindness`, `darknessFactor`, `nightVision`, `screenBrightness`, `eyeBrightness`, `skyColor`) |
 
 A pack shipping `gbuffers_*`, `shadow*` or `prepare*` is **refused by name** unless the world stage is
 opted into. That is deliberate: accepting a pack and drawing it wrongly is worse than declining it with
@@ -54,7 +54,7 @@ a real pack would still be missing.
 | More than one colour output | A substituted program inherits Minecraft's pipeline, which declares one target. Lifting this needs Kernel-owned pipelines. |
 | `prepare` and `shadowcomp` stages | Refused by name. |
 | `blend.*`, `alphaTest.*`, `flip.*`, `size.buffer.*` | Properties that change how a pass draws; refused rather than honoured approximately. |
-| Remaining uniforms | `isEyeInWater`, `blindness`, `nightVision`, `eyeBrightness`, `centerDepthSmooth`, `atlasSize`, `entityId`, `entityColor`, `heldItemId`, `wetness`, `hideGUI` and others. |
+| Remaining uniforms | `fogColor`, `fogStart`, `fogEnd`, `fogDensity`, `eyeBrightnessSmooth`, `centerDepthSmooth`, `atlasSize`, `entityId`, `entityColor`, `heldItemId`, `wetness` and `hideGUI` among others. The smoothed ones wait on the half-lives a pack declares; the fog family waits on a frame capture, because the fog renderer is restructured several times across the supported range. |
 | 1.21.4 | Resolves core shaders through a different program system; no world stage at all. |
 | 1.21.11, 26.1.2, 26.2 | Declare their shared matrices in a `std140` uniform block, which a prelude of plain declarations cannot reproduce. World programs are refused there rather than compiled against names they never declare. |
 | Vulkan on 26.2 | The Shaders page is closed. The Iris format has no Vulkan form, so nothing could be listed there even in principle. |
