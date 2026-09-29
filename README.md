@@ -208,6 +208,19 @@ Implemented:
   launch. A per-frame heartbeat distinguishes hooks that never applied from a failure during the launch
   and from a backend that cannot host packs. `-Dkernel.shaders=false` turns them off deliberately.
 
+- A shadow pass on 1.21.5: the world is drawn a second time from the shadow light into a depth map with
+  the pack's own `shadow` program, and `shadowtex0`, `shadowtex1`, `shadowModelView`, `shadowProjection`
+  and both inverses are supplied to the pack's fullscreen passes. It reuses Minecraft's own terrain
+  draw, swapping only the pipeline and the render target beneath that one method, so there is no second
+  copy of section iteration. The shadow program reaches the GPU through the existing substitution hook:
+  a compiled module is cached per set of defines and the defines are injected after the source is
+  handed over, so one source carries the camera program and the shadow program behind `#ifdef` and the
+  shadow pipeline adds the flag that selects it. No GLSL is shipped. `shadowMapResolution` and
+  `shadowDistance` are read from the pack and bounded. A pack reading the map without shipping a shadow
+  program, or on a version that cannot render one, is refused rather than handed an empty texture.
+  1.21.6 onward submits terrain through `ChunkSectionsToRender` and needs its own adapter.
+  Verified by GPU probe on 1.21.5.
+
 - Shader viewer inputs: `isEyeInWater`, `blindness`, `darknessFactor`, `nightVision`,
   `screenBrightness`, `eyeBrightness` and `skyColor`, each following the rule Minecraft applies for
   itself, including the light texture's own night-vision rule. Smoothed inputs and the fog family are

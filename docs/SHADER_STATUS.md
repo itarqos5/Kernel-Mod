@@ -7,8 +7,10 @@ and "runs the shader packs people actually install" is wide, and it is easy to w
 obscures it.
 
 **The short version.** Kernel loads Iris-format packs, runs their fullscreen passes, and — behind an
-opt-in property, on part of the version range — draws world geometry with their own `gbuffers` programs.
-It does not render shadows. No popular pack works yet, because every popular pack needs shadows.
+opt-in property, on part of the version range — draws world geometry with their own `gbuffers` programs
+and renders a shadow map with their own `shadow` program. Shadows exist on 1.21.5 only, and the
+remaining gaps are the extended attributes' partner atlases and more than one colour output, so no
+popular pack works end to end yet.
 
 ## Works by default
 
@@ -21,8 +23,8 @@ It does not render shadows. No popular pack works yet, because every popular pac
 | Installation | Modrinth browsing and install, ZIP drag and drop, verified downloads, persistent selection, recovery from a failed pack |
 | Uniforms | Roughly forty, including the projection, model-view and camera families, world time and weather, `depthtex0`, the sun and moon positions, and the viewer family (`isEyeInWater`, `blindness`, `darknessFactor`, `nightVision`, `screenBrightness`, `eyeBrightness`, `skyColor`) |
 
-A pack shipping `gbuffers_*`, `shadow*` or `prepare*` is **refused by name** unless the world stage is
-opted into. That is deliberate: accepting a pack and drawing it wrongly is worse than declining it with
+A pack shipping `gbuffers_*`, `shadow` or `prepare*` is **refused by name** unless the world stage is
+opted into. Numbered shadow passes and `shadowcomp` are refused either way. That is deliberate: accepting a pack and drawing it wrongly is worse than declining it with
 a reason.
 
 ## Works behind `-Dkernel.worldShaders=true`
@@ -31,6 +33,11 @@ World geometry drawn by the pack's own `gbuffers` programs, on **1.21.5 through 
 
 - Each Minecraft core shader is mapped to the Iris program that replaces it, resolving the Iris fallback
   chain, and the translated program is returned where the game would have compiled its own.
+- **The shadow pass, on 1.21.5.** The world is drawn a second time from the shadow light into a depth
+  map, with the pack's own `shadow` program, and `shadowtex0`, `shadowtex1`, `shadowModelView`,
+  `shadowProjection` and both inverses are supplied to the pack's fullscreen passes. It reuses
+  Minecraft's own terrain draw, swapping the pipeline and the render target beneath it, so there is no
+  second copy of section iteration. `shadowMapResolution` and `shadowDistance` are read from the pack.
 - The environment a substituted program compiles in is read out of the Minecraft program being replaced,
   not assumed per version.
 - Chunk meshing writes `mc_Entity` and `at_midBlock`, so a program can tell which block a vertex belongs
@@ -47,8 +54,9 @@ a real pack would still be missing.
 
 | Missing | Why it matters |
 | --- | --- |
-| **The shadow pass** | A second full world render from the light direction into `shadowtex0`/`shadowtex1`. This is the single biggest gap and the one every popular pack depends on. |
-| `shadowModelView`, `shadowProjection` | Describe a shadow map that is not rendered. Supplying them would light a pack from a texture that does not exist. |
+| **The shadow pass beyond 1.21.5** | It reuses Minecraft's own terrain draw, which is absent from 1.21.6 onward; those targets submit terrain through `ChunkSectionsToRender` and need their own adapter. |
+| Shadow lookup inside `gbuffers` | The shadow samplers are bound for Kernel's own passes. A substituted world program inherits Minecraft's pipeline, which does not declare them. |
+| `shadowHardwareFiltering` | The map is sampled with plain nearest filtering; comparison filtering is not set up. |
 | `mc_midTexCoord`, `at_tangent` | Drive normal and parallax mapping against LabPBR atlases Kernel does not build. |
 | LabPBR normal and specular atlases | The partner of the two attributes above. |
 | More than one colour output | A substituted program inherits Minecraft's pipeline, which declares one target. Lifting this needs Kernel-owned pipelines. |
@@ -62,19 +70,17 @@ a real pack would still be missing.
 ### What this means for a real pack
 
 BSL, Complementary and their like need shadows **and** the extended attributes **and** multiple colour
-outputs. All three. So the answer to "does a popular shader pack work in Kernel" is **no**, and stays no
-until the shadow pass and Kernel-owned pipelines land. What exists is the path to that, with the parts
-built so far verified rather than assumed.
+outputs. Shadows now exist on 1.21.5, so one of the three is no longer missing there. The answer to
+"does a popular shader pack work in Kernel" is still **no**, and stays no until the LabPBR atlases and
+Kernel-owned pipelines land and the shadow pass reaches the rest of the version range. What exists is
+the path to that, with the parts built so far verified rather than assumed.
 
 ## Order of the remaining work
 
-1. **The shadow pass.** Shadow framebuffer at `shadowMapResolution`, light-space matrices honouring
-   `shadowDistance`, the terrain meshes drawn a second time with the pack's `shadow` programs, and
-   `shadowtex0`/`shadowtex1` bound as samplers. Then `shadowModelView` and `shadowProjection` follow.
-   It does not wait on item 2: a compiled shader module is cached under its defines as well as its
-   identifier, so one substituted source can carry both the pack's `gbuffers_terrain` and its `shadow`
-   behind `#ifdef` and a pipeline Kernel builds selects between them with one flag.
-   `docs/SHADER_WORLD_STAGE.md` records the route, which needs no shipped GLSL.
+1. **The shadow pass on 1.21.6 and later**, where the terrain is submitted through
+   `ChunkSectionsToRender` rather than the draw the 1.21.5 pass reuses. The mechanism that selects the
+   shadow program is version independent and already works; what each target needs is its own way to
+   draw the sections a second time.
 2. **Kernel-owned pipelines.** Lift the single-colour-output limit that source substitution works
    within, which is what the format's `gbuffers` model actually assumes. Independent of item 1.
 3. **Textures.** The block atlas, lightmap and LabPBR atlases, which unlock `mc_midTexCoord` and
