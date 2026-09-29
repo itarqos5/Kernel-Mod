@@ -22,6 +22,8 @@ public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBuffe
     private static final Pattern REFUSED_STAGE = Pattern.compile("(?:world-?[0-9]+/)?(?:shadow(?:comp)?[0-9]*|prepare[0-9]*)\\.(?:vsh|fsh|gsh|csh|tcs|tes)");
     /** World programs Kernel can substitute for a Minecraft core shader. */
     private static final Pattern GBUFFERS = Pattern.compile("(?:world-?[0-9]+/)?gbuffers_[A-Za-z_0-9]+\\.(?:vsh|fsh)");
+    /** The one shadow stage Kernel renders. Numbered shadow passes and shadowcomp stay refused. */
+    private static final Pattern SHADOW = Pattern.compile("(?:world-?[0-9]+/)?shadow\\.(?:vsh|fsh)");
     public static final int MAX_PASSES = 32;
     /** Opt-in for the incomplete world stage; see docs/SHADER_WORLD_STAGE.md. */
     public static final String WORLD_STAGE_PROPERTY = "kernel.worldShaders";
@@ -115,13 +117,17 @@ public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBuffe
             // because accepting one and drawing it wrongly is worse than declining it with a reason.
             boolean worldStage = Boolean.getBoolean(WORLD_STAGE_PROPERTY);
             var refused = new ArrayList<>(worldStages(archive));
+            // The shadow program is rendered once the world stage is on, so it stops being a refusal.
+            // Numbered shadow passes and shadowcomp are still stages Kernel does not run.
+            if (worldStage) refused.removeIf(file -> SHADOW.matcher(file).matches());
             if (!worldStage) for (String file : archive.files()) if (GBUFFERS.matcher(file).matches()) refused.add(file);
             if (!refused.isEmpty()) throw new IOException("This pack needs rendering stages Kernel does not run: "
                 + String.join(", ", refused.subList(0, Math.min(3, refused.size())))
                 + (refused.size() > 3 ? " and " + (refused.size() - 3) + " more" : ""));
             for (String file : archive.files()) {
                 if (file.matches(".*\\.(?:vsh|fsh|gsh|csh|tcs|tes)")
-                    && !PASS.matcher(file).matches() && !GBUFFERS.matcher(file).matches()) {
+                    && !PASS.matcher(file).matches() && !GBUFFERS.matcher(file).matches()
+                    && !(worldStage && SHADOW.matcher(file).matches())) {
                     throw new IOException("This pack requires an unsupported rendering stage: " + file);
                 }
             }

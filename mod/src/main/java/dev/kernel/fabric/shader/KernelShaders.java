@@ -206,6 +206,7 @@ public final class KernelShaders {
             if (KernelWorldShaders.active()) {
                 boolean extended = !KernelWorldShaders.demanded().isEmpty();
                 KernelWorldShaders.adopt(null);
+                KernelShadowPass.adopt(0, 0.0f, false);
                 KernelBlockIdentities.adopt(null);
                 clearPipelineCache();
                 if (extended) rebuildSections();
@@ -245,6 +246,8 @@ public final class KernelShaders {
                 // world programs without discarding them would keep drawing with the old ones.
                 var previousAttributes = KernelWorldShaders.demanded();
                 KernelWorldShaders.adopt(request.pack);
+                KernelShadowPass.adopt(KernelWorldShaders.shadowResolution(), KernelWorldShaders.shadowDistance(),
+                    KernelWorldShaders.casts());
                 // Resolve the pack's block identities against the registries now, so the chunk builder
                 // never resolves anything while meshing.
                 KernelBlockIdentities.adopt(request.pack == null ? null : request.pack.identifiers().blocks());

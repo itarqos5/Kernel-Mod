@@ -34,6 +34,8 @@ public final class KernelWorldShaders {
     }
 
     private static final String CORE = "core/";
+    /** The core shaders the shadow pass redraws, whose source therefore carries the shadow program. */
+    private static final java.util.Set<String> SHADOW_CASTS = java.util.Set.of("terrain");
     /** The extended vertex attributes the active pack's world programs declare. */
     private static volatile java.util.Set<dev.kernel.fabric.shader.pack.ShaderWorldAttributes> attributes = java.util.Set.of();
     private static volatile Map<String, PreparedShaderPack.WorldProgram> programs = Map.of();
@@ -41,11 +43,29 @@ public final class KernelWorldShaders {
     private static final Map<String, Decision> DECISIONS = new ConcurrentHashMap<>();
     private static final java.util.concurrent.atomic.AtomicInteger SUBSTITUTED = new java.util.concurrent.atomic.AtomicInteger();
     private static volatile boolean warned;
+    /** True when the active pack ships a shadow program, so the shadow pass has something to draw. */
+    private static volatile boolean casts;
+    /** True once a core shader's source has actually been emitted carrying both programs. */
+    private static volatile boolean combined;
+    private static volatile int shadowResolution = ShaderShadowMatrices.DEFAULT_RESOLUTION;
+    private static volatile float shadowDistance = ShaderShadowMatrices.DEFAULT_DISTANCE;
 
     private KernelWorldShaders() {}
 
     /** True when a pack is active and replaces at least one core shader. */
     public static boolean active() { return !coreShaders.isEmpty(); }
+
+    /** True when the active pack ships a shadow program. */
+    public static boolean casts() { return casts; }
+
+    /** True once a substituted source has actually carried the pack's shadow program alongside its own. */
+    public static boolean shadowCombined() { return combined; }
+
+    /** The shadow map edge the active pack asks for, in pixels. */
+    public static int shadowResolution() { return shadowResolution; }
+
+    /** The shadow distance the active pack asks for, in blocks. */
+    public static float shadowDistance() { return shadowDistance; }
 
     /** The core shaders the active pack replaces, for diagnostics and the settings screen. */
     public static Map<String, String> replaced() { return coreShaders; }
@@ -79,14 +99,24 @@ public final class KernelWorldShaders {
         DECISIONS.clear();
         SUBSTITUTED.set(0);
         warned = false;
+        combined = false;
         if (pack == null || pack.worldPrograms().isEmpty()) {
             programs = Map.of();
             coreShaders = Map.of();
             attributes = java.util.Set.of();
+            casts = false;
+            shadowResolution = ShaderShadowMatrices.DEFAULT_RESOLUTION;
+            shadowDistance = ShaderShadowMatrices.DEFAULT_DISTANCE;
             return;
         }
         programs = pack.worldPrograms();
         coreShaders = ShaderWorldPrograms.resolveAll(pack.worldPrograms().keySet());
+        var shadow = programs.get(ShaderWorldPrograms.SHADOW);
+        casts = shadow != null;
+        // The pack states its own map size and range as ordinary constants in that program's source.
+        String declarations = shadow == null ? "" : shadow.vertex() + "\n" + shadow.fragment();
+        shadowResolution = ShaderShadowMatrices.resolutionIn(declarations);
+        shadowDistance = ShaderShadowMatrices.distanceIn(declarations);
         // Decide what the vertex format has to carry before any section is meshed with it, so a section
         // cannot be built half in one format and half in another.
         var demanded = java.util.EnumSet.noneOf(dev.kernel.fabric.shader.pack.ShaderWorldAttributes.class);
@@ -124,10 +154,25 @@ public final class KernelWorldShaders {
             String vertexSource = vertex ? original : lookup.source(true);
             String fragmentSource = vertex ? lookup.source(false) : original;
             if (vertexSource == null || fragmentSource == null) return Decision.REFUSED;
-            String translatedVertex = ShaderWorldTranslation.translate(program.vertex(),
-                ShaderWorldEnvironment.parse(vertexSource, true), true);
-            String translatedFragment = ShaderWorldTranslation.translate(program.fragment(),
-                ShaderWorldEnvironment.parse(fragmentSource, false), false);
+            var vertexEnvironment = ShaderWorldEnvironment.parse(vertexSource, true);
+            var fragmentEnvironment = ShaderWorldEnvironment.parse(fragmentSource, false);
+            String translatedVertex = ShaderWorldTranslation.translate(program.vertex(), vertexEnvironment, true);
+            String translatedFragment = ShaderWorldTranslation.translate(program.fragment(), fragmentEnvironment, false);
+            // Terrain is what the shadow pass draws, so its source carries the pack's shadow program in
+            // the other branch of a preprocessor flag. A shadow program Kernel cannot translate leaves
+            // the camera source exactly as it was and simply casts nothing.
+            var shadow = SHADOW_CASTS.contains(core) ? programs.get(ShaderWorldPrograms.SHADOW) : null;
+            if (shadow != null) try {
+                translatedVertex = ShaderWorldTranslation.variants(vertexEnvironment, true, KernelShadowPass.DEFINE,
+                    ShaderWorldTranslation.body(shadow.vertex(), vertexEnvironment, true),
+                    ShaderWorldTranslation.body(program.vertex(), vertexEnvironment, true));
+                translatedFragment = ShaderWorldTranslation.variants(fragmentEnvironment, false, KernelShadowPass.DEFINE,
+                    ShaderWorldTranslation.body(shadow.fragment(), fragmentEnvironment, false),
+                    ShaderWorldTranslation.body(program.fragment(), fragmentEnvironment, false));
+                combined = true;
+            } catch (Exception refused) {
+                LoggerFactory.getLogger("Kernel").info("Kernel is not casting shadows from this pack: {}", refused.getMessage());
+            }
             if (Boolean.getBoolean("kernel.worldShaders.dump")) try {
                 var directory = java.nio.file.Path.of("kernel-world-shader-dump");
                 java.nio.file.Files.createDirectories(directory);

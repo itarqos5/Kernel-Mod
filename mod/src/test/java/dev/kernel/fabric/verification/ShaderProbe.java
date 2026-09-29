@@ -159,6 +159,18 @@ public final class ShaderProbe {
                         gl_FragData[0] = named && inside ? vec4(0.0, 1.0, 0.0, 1.0) : vec4(1.0, 0.0, 0.0, 1.0);
                     }
                     """,
+                // The shadow program only has to write depth. Its presence is what makes the pack cast,
+                // and the combined source is what proves it is this program and not the camera one.
+                "shaders/shadow.vsh", """
+                    #version 120
+                    const int shadowMapResolution = 512;
+                    const float shadowDistance = 96.0;
+                    void main() { gl_Position = ftransform(); }
+                    """,
+                "shaders/shadow.fsh", """
+                    #version 120
+                    void main() { gl_FragData[0] = vec4(1.0); }
+                    """,
                 "shaders/final.fsh", """
                     #version 120
                     uniform sampler2D colortex0;
@@ -198,6 +210,7 @@ public final class ShaderProbe {
             // require most of the frame rather than all of it.
             if (packDrawn(worldStageResult) * 5 < worldStageResult.length * 3)
                 throw new AssertionError("Terrain was not drawn by the pack's own program: " + describe(worldStageResult));
+            verifyShadowMap();
             Files.deleteIfExists(KernelShaders.directory().resolve("world-stage-probe.zip"));
             KernelShaders.disable(); next(9); return;
         }
@@ -296,6 +309,60 @@ public final class ShaderProbe {
      * reading the default framebuffer from the tick path measures whatever the driver left behind rather
      * than the world that was drawn.
      */
+    /**
+     * Checks that terrain actually reached the shadow map.
+     *
+     * <p>The map is cleared to the far plane each frame, so any texel nearer than that is geometry the
+     * shadow pass rasterised. The combined-source flag is checked first because without it the shadow
+     * pipeline would have compiled the pack's camera program, which also writes depth and would make
+     * this pass for the wrong reason.
+     */
+    private static void verifyShadowMap() {
+        //? if >=1.21.5 && <1.21.6 {
+        /*if (!dev.kernel.fabric.shader.KernelWorldShaders.casts())
+            throw new AssertionError("The pack ships a shadow program but Kernel did not adopt it");
+        if (!dev.kernel.fabric.shader.KernelWorldShaders.shadowCombined())
+            throw new AssertionError("No substituted source carried the pack's shadow program");
+        int texture = dev.kernel.fabric.shader.KernelShadowPass.depthTexture();
+        if (texture == 0) throw new AssertionError("No shadow map was allocated");
+        int size = dev.kernel.fabric.shader.KernelWorldShaders.shadowResolution();
+        int[] stores = {GL33C.GL_PACK_ROW_LENGTH, GL33C.GL_PACK_SKIP_ROWS, GL33C.GL_PACK_SKIP_PIXELS, GL33C.GL_PACK_ALIGNMENT};
+        int[] previous = new int[stores.length];
+        for (int i = 0; i < stores.length; i++) {
+            previous[i] = GL33C.glGetInteger(stores[i]);
+            GL33C.glPixelStorei(stores[i], stores[i] == GL33C.GL_PACK_ALIGNMENT ? 1 : 0);
+        }
+        int packBuffer = GL33C.glGetInteger(GL33C.GL_PIXEL_PACK_BUFFER_BINDING);
+        int bound = GL33C.glGetInteger(GL33C.GL_TEXTURE_BINDING_2D);
+        GL33C.glBindBuffer(GL33C.GL_PIXEL_PACK_BUFFER, 0);
+        try {
+            var depths = org.lwjgl.BufferUtils.createFloatBuffer(size * size);
+            GL33C.glBindTexture(GL33C.GL_TEXTURE_2D, texture);
+            GL33C.glGetTexImage(GL33C.GL_TEXTURE_2D, 0, GL33C.GL_DEPTH_COMPONENT, GL33C.GL_FLOAT, depths);
+            int drawn = 0;
+            float nearest = 1.0f;
+            for (int index = 0; index < size * size; index++) {
+                float depth = depths.get(index);
+                if (depth < 0.999f) drawn++;
+                nearest = Math.min(nearest, depth);
+            }
+            System.out.println("Kernel shadow map: " + size + "x" + size + ", " + drawn + " texels written, nearest " + nearest);
+            // Coverage is a small share on purpose: the map spans the pack's shadow distance either
+            // side of the camera, and the probe loads four chunks, so most of it is legitimately empty
+            // sky. A sixty-fourth separates real terrain from a stray texel without assuming how much
+            // world happens to be loaded, and the nearest depth catches a map full of clear values.
+            if (drawn * 64 < size * size)
+                throw new AssertionError("The shadow map is essentially empty: " + drawn + " of " + size * size + " texels");
+            if (!(nearest > 0.0f) || nearest > 0.99f)
+                throw new AssertionError("The shadow map holds no usable depth: nearest " + nearest);
+        } finally {
+            GL33C.glBindTexture(GL33C.GL_TEXTURE_2D, bound);
+            GL33C.glBindBuffer(GL33C.GL_PIXEL_PACK_BUFFER, packBuffer);
+            for (int i = 0; i < stores.length; i++) GL33C.glPixelStorei(stores[i], previous[i]);
+        }
+        *///? }
+    }
+
     private static int[][] worldStagePixel(Minecraft minecraft) {
         //? if >=26.2 {
         var target = minecraft.gameRenderer.mainRenderTarget();

@@ -57,13 +57,23 @@ public final class ShaderWorldPrograms {
         Map.entry("position_tex", "gbuffers_textured"),
         Map.entry("position_tex_color", "gbuffers_textured"));
 
+    /**
+     * The program the shadow pass draws with.
+     *
+     * <p>It replaces no core shader, which is why it is not in {@link #CORE_SHADERS}: it is selected by
+     * a preprocessor flag out of the same source as the program it shares a Minecraft shader with,
+     * rather than by which shader is being compiled.
+     */
+    public static final String SHADOW = "shadow";
+
     private ShaderWorldPrograms() {}
 
-    /** Every world program name Kernel recognises, including the root. */
+    /** Every world program name Kernel recognises, including the root and the shadow program. */
     public static Set<String> names() {
         var names = new LinkedHashSet<>(CORE_SHADERS.values());
         names.addAll(FALLBACK.keySet());
         names.addAll(FALLBACK.values());
+        names.add(SHADOW);
         return Set.copyOf(names);
     }
 

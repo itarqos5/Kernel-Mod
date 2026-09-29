@@ -13,7 +13,9 @@
     "TerrainVertexMixin",
     "SectionVertexFormatMixin",
     "TerrainPipelineFormatMixin",
-    "BlockTessellationMixin"
+    "BlockTessellationMixin",
+    "SectionLayerInvoker",
+    "ShaderShadowMixin"
   ],
   "injectors": {
     "defaultRequire": 0

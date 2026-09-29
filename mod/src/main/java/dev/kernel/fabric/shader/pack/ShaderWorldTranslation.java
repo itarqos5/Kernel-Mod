@@ -33,6 +33,40 @@ public final class ShaderWorldTranslation {
      * @throws IOException when the program needs something this substitution cannot supply
      */
     public static String translate(String packSource, ShaderWorldEnvironment environment, boolean vertex) throws IOException {
+        return prelude(environment, vertex) + body(packSource, environment, vertex);
+    }
+
+    /**
+     * The declarations any program for this Minecraft shader compiles against.
+     *
+     * <p>Kept apart from the rewritten program because one source can carry more than one of them. A
+     * camera program and a shadow program replacing the same Minecraft shader share this exactly, so it
+     * is emitted once and the two bodies sit behind a preprocessor flag inside it.
+     */
+    public static String prelude(ShaderWorldEnvironment environment, boolean vertex) throws IOException {
+        if (environment == null) throw new IOException("Kernel cannot describe this version's shader environment");
+        var header = new StringBuilder(environment.prelude());
+        header.append("#define KERNEL 1\n");
+        if (vertex) header.append("#define kernel_Vertex vec4(").append(environment.position()).append(", 1.0)\n");
+        else header.append("out vec4 ").append(environment.fragmentOutput()).append(";\n");
+        return header.toString();
+    }
+
+    /**
+     * One source carrying two programs, chosen by a preprocessor flag the pipeline sets.
+     *
+     * <p>A Minecraft shader resolves to exactly one source, but the compiled module is cached per set
+     * of defines and those defines are injected into the source after it is handed over. So this is how
+     * one terrain shader becomes the pack's camera program for the camera and its shadow program for
+     * the shadow pass, without Kernel owning the compiler or shipping GLSL of its own.
+     */
+    public static String variants(ShaderWorldEnvironment environment, boolean vertex, String flag,
+                                  String whenSet, String whenClear) throws IOException {
+        return prelude(environment, vertex) + "#ifdef " + flag + "\n" + whenSet + "\n#else\n" + whenClear + "\n#endif\n";
+    }
+
+    /** One pack program rewritten to compile inside {@link #prelude}. */
+    public static String body(String packSource, ShaderWorldEnvironment environment, boolean vertex) throws IOException {
         if (environment == null) throw new IOException("Kernel cannot describe this version's shader environment");
         String code = ShaderLexical.maskComments(packSource, null);
         var missing = ShaderWorldAttributes.unsupportedIn(code);
@@ -45,8 +79,6 @@ public final class ShaderWorldTranslation {
         if (Pattern.compile("(?m)^\\s*#\\s*extension\\b").matcher(code).find())
             throw new IOException("Shader extensions are not supported by the world adapter");
 
-        var header = new StringBuilder(environment.prelude());
-        header.append("#define KERNEL 1\n");
         String source = packSource;
         // Strip the pack's own version directive; the surrounding environment owns it.
         source = source.replaceAll("(?m)^[ \\t]*#version[ \\t]+[0-9]+(?:[ \\t]+\\w+)?[ \\t]*$", "");
@@ -64,8 +96,6 @@ public final class ShaderWorldTranslation {
         source = token(source, "texture2DLod", "textureLod");
 
         if (vertex) {
-            String position = "vec4(" + environment.position() + ", 1.0)";
-            header.append("#define kernel_Vertex ").append(position).append('\n');
             source = source.replaceAll("\\bftransform\\s*\\(\\s*\\)", "(ProjMat * ModelViewMat * kernel_Vertex)");
             source = token(source, "gl_Vertex", "kernel_Vertex");
             source = token(source, "gl_ModelViewProjectionMatrix", "(ProjMat * ModelViewMat)");
@@ -84,11 +114,10 @@ public final class ShaderWorldTranslation {
                 source = token(source, "gl_Normal", "Normal");
             }
         } else {
-            header.append("out vec4 ").append(environment.fragmentOutput()).append(";\n");
             source = source.replaceAll("\\bgl_FragData\\s*\\[\\s*0\\s*\\]", environment.fragmentOutput());
             source = token(source, "gl_FragColor", environment.fragmentOutput());
         }
-        return header + "#line 1 0\n" + source;
+        return "#line 1 0\n" + source;
     }
 
     /** Minecraft packs both light coordinates into one integer attribute. */
