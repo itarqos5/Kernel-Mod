@@ -427,6 +427,11 @@ tasks {
         description = "Opens an isolated game, verifies renderer settings, captures three frames and exits."
         dependsOn(prepareGuiProbe)
         classpath += files(layout.buildDirectory.dir("gui-probe-mod"))
+        // -PkernelShaders=false exercises the path a game version Kernel cannot host takes: every
+        // shader hook is skipped and the rest of the game has to carry on regardless.
+        val shaders = providers.gradleProperty("kernelShaders").orNull
+        require(shaders == null || shaders == "true" || shaders == "false") { "kernelShaders must be true or false" }
+        if (shaders != null) systemProperty("kernel.shaders", shaders)
         val completion = layout.buildDirectory.file("gui-smoke-game/probe-complete.json")
         doFirst {
             val marker = completion.get().asFile

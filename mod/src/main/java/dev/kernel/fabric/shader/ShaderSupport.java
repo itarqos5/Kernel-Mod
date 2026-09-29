@@ -46,8 +46,9 @@ public final class ShaderSupport {
     public static void disable(String reason, Throwable cause) {
         if (!failure.isEmpty()) return;
         failure = reason == null || reason.isBlank() ? "Shaders are unavailable on this game version" : reason;
-        org.slf4j.LoggerFactory.getLogger("Kernel").warn(
-            "Kernel shader support is off for this launch; the rest of the game is unaffected: {}", failure, cause);
+        var log = org.slf4j.LoggerFactory.getLogger("Kernel");
+        String message = "Kernel shader support is off for this launch; the rest of the game is unaffected: {}";
+        if (cause == null) log.warn(message, failure); else log.warn(message, failure, cause);
     }
 
     /**

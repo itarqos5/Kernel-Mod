@@ -143,6 +143,7 @@ public final class GuiProbe {
                 }
                 verifyVideoApply(minecraft, parent);
                 verifyVideoRedirect(minecraft, parent);
+                verifyShaderTab(minecraft, parent);
                 verifyRendererSetting(minecraft, parent, RendererFeature.FRUSTUM);
                 if (KernelRendererSettings.supported(RendererFeature.SECTION_BUFFERS))
                     verifyRendererSetting(minecraft, parent, RendererFeature.SECTION_BUFFERS);
@@ -211,6 +212,18 @@ public final class GuiProbe {
         } finally {
             minecraft.options.renderDistance().set(original);
         }
+    }
+
+    /** The Shaders tab is open exactly when shaders can run, and says why when it is not. */
+    private static void verifyShaderTab(Minecraft minecraft, Screen parent) {
+        click(find(parent, "kernel.settings.open"));
+        Button shaders = find(screen(minecraft), "kernel.video.tab.shaders");
+        var reason = KernelSettingsScreen.shadersUnavailable();
+        if (shaders.active != (reason == null))
+            throw new AssertionError("Shaders tab is " + (shaders.active ? "open" : "closed") + " but the reason is " + reason);
+        if (reason != null && reason.getString().isBlank()) throw new AssertionError("Closed Shaders tab gives no reason");
+        System.out.println("Kernel GUI probe checked the Shaders tab: " + (reason == null ? "open" : reason.getString()));
+        click(find(screen(minecraft), "gui.cancel"));
     }
 
     /**
