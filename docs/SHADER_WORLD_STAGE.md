@@ -160,6 +160,31 @@ A second full world render from the light direction into `shadowtex0`, `shadowte
 the pack's distortion. This is effectively a second renderer, and it is where packs begin to look like
 themselves.
 
+**Source substitution cannot reach it, and that is settled rather than suspected.** Read from the game
+jars: `ShaderManager$CompilationCache.getShaderSource` takes an identifier and a `ShaderType` and nothing
+else. Defines are applied to the module after the source is resolved, so one core shader identifier has
+exactly one source, however many `ShaderDefines` variants are compiled from it. The shadow pass needs the
+terrain geometry drawn twice from two different pack programs — `gbuffers_terrain` for the camera and
+`shadow` for the light — and substitution has no way to say that. Item 2's Kernel-owned pipelines are
+therefore a prerequisite for shadows, not merely a later improvement, and the two should be planned as
+one piece of work.
+
+Kernel-owned pipelines need not mean Kernel-shipped GLSL, which matters because this repository
+deliberately keeps copies of Minecraft's shader source out of it. `GpuDevice.precompilePipeline` has a
+public overload taking a `BiFunction<Identifier, ShaderType, String>` source provider, and
+`RenderPipeline.builder` is public on 1.21.5 through 26.2. So Kernel can build its own pipeline against
+its own identifier and hand the compiler a program it generated at runtime from the pack's `shadow`
+source and the `ShaderWorldEnvironment` it already parses out of Minecraft's terrain program — the same
+way the camera-pass substitution gets its prelude right without a per-version table.
+
+Two consequences to design around. Compiled pipelines live in the device's cache, and
+`clearPipelineCache()` — which Kernel already calls whenever a pack is adopted — drops the precompiled
+entry; the lazy `getOrCompilePipeline` path that then runs uses the device's *default* source provider,
+which cannot resolve a Kernel identifier. A Kernel-owned pipeline therefore has to be re-precompiled
+after every cache clear rather than compiled once. And the shadow pass has to reach the built section
+meshes, which means an accessor onto the section render dispatcher's visible list per target, because
+that list is not public.
+
 ### 6. The remaining uniforms
 
 Kernel supplies roughly twenty-five of the format's uniforms: the projection and model-view matrices with

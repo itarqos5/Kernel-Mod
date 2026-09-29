@@ -68,11 +68,15 @@ built so far verified rather than assumed.
 
 ## Order of the remaining work
 
-1. **The shadow pass.** Shadow framebuffer at `shadowMapResolution`, light-space matrices honouring
-   `shadowDistance`, the terrain meshes drawn a second time with the pack's `shadow` programs, and
-   `shadowtex0`/`shadowtex1` bound as samplers. Then `shadowModelView` and `shadowProjection` follow.
-2. **Kernel-owned pipelines.** Lifts the single-colour-output limit that source substitution works
-   within, and is what the format's `gbuffers` model actually assumes.
+1. **The shadow pass, together with Kernel-owned pipelines.** Shadow framebuffer at
+   `shadowMapResolution`, light-space matrices honouring `shadowDistance`, the terrain meshes drawn a
+   second time with the pack's `shadow` programs, and `shadowtex0`/`shadowtex1` bound as samplers. Then
+   `shadowModelView` and `shadowProjection` follow. These are one piece of work rather than two:
+   `getShaderSource` takes an identifier and a stage and nothing else, so one core shader has exactly one
+   source and substitution cannot draw the same geometry from two different pack programs.
+   `docs/SHADER_WORLD_STAGE.md` records the route, which needs no shipped GLSL.
+2. **Kernel-owned pipelines.** Also lift the single-colour-output limit that source substitution works
+   within, which is what the format's `gbuffers` model actually assumes.
 3. **Textures.** The block atlas, lightmap and LabPBR atlases, which unlock `mc_midTexCoord` and
    `at_tangent`.
 4. **The remaining uniforms and the refused properties.**
