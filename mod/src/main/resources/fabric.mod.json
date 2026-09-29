@@ -19,7 +19,8 @@
     ]
   },
   "mixins": [
-    "kernel.mixins.json"
+    "kernel.mixins.json",
+    "kernel.shaders.mixins.json"
   ],
   "icon": "assets/kernel/icon.png",
   "depends": {

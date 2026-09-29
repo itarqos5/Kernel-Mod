@@ -86,7 +86,7 @@ public final class ShaderScreen extends Screen {
                 layout.tabWidth(i, categories.size()), layout.tabHeight(),
                 KernelTranslations.text("kernel.video.tab." + category), button -> { if (!category.equals("shaders")) parent.showCategory(category); },
                 () -> category.equals("shaders"), false).tab());
-            if (category.equals("shaders") && !ShaderBackend.supported()) tab.active = false;
+            if (category.equals("shaders") && KernelSettingsScreen.shadersUnavailable() != null) tab.active = false;
         }
 
         addToolbar(listX, toolbarY, listWidth + scrollbar);

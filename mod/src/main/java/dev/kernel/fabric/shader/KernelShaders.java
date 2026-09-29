@@ -66,7 +66,9 @@ public final class KernelShaders {
     public static String gameVersion() { return FabricLoader.getInstance().getModContainer("minecraft").orElseThrow().getMetadata().getVersion().getFriendlyString(); }
     public static ModrinthShaders api() { return MODRINTH; }
 
-    public static synchronized void initialize() {
+    public static void initialize() { ShaderSupport.guard("Reading shader settings", KernelShaders::initializeChecked); }
+
+    private static synchronized void initializeChecked() {
         if (initialized) return; initialized = true;
         start("Reading shader settings", generation -> {
             refreshFiles();
@@ -185,8 +187,18 @@ public final class KernelShaders {
     }
     private static void fail(String text) { error = text == null ? "Shader operation failed; see the game log" : text; busy = false; REVISION.incrementAndGet(); }
 
-    /** Invoked from the native rendering thread before drawing. */
+    /**
+     * Invoked from the native rendering thread before drawing.
+     *
+     * <p>Also the heartbeat that proves the shader hooks applied at all: this runs on the title screen
+     * as well as in a world, so a launch where it never runs is one where the mixins did not take.
+     */
     public static void beginFrame() {
+        ShaderSupport.observeFrame();
+        ShaderSupport.guard("Preparing shaders for this frame", KernelShaders::beginFrameChecked);
+    }
+
+    private static void beginFrameChecked() {
         // The backend is only safe to ask about on this thread. A backend that cannot host shader packs
         // releases any pipeline built before the device was known and then stays out of the frame.
         if (!ShaderBackend.supported()) {
@@ -250,7 +262,9 @@ public final class KernelShaders {
             }
         } catch (IOException | RuntimeException failure) { fail(failure.getMessage()); LoggerFactory.getLogger("Kernel").warn("Shader compilation failed; retaining the previous pipeline", failure); }
     }
-    public static void beginWorld() {
+    public static void beginWorld() { ShaderSupport.guard("Starting the world pass", KernelShaders::beginWorldChecked); }
+
+    private static void beginWorldChecked() {
         handDepth = false;
         invalidProjection = false;
         invalidView = false;
@@ -258,6 +272,10 @@ public final class KernelShaders {
     }
     public static void handPass() { handDepth = true; }
     public static void captureProjection(org.joml.Matrix4fc matrix) {
+        ShaderSupport.guard("Capturing the world projection", () -> captureProjectionChecked(matrix));
+    }
+
+    private static void captureProjectionChecked(org.joml.Matrix4fc matrix) {
         if (pipeline == null || closed || !pipeline.needsProjection()) return;
         try {
             //? if >=26.2 {
@@ -272,11 +290,20 @@ public final class KernelShaders {
         } catch (IOException | RuntimeException failure) { renderingFailed(failure); }
     }
     public static void captureView(org.joml.Matrix4fc matrix, net.minecraft.world.phys.Vec3 position) {
+        ShaderSupport.guard("Capturing the world view", () -> captureViewChecked(matrix, position));
+    }
+
+    private static void captureViewChecked(org.joml.Matrix4fc matrix, net.minecraft.world.phys.Vec3 position) {
         if (pipeline == null || closed || !pipeline.needsView()) return;
         try { invalidView = !pipeline.captureView(matrix, position.x, position.y, position.z); }
         catch (IOException | RuntimeException failure) { renderingFailed(failure); }
     }
     public static void scheduleDepth(com.mojang.blaze3d.framegraph.FrameGraphBuilder graph,
+        net.minecraft.client.renderer.LevelTargetBundle targets, boolean clouds) {
+        ShaderSupport.guard("Scheduling the depth capture", () -> scheduleDepthChecked(graph, targets, clouds));
+    }
+
+    private static void scheduleDepthChecked(com.mojang.blaze3d.framegraph.FrameGraphBuilder graph,
         net.minecraft.client.renderer.LevelTargetBundle targets, boolean clouds) {
         ShaderPipeline selected = pipeline;
         if (selected == null || closed || !selected.needsDepth()) return;
@@ -311,6 +338,10 @@ public final class KernelShaders {
         *///? }
     }
     public static void renderWorld(net.minecraft.client.DeltaTracker deltaTracker) {
+        ShaderSupport.guard("Rendering shader passes", () -> renderWorldChecked(deltaTracker));
+    }
+
+    private static void renderWorldChecked(net.minecraft.client.DeltaTracker deltaTracker) {
         if (pipeline == null || closed || invalidProjection || invalidView) return;
         try {
             var minecraft = Minecraft.getInstance();
@@ -379,7 +410,9 @@ public final class KernelShaders {
         /*return target.getColorTextureId();
         *///? }
     }
-    public static synchronized void close() {
+    public static void close() { ShaderSupport.guard("Releasing shader resources", KernelShaders::closeChecked); }
+
+    private static synchronized void closeChecked() {
         closed = true; cancel(); WORKER.shutdownNow();
         historyWorld = null;
         if (pipeline != null) { pipeline.close(); pipeline = null; }

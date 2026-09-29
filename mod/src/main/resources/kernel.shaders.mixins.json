@@ -1,0 +1,21 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "dev.kernel.fabric.mixin.shader",
+  "plugin": "dev.kernel.fabric.shader.ShaderMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ShaderFrameMixin",
+    "ShaderDepthMixin",
+    "ShaderProjectionMixin",
+    "ShaderViewMixin",
+    "ShaderProgramSourceMixin",
+    "TerrainVertexMixin",
+    "SectionVertexFormatMixin",
+    "TerrainPipelineFormatMixin",
+    "BlockTessellationMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

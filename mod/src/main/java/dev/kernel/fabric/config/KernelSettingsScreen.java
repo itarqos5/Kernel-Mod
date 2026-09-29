@@ -236,12 +236,11 @@ public final class KernelSettingsScreen extends Screen {
                     *///? }
                 } else { tab = category; scroll = 0; rebuildWidgets(); }
             }, () -> tab.equals(category), false).tab());
-            // Shader packs are written for OpenGL and have no Vulkan form, so the page is closed rather
-            // than opened onto a renderer that could never run anything listed there.
-            if (category.equals("shaders") && !dev.kernel.fabric.shader.ShaderBackend.supported()) {
-                button.active = false;
-                button.setTooltip(Tooltip.create(KernelTranslations.text("kernel.shaders.backend",
-                    dev.kernel.fabric.shader.ShaderBackend.name())));
+            // The page is closed rather than opened onto a renderer that could never run anything
+            // listed there, or onto hooks that are not in this game.
+            if (category.equals("shaders")) {
+                Component reason = shadersUnavailable();
+                if (reason != null) { button.active = false; button.setTooltip(Tooltip.create(reason)); }
             }
         }
         int recommendWidth = Math.clamp(font.width(tr("recommended")) + 12, 56, 96);
@@ -374,6 +373,24 @@ public final class KernelSettingsScreen extends Screen {
             }, () -> pendingFrameSync, false).visual(state));
         button.setTooltip(Tooltip.create(KernelTranslations.text("kernel.frame.description")));
     }
+
+    /**
+     * Why the Shaders page cannot be opened, or null while it can.
+     *
+     * <p>Three different things close it and each says so in its own words: shaders already gave up on
+     * this launch, their hooks are not in this game at all, or the graphics backend cannot host the
+     * only format shader packs are written in.
+     */
+    public static Component shadersUnavailable() {
+        if (!dev.kernel.fabric.shader.ShaderSupport.available())
+            return Component.literal(dev.kernel.fabric.shader.ShaderSupport.failure());
+        if (dev.kernel.fabric.shader.ShaderSupport.hooksMissing())
+            return KernelTranslations.text("kernel.shaders.unsupported");
+        if (!dev.kernel.fabric.shader.ShaderBackend.supported())
+            return KernelTranslations.text("kernel.shaders.backend", dev.kernel.fabric.shader.ShaderBackend.name());
+        return null;
+    }
+
     private Entry nativeVideoEntry() {
         return new Entry(KernelTranslations.text("kernel.video.native"), KernelTranslations.text("kernel.video.native.description"),
             (x, y, width) -> addNativeVideo(x, y, width));
@@ -393,7 +410,6 @@ public final class KernelSettingsScreen extends Screen {
             }));
         button.setTooltip(Tooltip.create(KernelTranslations.text("kernel.video.native.description")));
     }
-
 
     private Entry featureEntry(RendererFeature feature) {
         return new Entry(KernelTranslations.text(feature.translationKey()), KernelTranslations.text(feature.translationKey() + ".description"),
