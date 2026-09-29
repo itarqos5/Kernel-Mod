@@ -111,7 +111,17 @@ public final class KernelSettingsScreen extends Screen {
         return add(category, section, key, source, List.of(false, true), false, value -> value ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF);
     }
     private VideoSetting<Integer> integer(String category, String section, String key, OptionInstance<Integer> source, int min, int max, int step, Function<Integer, Component> display) {
-        return add(category, section, key, source, IntStream.iterate(min, value -> value <= max, value -> value + step).boxed().toList(), true, display);
+        // Some of these ranges are the game's to decide, and it decides them from the machine: render
+        // distance is capped at 16 rather than 32 when the heap is under about a gigabyte. A value
+        // outside an option's own range is discarded by OptionInstance.set with nothing but a log line,
+        // which looks exactly like Apply doing nothing, so the option's own bounds win where it states
+        // them and Kernel's stay only as the outer limit.
+        if (source.values() instanceof OptionInstance.IntRange range) {
+            min = Math.max(min, range.minInclusive());
+            max = Math.max(min, Math.min(max, range.maxInclusive()));
+        }
+        int first = min, last = max;
+        return add(category, section, key, source, IntStream.iterate(first, value -> value <= last, value -> value + step).boxed().toList(), true, display);
     }
     private void decimal(String category, String section, String key, OptionInstance<Double> source, double min, double max, double step) {
         add(category, section, key, source, IntStream.rangeClosed(0, (int) Math.round((max - min) / step)).mapToObj(i -> min + i * step).toList(), true,

@@ -23,6 +23,14 @@ public final class KernelSlider extends AbstractSliderButton {
     @Override protected void updateMessage() { if (narration != null) setMessage(narration.get()); }
     @Override protected void applyValue() { change.accept(value); updateMessage(); }
 
+    /**
+     * Moves the handle to a position along the track, as clicking or dragging it does.
+     *
+     * <p>The mouse and keyboard routes into a slider are shaped differently on every other game version,
+     * so this is the one entry point that does not change, which is what the settings probe drives.
+     */
+    public void moveTo(double position) { value = Math.clamp(position, 0.0, 1.0); applyValue(); }
+
     //? if >=26.1 {
     @Override public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
     //? } else {

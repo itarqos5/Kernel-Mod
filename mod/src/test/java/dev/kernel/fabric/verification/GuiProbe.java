@@ -141,6 +141,7 @@ public final class GuiProbe {
                     || !RendererConfig.load(settingsPath).config().equals(RendererConfig.defaults())) {
                     throw new AssertionError("Save failed to persist the settings or return to its parent");
                 }
+                verifyVideoApply(minecraft, parent);
                 verifyRendererSetting(minecraft, parent, RendererFeature.FRUSTUM);
                 if (KernelRendererSettings.supported(RendererFeature.SECTION_BUFFERS))
                     verifyRendererSetting(minecraft, parent, RendererFeature.SECTION_BUFFERS);
@@ -182,6 +183,45 @@ public final class GuiProbe {
             throw new AssertionError("Screenshot capture failed: " + file);
         }
         captured = true;
+    }
+
+    /**
+     * Moves a real slider and checks that Apply reaches Minecraft's own option.
+     *
+     * <p>The draft's own bookkeeping is unit tested; what this covers is the whole path a player takes,
+     * from the widget through the draft to the live option, which is where a change can be recorded and
+     * then quietly not applied.
+     */
+    private static void verifyVideoApply(Minecraft minecraft, Screen parent) {
+        int original = minecraft.options.renderDistance().get();
+        int expected = original == 2 ? 3 : 2;
+        try {
+            click(find(parent, "kernel.settings.open"));
+            var slider = findSlider(minecraft, KernelTranslations.text("kernel.video.distance").getString());
+            // The list runs from the option's own minimum, so the far left of the track is that minimum.
+            slider.moveTo(expected == 2 ? 0.0 : 1.0 / 30.0);
+            if (!(screen(minecraft) instanceof KernelSettingsScreen)) throw new AssertionError("Settings closed while dragging");
+            click(find(screen(minecraft), "kernel.settings.apply"));
+            int applied = minecraft.options.renderDistance().get();
+            if (applied != expected)
+                throw new AssertionError("Apply left the render distance at " + applied + " rather than " + expected);
+            click(find(screen(minecraft), "gui.done"));
+            if (screen(minecraft) != parent) throw new AssertionError("Done did not return to the parent screen");
+        } finally {
+            minecraft.options.renderDistance().set(original);
+        }
+    }
+
+    private static dev.kernel.fabric.config.KernelSlider findSlider(Minecraft minecraft, String label) {
+        for (int step = 0; step < 64; step++) {
+            var slider = screen(minecraft).children().stream()
+                .filter(dev.kernel.fabric.config.KernelSlider.class::isInstance)
+                .map(dev.kernel.fabric.config.KernelSlider.class::cast)
+                .filter(candidate -> candidate.getMessage().getString().startsWith(label + ":")).findFirst();
+            if (slider.isPresent()) return slider.get();
+            if (!(screen(minecraft) instanceof KernelSettingsScreen list) || !list.scrollBy(1)) break;
+        }
+        throw new AssertionError("Missing settings slider anywhere in the list: " + label);
     }
 
     private static void verifyRendererSetting(Minecraft minecraft, Screen parent, RendererFeature feature) {
