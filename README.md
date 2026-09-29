@@ -151,7 +151,7 @@ Implemented:
 - Differential sorting tests against each target's actual vanilla implementation, real Fabric/Mixin factory smoke tests without launching the game, and an isolated sorting benchmark. Centroid generation, camera resort triggers, index uploads and blending remain vanilla.
 - The approved Kernel lightning icon and `literal.uu` author metadata.
 - Hard Fabric incompatibilities with Sodium and Iris because they overlap Kernel's renderer/shader ownership.
-- A lightning-icon button left of Options in title/pause menus opens Kernel video settings, also available through the native video settings list. Four video/optimization tabs plus Shaders use translucent panels and white highlights. The screen is a fixed frame in the manner of VulkanMod: a tab row across the top, one scrolling, section-grouped option list filling the left of the body, and an information panel down the whole right-hand side that explains the highlighted setting and reports what Apply would do next; rows scroll by whole entries so none is drawn clipped at any GUI scale. Video controls preserve native callbacks, Apply/Done/Cancel drafts and restart-only optimization switches. English fallbacks and the icon work without Fabric API. See [settings and recovery](docs/RENDERER_SETTINGS.md).
+- A lightning-icon button left of Options in title/pause menus opens Kernel video settings, and Options → Video Settings reaches the same page directly; Minecraft's own video page stays available from Kernel's Other tab. Integer controls take their bounds from the game's own option, so Apply cannot silently offer a value the game refuses. Four video/optimization tabs plus Shaders use translucent panels and white highlights. The screen is a fixed frame in the manner of VulkanMod: a tab row across the top, one scrolling, section-grouped option list filling the left of the body, and an information panel down the whole right-hand side that explains the highlighted setting and reports what Apply would do next; rows scroll by whole entries so none is drawn clipped at any GUI scale. Video controls preserve native callbacks, Apply/Done/Cancel drafts and restart-only optimization switches. English fallbacks and the icon work without Fabric API. See [settings and recovery](docs/RENDERER_SETTINGS.md).
 
 - One-time conservative video recommendations from logical CPU count, JVM heap capacity and active GPU class, with an options backup and persistent marker that preserves subsequent manual choices. No settings window is opened at launch; Recommended also stages those values on demand.
 
@@ -201,6 +201,12 @@ Implemented:
   `sunAngle` and `shadowAngle`, derived from Minecraft's own sky rendering and rotated into the space a
   pack's programs work in. The shadow matrices are not supplied yet, because they describe a shadow map
   Kernel does not render.
+
+- Shader hooks fail open. They live in their own non-required Mixin configuration with non-required
+  injectors, and every entry point is guarded against exceptions and `LinkageError`, so a game version
+  Kernel has not been taught closes the Shaders page with a reason on its tab instead of stopping the
+  launch. A per-frame heartbeat distinguishes hooks that never applied from a failure during the launch
+  and from a backend that cannot host packs. `-Dkernel.shaders=false` turns them off deliberately.
 
 - Shader viewer inputs: `isEyeInWater`, `blindness`, `darknessFactor`, `nightVision`,
   `screenBrightness`, `eyeBrightness` and `skyColor`, each following the rule Minecraft applies for

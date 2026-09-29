@@ -1,8 +1,10 @@
 # Kernel video settings
 
 The lightning button immediately left of **Options** opens Kernel from the title and pause menus.
-The existing **Options → Video Settings → Kernel video settings** entry is also available. The
-screen stays closed during startup. It uses the approved Kernel icon, translucent dark panels and
+**Options → Video Settings** goes straight to Kernel's page as well, rather than to Minecraft's page
+and a row from there. Minecraft's own video page is not removed, because it still owns settings Kernel
+does not mirror: the Other tab offers it, and that row is the only thing that opens it, for one opening
+each time it is pressed. The screen stays closed during startup. It uses the approved Kernel icon, translucent dark panels and
 white selection/hover overlays, with Video, Graphics, Optimizations and Other tabs.
 
 ## Layout
@@ -41,6 +43,11 @@ brightness, plus the native fast/fancy quality setting before 1.21.11 or detaile
 versions. Other controls include field of view, GUI scale, view bobbing and screen effects. Unsupported
 features are not invented: for example, Kernel does not add borderless fullscreen to older games.
 Minecraft's original video screen remains available for settings not exposed here.
+
+Where the game states an option's own bounds, those win. Vanilla decides some of them from the machine
+— render distance is capped at 16 rather than 32 when the heap is under about a gigabyte — and a value
+outside an option's range is discarded by Minecraft with only a log line, which is indistinguishable
+from Apply doing nothing. Kernel's numbers are therefore the outer limit rather than the offer.
 
 Changes are drafts until **Apply** or **Done**. Apply keeps the screen open; Done applies and returns.
 **Cancel** and Escape discard only changes since the last Apply. Native video settings use Minecraft's

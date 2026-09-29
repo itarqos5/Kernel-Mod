@@ -22,6 +22,20 @@ are not extracted. Network and archive preparation run on a daemon worker. Cance
 an in-progress network read can take up to its 20-second timeout to return. Temporary files are removed.
 Downloads stop after five minutes of transfer, and archive/source/entry limits bound resource use.
 
+## When shaders are unavailable
+
+Shader packs reach further into Minecraft's renderer than anything else Kernel does, so they are the
+most likely part to meet a game version whose shape nobody has read. That never stops the game. The
+shader mixins live in their own configuration, `kernel.shaders.mixins.json`, which is not required and
+whose injectors are not required, so a hook that cannot be applied is logged and skipped. A hook that
+applies and then meets a moved method throws at the call, which is caught around every entry point,
+including `LinkageError`, because that is what a moved method arrives as.
+
+Either way the Shaders tab is closed and reports why. Three reasons are distinguished: the hooks never
+ran at all, which the per-frame heartbeat detects without asking Mixin; a failure recorded during the
+launch, which is quoted; and a graphics backend that cannot host the format. `-Dkernel.shaders=false`
+turns the hooks off deliberately for a launch.
+
 ## Graphics backends
 
 Shader packs require the OpenGL backend. The Iris/OptiFine format has no Vulkan form, so on a Vulkan
