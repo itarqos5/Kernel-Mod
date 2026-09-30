@@ -445,6 +445,16 @@ tasks {
         }
         doLast { check(completion.get().asFile.isFile) { "Kernel GUI probe did not complete; inspect the game log." } }
     }
+    named<JavaExec>("runClient") {
+        // The same switches the probes take, so an ordinary session can be launched into the same
+        // state a probe verifies rather than only reproducing it through the probe.
+        for (name in listOf("kernelWorldShaders" to "kernel.worldShaders", "kernelShaders" to "kernel.shaders")) {
+            val value = providers.gradleProperty(name.first).orNull
+            require(value == null || value == "true" || value == "false") { "${'$'}{name.first} must be true or false" }
+            if (value != null) systemProperty(name.second, value)
+        }
+    }
+
     named<JavaExec>("runGuiPreview") {
         dependsOn(prepareGuiProbe)
         classpath += files(layout.buildDirectory.dir("gui-probe-mod"))

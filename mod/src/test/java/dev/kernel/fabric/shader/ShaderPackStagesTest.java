@@ -63,11 +63,34 @@ class ShaderPackStagesTest {
         assertTrue(reason.contains("6 gbuffers programs"), reason);
         assertTrue(reason.contains("3 shadow programs"), reason);
         assertTrue(reason.contains("3 shadowcomp or prepare stages"), reason);
-        assertTrue(reason.contains("6 programs Kernel does not recognise"), reason);
-        assertTrue(reason.contains("clrwl_gbuffers"), reason);
+        // The clrwl and dh programs are names the format does not define, so they are skipped rather
+        // than held against the pack, which is what the format itself does with one.
+        assertFalse(reason.contains("clrwl"), reason);
+        assertFalse(reason.contains("recognise"), reason);
         // The opt-in is not offered, because turning it on would still leave this pack refused.
         assertFalse(reason.contains("kernel.worldShaders"), reason);
     }
+
+    @Test void aProgramThePackSwitchedOffIsNotAStageThePackNeeds() throws Throwable { withWorldStage(() -> {
+        // Complementary ships shadowcomp in all three dimension folders and disables all three. The
+        // per-dimension toggle names the folder with a slash, which the key syntax has to accept.
+        Path path = zip("disabled-compute.zip", Map.of(
+            "shaders/final.fsh", TRIVIAL,
+            "shaders/world0/shadowcomp.csh", TRIVIAL,
+            "shaders/world-1/shadowcomp.csh", TRIVIAL,
+            "shaders/shaders.properties",
+                "program.world0/shadowcomp.enabled=false\nprogram.world-1/shadowcomp.enabled=false\n"));
+        assertEquals(List.of("final"), PreparedShaderPack.read(path).passes().stream()
+            .map(PreparedShaderPack.Pass::name).toList());
+    }); }
+
+    @Test void aComputeStageThePackStillWantsIsRefused() throws Throwable { withWorldStage(() -> {
+        Path path = zip("enabled-compute.zip", Map.of(
+            "shaders/final.fsh", TRIVIAL,
+            "shaders/world0/shadowcomp.csh", TRIVIAL));
+        String reason = assertThrows(java.io.IOException.class, () -> PreparedShaderPack.read(path)).getMessage();
+        assertTrue(reason.contains("1 shadowcomp or prepare stages"), reason);
+    }); }
 
     @Test void theOptInIsOfferedWhenItIsTheOnlyThingInTheWay() throws Exception {
         Path path = zip("gbuffers-only.zip", Map.of(

@@ -23,7 +23,9 @@ public record ShaderProperties(Map<String, String> raw, Set<String> sliders, Lis
     private static final int MAX_BYTES = 512 * 1024;
     private static final int MAX_KEYS = 4096;
     private static final int MAX_SCREEN_ENTRIES = 512;
-    private static final Pattern KEY = Pattern.compile("[A-Za-z0-9_.*-]{1,128}");
+    // A slash belongs in a key: the format qualifies a program by its dimension folder, as in
+    // program.world-1/shadowcomp.enabled. Rejecting it dropped every per-dimension toggle silently.
+    private static final Pattern KEY = Pattern.compile("[A-Za-z0-9_./*-]{1,128}");
     private static final Pattern TOKEN = Pattern.compile("[A-Za-z0-9_.<>*-]{1,128}");
     /** The screen token that renders an empty cell. */
     public static final String EMPTY = "<empty>";

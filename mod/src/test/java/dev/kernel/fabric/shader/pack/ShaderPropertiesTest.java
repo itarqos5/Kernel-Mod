@@ -63,4 +63,12 @@ class ShaderPropertiesTest {
         assertTrue(properties.programEnabled("composite", Map.of()));
         assertEquals("", properties.description("BLOOM"));
     }
+
+    @Test void aProgramToggleMayNameItsDimensionFolder() {
+        // The format qualifies a program by its folder with a slash. A key syntax that rejected one
+        // dropped the whole line, so every per-dimension toggle a pack wrote silently did nothing.
+        var properties = ShaderProperties.parse("program.world-1/shadowcomp.enabled=false\n");
+        assertFalse(properties.programEnabled("world-1/shadowcomp", java.util.Map.of()));
+        assertTrue(properties.programEnabled("world0/shadowcomp", java.util.Map.of()));
+    }
 }

@@ -108,39 +108,42 @@ public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBuffe
      * which kinds of stage are missing is the answer, and how many of each is what says whether the
      * pack is nearly supported or nowhere near it.
      */
-    private static String unrunnableStages(ShaderPackArchive archive, boolean worldStage) {
-        int gbuffers = 0, shadow = 0, refused = 0, unknown = 0;
-        var unknownNames = new java.util.TreeSet<String>();
+    private static String unrunnableStages(ShaderPackArchive archive, boolean worldStage,
+                                           ShaderProperties properties, Map<String, String> optionValues) {
+        int gbuffers = 0, shadow = 0, refused = 0;
+        var ignored = new java.util.TreeSet<String>();
         for (String file : archive.files()) {
             if (!file.matches(".*\\.(?:vsh|fsh|gsh|csh|tcs|tes)") || PASS.matcher(file).matches()) continue;
+            // A program the pack itself switched off is not a stage the pack needs. Complementary
+            // ships shadowcomp in all three dimension folders and disables all three, and refusing a
+            // pack over a file its own properties turn off declines it for something it never runs.
+            if (!properties.programEnabled(programName(file), optionValues)) continue;
             // Order matters: the one shadow stage Kernel renders also matches the refused pattern.
             if (SHADOW.matcher(file).matches()) { if (!worldStage) shadow++; }
             else if (GBUFFERS.matcher(file).matches()) { if (!worldStage) gbuffers++; }
             else if (REFUSED_STAGE.matcher(file).matches()) refused++;
-            else {
-                unknown++;
-                String name = file.substring(file.lastIndexOf('/') + 1);
-                unknownNames.add(name.substring(0, name.lastIndexOf('.')));
-            }
+            // A program name the format does not define is skipped rather than refused, which is what
+            // the format itself does with one. Packs ship programs for engine features Kernel has no
+            // part in, and declining a whole pack over a file nothing would ever invoke is wrong.
+            else ignored.add(programName(file));
         }
-        if (gbuffers + shadow + refused + unknown == 0) return null;
+        if (!ignored.isEmpty())
+            org.slf4j.LoggerFactory.getLogger("Kernel").info(
+                "Kernel does not know these shader programs and is not loading them: {}", String.join(", ", ignored));
+        if (gbuffers + shadow + refused == 0) return null;
         var parts = new ArrayList<String>();
         if (gbuffers > 0) parts.add(gbuffers + " gbuffers programs");
         if (shadow > 0) parts.add(shadow + " shadow programs");
         if (refused > 0) parts.add(refused + " shadowcomp or prepare stages");
-        if (unknown > 0) parts.add(unknown + " programs Kernel does not recognise (" + names(unknownNames) + ")");
         String reason = "This pack needs " + join(parts) + ". Kernel runs deferred, composite and final passes.";
         // Only offered when the world stage would actually make the difference. Naming the property
         // while something else is also missing would promise a fix that does not arrive.
-        if (refused == 0 && unknown == 0)
-            reason += " Those are opt-in on 1.21.5 to 1.21.10 with -Dkernel.worldShaders=true.";
+        if (refused == 0) reason += " Those are opt-in on 1.21.5 to 1.21.10 with -Dkernel.worldShaders=true.";
         return reason;
     }
 
-    private static String names(java.util.Collection<String> values) {
-        var shown = values.stream().limit(2).toList();
-        return String.join(", ", shown) + (values.size() > shown.size() ? " and " + (values.size() - shown.size()) + " more" : "");
-    }
+    /** The program a stage file belongs to, keeping the dimension folder the pack's toggles name. */
+    private static String programName(String file) { return file.substring(0, file.lastIndexOf('.')); }
 
     private static String join(List<String> parts) {
         if (parts.size() == 1) return parts.getFirst();
@@ -159,9 +162,11 @@ public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBuffe
             // not been verified correct. Until it has, a pack shipping them is refused exactly as before,
             // because accepting one and drawing it wrongly is worse than declining it with a reason.
             boolean worldStage = Boolean.getBoolean(WORLD_STAGE_PROPERTY);
-            String missing = unrunnableStages(archive, worldStage);
-            if (missing != null) throw new IOException(missing);
+            // Read before the stage check, because the pack's own program toggles decide which of the
+            // stages it ships it actually asks to run.
             var properties = ShaderProperties.read(archive, dimension);
+            String missing = unrunnableStages(archive, worldStage, properties, optionValues);
+            if (missing != null) throw new IOException(missing);
             var identifiers = ShaderIdentifierMaps.read(archive);
             var textures = PreparedShaderTextures.read(archive);
             var passes = new ArrayList<Pass>();
