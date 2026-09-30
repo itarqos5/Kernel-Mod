@@ -36,11 +36,15 @@ any GUI scale or window size; the number of entries that fit is measured against
 the layout adapts rather than assuming a row count. Only rows inside the viewport exist as widgets, which
 is why the interaction probes walk the list with `scrollBy` rather than looking for a page button.
 
-Video controls include [Frame Sync](FRAME_SYNC.md), fullscreen display modes (resolution and refresh rate together), fullscreen,
-Vsync, framerate, render/simulation distance and entity distance. Exclusive fullscreen uses Minecraft's
-native setting on 26.2. Graphics controls include lighting, clouds, particles, shadows, mipmaps and
-brightness, plus the native fast/fancy quality setting before 1.21.11 or detailed leaves on newer
-versions. Other controls include field of view, GUI scale, view bobbing and screen effects. Unsupported
+Video controls include [Frame Sync](FRAME_SYNC.md), fullscreen display modes (resolution and refresh rate
+together), fullscreen, GUI scale, Vsync, framerate, render/simulation distance and entity distance.
+Exclusive fullscreen uses Minecraft's native setting on 26.2. GUI scale sits here rather than under Other
+because that is where the game itself puts it and where it is looked for. Graphics controls include
+lighting, clouds, particles, shadows, mipmaps, biome blend, brightness and the enchantment glint's speed
+and strength, plus the native fast/fancy quality setting before 1.21.11, or detailed leaves, vignette and
+improved transparency on newer versions. Other controls include field of view and its effect scale, view
+bobbing, screen effects, damage tilt, darkness pulsing, the attack and autosave indicators and menu
+background blur. Unsupported
 features are not invented: for example, Kernel does not add borderless fullscreen to older games.
 Minecraft's original video screen remains available for settings not exposed here.
 
@@ -49,7 +53,11 @@ Where the game states an option's own bounds, those win. Vanilla decides some of
 outside an option's range is discarded by Minecraft with only a log line, which is indistinguishable
 from Apply doing nothing. Kernel's numbers are therefore the outer limit rather than the offer.
 
-Changes are drafts until **Apply** or **Done**. Apply keeps the screen open; Done applies and returns.
+Changes are drafts until **Apply** or **Done**. Apply is offered only while the draft differs from what
+is in force, so a screen nothing has been changed on cannot be applied; it reopens after a failed save so
+the attempt can be repeated. Every control answers that question as it changes the draft rather than on
+the next redraw, because the sliders and cycling rows do not rebuild the screen. Apply keeps the screen
+open; Done applies and returns.
 **Cancel** and Escape discard only changes since the last Apply. Native video settings use Minecraft's
 option callbacks and persistence. Mipmap changes request the native texture reload; GUI-scale and
 fullscreen changes use the game's window/GUI lifecycle. Optimization switches take effect on the

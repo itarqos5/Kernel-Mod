@@ -133,7 +133,10 @@ public final class GuiProbe {
                 }
                 click(find(parent, "kernel.settings.open"));
                 click(find(screen(minecraft), "kernel.video.recommended"));
-                click(find(screen(minecraft), "kernel.settings.apply"));
+                // Recommended can stage exactly the values already in force, and Apply is closed when
+                // there is nothing to apply, so the click is conditional on there being something.
+                Button recommended = find(screen(minecraft), "kernel.settings.apply");
+                if (recommended.active) click(recommended);
                 if (!(screen(minecraft) instanceof KernelSettingsScreen)) throw new AssertionError("Apply unexpectedly closed settings");
                 click(find(screen(minecraft), "gui.done"));
                 var settingsPath = minecraft.gameDirectory.toPath().resolve("config/kernel-renderer.properties");
@@ -199,11 +202,17 @@ public final class GuiProbe {
         int expected = original == 2 ? 3 : 2;
         try {
             click(find(parent, "kernel.settings.open"));
+            if (find(screen(minecraft), "kernel.settings.apply").active)
+                throw new AssertionError("Apply is offered on a screen where nothing has been changed");
             var slider = findSlider(minecraft, KernelTranslations.text("kernel.video.distance").getString());
             // The list runs from the option's own minimum, so the far left of the track is that minimum.
             slider.moveTo(expected == 2 ? 0.0 : 1.0 / 30.0);
             if (!(screen(minecraft) instanceof KernelSettingsScreen)) throw new AssertionError("Settings closed while dragging");
-            click(find(screen(minecraft), "kernel.settings.apply"));
+            Button apply = find(screen(minecraft), "kernel.settings.apply");
+            if (!apply.active) throw new AssertionError("Apply is closed after the draft was changed");
+            click(apply);
+            if (find(screen(minecraft), "kernel.settings.apply").active)
+                throw new AssertionError("Apply is still offered after the draft was applied");
             int applied = minecraft.options.renderDistance().get();
             if (applied != expected)
                 throw new AssertionError("Apply left the render distance at " + applied + " rather than " + expected);

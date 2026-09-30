@@ -1,6 +1,7 @@
 package dev.kernel.fabric.config;
 
 import com.mojang.blaze3d.platform.VideoMode;
+import net.minecraft.client.AttackIndicatorStatus;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.gui.components.Tooltip;
@@ -54,6 +55,8 @@ public final class KernelSettingsScreen extends Screen {
     private VideoSetting<Integer> simulation;
     private VideoSetting<CloudStatus> clouds;
     private VideoSetting<ParticleStatus> particles;
+    /** Held so its enabled state can follow the draft rather than being decided once per rebuild. */
+    private KernelButton applyButton;
 
     /**
      * One-shot permission for Minecraft's own video screen to open instead of being replaced.
@@ -95,6 +98,10 @@ public final class KernelSettingsScreen extends Screen {
         //? if >=26.2 {
         bool("video", "display", "exclusive", options.exclusiveFullscreen());
         //? }
+        // Interface scale sits on the Video tab because that is where the game itself puts it and where
+        // it is looked for, rather than under Other with the settings that only change how things read.
+        integer("video", "display", "gui_scale", options.guiScale(), 0, Math.max(1, window.calculateScale(0, false)), 1,
+            value -> value == 0 ? tr("auto") : Component.literal(value.toString()));
         frameLimit = integer("video", "pacing", "fps", options.framerateLimit(), 10, 260, 10, value -> value == 260 ? tr("unlimited") : Component.literal(value + " fps"));
         vsync = bool("video", "pacing", "vsync", options.enableVsync());
         distance = integer("video", "distance", "distance", options.renderDistance(), 2, 32, 1, value -> tr("chunks", value));
@@ -114,11 +121,29 @@ public final class KernelSettingsScreen extends Screen {
         particles = add("graphics", "detail", "particles", options.particles(), List.of(ParticleStatus.ALL, ParticleStatus.DECREASED, ParticleStatus.MINIMAL), false,
             value -> tr(value == ParticleStatus.ALL ? "all" : value == ParticleStatus.DECREASED ? "decreased" : "minimal"));
         bool("graphics", "detail", "shadows", options.entityShadows());
+        // Blending costs chunk build time, so it belongs with the other things that do.
+        integer("graphics", "quality", "biome_blend", options.biomeBlendRadius(), 0, 7, 1,
+            value -> value == 0 ? CommonComponents.OPTION_OFF : tr("blend", value * 2 + 1, value * 2 + 1));
         decimal("graphics", "appearance", "brightness", options.gamma(), 0, 1, 0.05);
+        decimal("graphics", "appearance", "glint_speed", options.glintSpeed(), 0, 1, 0.05);
+        decimal("graphics", "appearance", "glint_strength", options.glintStrength(), 0, 1, 0.05);
+        //? if >=1.21.11 {
+        bool("graphics", "appearance", "vignette", options.vignette());
+        bool("graphics", "appearance", "transparency", options.improvedTransparency());
+        //? }
         integer("other", "view", "fov", options.fov(), 30, 110, 1, value -> Component.literal(value.toString()));
         bool("other", "view", "bobbing", options.bobView());
         decimal("other", "view", "screen_effects", options.screenEffectScale(), 0, 1, 0.05);
-        integer("other", "interface", "gui_scale", options.guiScale(), 0, Math.max(1, window.calculateScale(0, false)), 1, value -> value == 0 ? tr("auto") : Component.literal(value.toString()));
+        decimal("other", "view", "fov_effects", options.fovEffectScale(), 0, 1, 0.05);
+        decimal("other", "view", "damage_tilt", options.damageTiltStrength(), 0, 1, 0.05);
+        decimal("other", "view", "darkness_pulsing", options.darknessEffectScale(), 0, 1, 0.05);
+        add("other", "interface", "attack_indicator", options.attackIndicator(),
+            List.of(AttackIndicatorStatus.OFF, AttackIndicatorStatus.CROSSHAIR, AttackIndicatorStatus.HOTBAR), false,
+            value -> value == AttackIndicatorStatus.OFF ? CommonComponents.OPTION_OFF
+                : tr(value == AttackIndicatorStatus.CROSSHAIR ? "crosshair" : "hotbar"));
+        bool("other", "interface", "autosave_indicator", options.showAutosaveIndicator());
+        integer("other", "interface", "menu_blur", options.menuBackgroundBlurriness(), 0, 10, 1,
+            value -> value == 0 ? CommonComponents.OPTION_OFF : Component.literal(value.toString()));
     }
 
     private <T> VideoSetting<T> add(String category, String section, String key, OptionInstance<T> source, List<T> choices, boolean slider, Function<T, Component> format) {
@@ -322,8 +347,21 @@ public final class KernelSettingsScreen extends Screen {
         });
 
         addRenderableWidget(new KernelButton(end - 3 * buttonWidth - 8, actionsY, buttonWidth, layout.actionHeight(), CommonComponents.GUI_CANCEL, button -> onClose()));
-        addRenderableWidget(new KernelButton(end - 2 * buttonWidth - 4, actionsY, buttonWidth, layout.actionHeight(), KernelTranslations.text("kernel.settings.apply"), button -> apply(false)));
+        applyButton = addRenderableWidget(new KernelButton(end - 2 * buttonWidth - 4, actionsY, buttonWidth, layout.actionHeight(), KernelTranslations.text("kernel.settings.apply"), button -> apply(false)));
+        applyButton.active = hasChanges() || saveFailed;
         addRenderableWidget(new KernelButton(end - buttonWidth, actionsY, buttonWidth, layout.actionHeight(), CommonComponents.GUI_DONE, button -> apply(true)));
+    }
+
+    /**
+     * Records that a control changed the draft.
+     *
+     * <p>Apply is answered here rather than once per rebuild, because the controls that do not rebuild
+     * the screen — every slider and every cycling row — would otherwise leave it showing the previous
+     * answer until something else redrew the frame.
+     */
+    private void draftChanged() {
+        saveFailed = false;
+        if (applyButton != null) applyButton.active = hasChanges();
     }
 
     private Entry settingEntry(VideoSetting<?> setting) {
@@ -337,18 +375,18 @@ public final class KernelSettingsScreen extends Screen {
         Tooltip tooltip = Tooltip.create(managed ? KernelTranslations.text("kernel.frame.managed") : setting.description);
         if (setting.slider && setting.choices.size() > 1) {
             var slider = addRenderableWidget(new KernelSlider(controlX, y + 1, controls, setting.position(), setting::valueText, setting::narration, value -> {
-                setting.position(value); saveFailed = false;
+                setting.position(value); draftChanged();
             }));
             slider.setTooltip(tooltip); slider.active = !managed;
         } else {
-            var previous = addRenderableWidget(new KernelButton(controlX, y + 1, 18, 22, setting.narration(), button -> { setting.cycle(-1); button.setMessage(setting.narration()); saveFailed = false; }).visual(Component.literal("<")));
+            var previous = addRenderableWidget(new KernelButton(controlX, y + 1, 18, 22, setting.narration(), button -> { setting.cycle(-1); button.setMessage(setting.narration()); draftChanged(); }).visual(Component.literal("<")));
             previous.setTooltip(tooltip); previous.active = !managed && setting.choices.size() > 1;
             addRenderableOnly((graphics, mouseX, mouseY, delta) -> {
                 String value = font.plainSubstrByWidth(setting.valueText().getString(), controls - 40);
                 KernelUi.text(graphics, font, Component.literal(value), controlX + (controls - font.width(value)) / 2, y + 8,
                     managed ? 0xFF777B80 : 0xFFF3F4F6);
             });
-            var next = addRenderableWidget(new KernelButton(x + width - 18, y + 1, 18, 22, setting.narration(), button -> { setting.cycle(1); button.setMessage(setting.narration()); saveFailed = false; }).visual(Component.literal(">")));
+            var next = addRenderableWidget(new KernelButton(x + width - 18, y + 1, 18, 22, setting.narration(), button -> { setting.cycle(1); button.setMessage(setting.narration()); draftChanged(); }).visual(Component.literal(">")));
             next.setTooltip(tooltip); next.active = !managed && setting.choices.size() > 1;
         }
     }
@@ -420,7 +458,7 @@ public final class KernelSettingsScreen extends Screen {
         label(text, x, y, width - 80);
         var button = addRenderableWidget(new KernelButton(x + width - 64, y + 1, 64, 22, KernelTranslations.text("kernel.settings.value", text, featureLabel(feature)), pressed -> {
             pending = pending.with(feature, !pending.enabled(feature)); pressed.setMessage(KernelTranslations.text("kernel.settings.value", text, featureLabel(feature)));
-            ((KernelButton) pressed).visual(featureLabel(feature)); saveFailed = false;
+            ((KernelButton) pressed).visual(featureLabel(feature)); draftChanged();
         }, () -> pending.enabled(feature), false).visual(featureLabel(feature)));
         button.setTooltip(Tooltip.create(KernelTranslations.text(feature.translationKey() + ".description").append("\n")
             .append(KernelTranslations.text("kernel.settings.current", KernelRendererSettings.enabled(feature) ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF))));
