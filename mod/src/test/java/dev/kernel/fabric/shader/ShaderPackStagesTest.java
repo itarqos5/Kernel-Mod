@@ -40,6 +40,44 @@ class ShaderPackStagesTest {
         return path;
     }
 
+    /**
+     * A refusal has to say what kind of thing is missing, not name the first few files.
+     *
+     * <p>Shaped after Complementary Reimagined, which ships 219 program files across three dimension
+     * folders. The old message named three of them and said "and 126 more", which told nobody whether
+     * the pack was nearly supported or nowhere near it.
+     */
+    @Test void aRefusalCountsWhatIsMissingByKind() throws Exception {
+        var files = new java.util.HashMap<String, String>();
+        files.put("shaders/final.fsh", TRIVIAL);
+        for (String dimension : List.of("", "world-1/", "world1/")) {
+            files.put("shaders/" + dimension + "gbuffers_terrain.vsh", TRIVIAL);
+            files.put("shaders/" + dimension + "gbuffers_water.vsh", TRIVIAL);
+            files.put("shaders/" + dimension + "shadow.vsh", TRIVIAL);
+            files.put("shaders/" + dimension + "shadowcomp.csh", TRIVIAL);
+            files.put("shaders/" + dimension + "clrwl_gbuffers.vsh", TRIVIAL);
+            files.put("shaders/" + dimension + "dh_terrain.vsh", TRIVIAL);
+        }
+        Path path = zip("complementary-shaped.zip", files);
+        String reason = assertThrows(java.io.IOException.class, () -> PreparedShaderPack.read(path)).getMessage();
+        assertTrue(reason.contains("6 gbuffers programs"), reason);
+        assertTrue(reason.contains("3 shadow programs"), reason);
+        assertTrue(reason.contains("3 shadowcomp or prepare stages"), reason);
+        assertTrue(reason.contains("6 programs Kernel does not recognise"), reason);
+        assertTrue(reason.contains("clrwl_gbuffers"), reason);
+        // The opt-in is not offered, because turning it on would still leave this pack refused.
+        assertFalse(reason.contains("kernel.worldShaders"), reason);
+    }
+
+    @Test void theOptInIsOfferedWhenItIsTheOnlyThingInTheWay() throws Exception {
+        Path path = zip("gbuffers-only.zip", Map.of(
+            "shaders/final.fsh", TRIVIAL,
+            "shaders/gbuffers_terrain.vsh", TRIVIAL,
+            "shaders/shadow.vsh", TRIVIAL));
+        String reason = assertThrows(java.io.IOException.class, () -> PreparedShaderPack.read(path)).getMessage();
+        assertTrue(reason.contains("-Dkernel.worldShaders=true"), reason);
+    }
+
     @Test void thePackIdentityMapsAreReadWhereTheFormatPutsThem() throws Exception {
         Path path = zip("identities.zip", Map.of(
             "shaders/final.fsh", TRIVIAL,
@@ -149,8 +187,11 @@ class ShaderPackStagesTest {
             "shaders/composite.fsh", TRIVIAL,
             "shaders/final.fsh", TRIVIAL));
         var failure = assertThrows(java.io.IOException.class, () -> PreparedShaderPack.read(path));
-        assertTrue(failure.getMessage().contains("shadow.vsh"), failure.getMessage());
-        assertTrue(failure.getMessage().contains("does not run"), failure.getMessage());
+        // Counted by kind rather than named: a real pack ships hundreds of these files and a list of
+        // the first few says nothing about how far from supported the pack is.
+        assertTrue(failure.getMessage().contains("2 gbuffers programs"), failure.getMessage());
+        assertTrue(failure.getMessage().contains("1 shadow programs"), failure.getMessage());
+        assertTrue(failure.getMessage().contains("deferred, composite and final"), failure.getMessage());
     }
 
     @Test void worldProgramsAreKeptOnlyWhenThePackShipsBothStages() throws Throwable { withWorldStage(() -> {

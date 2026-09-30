@@ -96,15 +96,55 @@ public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBuffe
         };
     }
 
-    /** Returns the program stages this pack ships that Kernel cannot render at all, in archive order. */
-    public static List<String> worldStages(ShaderPackArchive archive) {
-        var stages = new ArrayList<String>();
-        for (String file : archive.files()) if (REFUSED_STAGE.matcher(file).matches()) stages.add(file);
-        return List.copyOf(stages);
-    }
-
     public static PreparedShaderPack read(Path path) throws IOException {
         return read(path, OVERWORLD, Map.of());
+    }
+
+    /**
+     * Why a pack cannot be rendered, counted by kind, or null when every stage it ships can run.
+     *
+     * <p>Summarised rather than listed. A real pack ships hundreds of program files across its
+     * dimension folders, so naming the first three and saying "and 126 more" tells nobody anything:
+     * which kinds of stage are missing is the answer, and how many of each is what says whether the
+     * pack is nearly supported or nowhere near it.
+     */
+    private static String unrunnableStages(ShaderPackArchive archive, boolean worldStage) {
+        int gbuffers = 0, shadow = 0, refused = 0, unknown = 0;
+        var unknownNames = new java.util.TreeSet<String>();
+        for (String file : archive.files()) {
+            if (!file.matches(".*\\.(?:vsh|fsh|gsh|csh|tcs|tes)") || PASS.matcher(file).matches()) continue;
+            // Order matters: the one shadow stage Kernel renders also matches the refused pattern.
+            if (SHADOW.matcher(file).matches()) { if (!worldStage) shadow++; }
+            else if (GBUFFERS.matcher(file).matches()) { if (!worldStage) gbuffers++; }
+            else if (REFUSED_STAGE.matcher(file).matches()) refused++;
+            else {
+                unknown++;
+                String name = file.substring(file.lastIndexOf('/') + 1);
+                unknownNames.add(name.substring(0, name.lastIndexOf('.')));
+            }
+        }
+        if (gbuffers + shadow + refused + unknown == 0) return null;
+        var parts = new ArrayList<String>();
+        if (gbuffers > 0) parts.add(gbuffers + " gbuffers programs");
+        if (shadow > 0) parts.add(shadow + " shadow programs");
+        if (refused > 0) parts.add(refused + " shadowcomp or prepare stages");
+        if (unknown > 0) parts.add(unknown + " programs Kernel does not recognise (" + names(unknownNames) + ")");
+        String reason = "This pack needs " + join(parts) + ". Kernel runs deferred, composite and final passes.";
+        // Only offered when the world stage would actually make the difference. Naming the property
+        // while something else is also missing would promise a fix that does not arrive.
+        if (refused == 0 && unknown == 0)
+            reason += " Those are opt-in on 1.21.5 to 1.21.10 with -Dkernel.worldShaders=true.";
+        return reason;
+    }
+
+    private static String names(java.util.Collection<String> values) {
+        var shown = values.stream().limit(2).toList();
+        return String.join(", ", shown) + (values.size() > shown.size() ? " and " + (values.size() - shown.size()) + " more" : "");
+    }
+
+    private static String join(List<String> parts) {
+        if (parts.size() == 1) return parts.getFirst();
+        return String.join(", ", parts.subList(0, parts.size() - 1)) + " and " + parts.getLast();
     }
 
     /**
@@ -119,21 +159,8 @@ public record PreparedShaderPack(String filename, List<Pass> passes, ShaderBuffe
             // not been verified correct. Until it has, a pack shipping them is refused exactly as before,
             // because accepting one and drawing it wrongly is worse than declining it with a reason.
             boolean worldStage = Boolean.getBoolean(WORLD_STAGE_PROPERTY);
-            var refused = new ArrayList<>(worldStages(archive));
-            // The shadow program is rendered once the world stage is on, so it stops being a refusal.
-            // Numbered shadow passes and shadowcomp are still stages Kernel does not run.
-            if (worldStage) refused.removeIf(file -> SHADOW.matcher(file).matches());
-            if (!worldStage) for (String file : archive.files()) if (GBUFFERS.matcher(file).matches()) refused.add(file);
-            if (!refused.isEmpty()) throw new IOException("This pack needs rendering stages Kernel does not run: "
-                + String.join(", ", refused.subList(0, Math.min(3, refused.size())))
-                + (refused.size() > 3 ? " and " + (refused.size() - 3) + " more" : ""));
-            for (String file : archive.files()) {
-                if (file.matches(".*\\.(?:vsh|fsh|gsh|csh|tcs|tes)")
-                    && !PASS.matcher(file).matches() && !GBUFFERS.matcher(file).matches()
-                    && !(worldStage && SHADOW.matcher(file).matches())) {
-                    throw new IOException("This pack requires an unsupported rendering stage: " + file);
-                }
-            }
+            String missing = unrunnableStages(archive, worldStage);
+            if (missing != null) throw new IOException(missing);
             var properties = ShaderProperties.read(archive, dimension);
             var identifiers = ShaderIdentifierMaps.read(archive);
             var textures = PreparedShaderTextures.read(archive);
